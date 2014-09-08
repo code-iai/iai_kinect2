@@ -1,0 +1,3 @@
+<launch>
+  <node name="kinect2_bridge" pkg="kinect2_bridge" type="kinect2_bridge" respawn="true" output="screen"/>
+</launch>
