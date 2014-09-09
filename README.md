@@ -36,6 +36,7 @@ It contains:
 ## Permissions to access the Kinect One
 
 To gain access to the Kinect One for non root users you have to add a rule to the udev rules.
+
 1. Create a file named `90-kinect2.rules` in `/etc/udev/rules.d/`.
 2. Write the following lines into that file:
 ```
