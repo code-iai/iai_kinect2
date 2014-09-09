@@ -33,6 +33,17 @@ It contains:
 6. Add the calibration files to the `kinect2_bridge/data/<serialnumber>` folder. [Further details](https://github.com/code-iai/iai_kinect2/tree/master/kinect2_bridge#first-steps)
 7. Restart `kinect2_bridge` and view the results using `rosrun registration_viewer viewer -kinect2 -cloud`.
 
+## Permissions to access the Kinect One
+
+To gain access to the Kinect One for non root users you have to add a rule to the udev rules.
+1. Create a file named `90-kinect2.rules` in `/etc/udev/rules.d/`.
+2. Write the following lines into that file:```
+# ATTR{product}=="Kinect2"
+SUBSYSTEM=="usb", ATTR{idVendor}=="045e", ATTR{idProduct}=="02c4", MODE="0666"
+```
+3. Change the `idProduct` to the one of your sensor (or add another line). You can obtain it by running `dmesg | grep "045e"`.
+4. Reconnect the sensor and you should be able to access it.
+
 ## Screenshots
 
 Here are some screenshots from our toolkit:
