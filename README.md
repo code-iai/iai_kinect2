@@ -2,7 +2,7 @@
 
 ## Maintainer
 
-- Thiemo Wiedemeyer <<wiedemeyer@cs.uni-bremen.de>>, University of Bremen, [Institute for Artificial Intelligence](http://ai.uni-bremen.de/)
+- [Thiemo Wiedemeyer](https://ai.uni-bremen.de/team/thiemo_wiedemeyer) <<wiedemeyer@cs.uni-bremen.de>>, [Institute for Artificial Intelligence](http://ai.uni-bremen.de/), University of Bremen
 
 ## Description
 
@@ -13,6 +13,25 @@ It contains:
 - [a library](https://github.com/code-iai/iai_kinect2/tree/master/depth_registration) for depth registration with OpenCL support
 - [the bridge](https://github.com/code-iai/iai_kinect2/tree/master/kinect2_bridge) between [libfreenect2](https://github.com/OpenKinect/libfreenect2) and [ROS](http://www.ros.org/)
 - [a viewer](https://github.com/code-iai/iai_kinect2/tree/master/registration_viewer) for the images / point clouds
+
+## Dependencies from all parts
+
+- ROS Hydro/Indigo
+- OpenCV
+- PCL
+- Eigen (optional)
+- OpenCL (optional)
+- libfreenect2 (either directly form [this fork](https://github.com/wiedemeyer/libfreenect2) or with the changes of [this pull-request](https://github.com/OpenKinect/libfreenect2/pull/48) and [this pull-request](https://github.com/OpenKinect/libfreenect2/pull/47).)
+
+## Install
+
+1. Install the dependencies. *Note that a modified version of libfreenect2 is needed*
+2. Clone this repository into your catkin workspace.
+3. Build it.
+4. Connect your sensor and run `kinect2_bridge`.
+5. Calibrate your sensor using the `camera_calibration`. [Further details](https://github.com/code-iai/iai_kinect2/tree/master/camera_calibration#calibrating-the-kinect-one)
+6. Add the calibration files to the `kinect2_bridge/data/<serialnumber>` folder. [Further details](https://github.com/code-iai/iai_kinect2/tree/master/kinect2_bridge#first-steps)
+7. Restart `kinect2_bridge` and view the results using `rosrun registration_viewer viewer -kinect2 -cloud`.
 
 ## Screenshots
 

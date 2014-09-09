@@ -2,7 +2,7 @@
 
 ## Maintainer
 
-- Thiemo Wiedemeyer <<wiedemeyer@cs.uni-bremen.de>>, University of Bremen, [Institute for Artificial Intelligence](http://ai.uni-bremen.de/)
+- [Thiemo Wiedemeyer](https://ai.uni-bremen.de/team/thiemo_wiedemeyer) <<wiedemeyer@cs.uni-bremen.de>>, [Institute for Artificial Intelligence](http://ai.uni-bremen.de/), University of Bremen
 
 ## Description
 
@@ -25,7 +25,7 @@ This is a bridge between [libfreenect2](https://github.com/OpenKinect/libfreenec
 
 ## First steps
 
-For the depth registration the camera intrinsics and extrinsics need to be known. The program reads in the values from the `data/<serialnumber>` folder. For each new sensor you need to add a subfolder with the serial number of the device as the folder name. In this folder you need to provide 3 yaml files with the intrinsics and extrinsics. These files can be created by the `camera_calibration` tool (or you can copy the files provided in one of the other folders, but results can be sub optimal). The device serialnumber is shown when `kinect2_bridge` or `Protonect` from libfreenect2 is started.
+For the depth registration the camera intrinsics and extrinsics need to be known. The program reads in the values from the `data/<serialnumber>` folder. For each new sensor you need to add a subfolder with the serial number of the device as the folder name. In this folder you need to provide 3 yaml files with the intrinsics and extrinsics. These files can be created by the `camera_calibration` tool (or you can copy the files provided in one of the other folders, but results can be sub optimal). The device serial number is shown when `kinect2_bridge` or `Protonect` from libfreenect2 is started. [More information on calibration](https://github.com/code-iai/iai_kinect2/tree/master/camera_calibration#calibrating-the-kinect-one).
 
 When `kinect2_bridge` is running you can use the `registration_viewer` to display the images or point cloud: `rosrun registration_viewer viewer -kinect2 -image` or `rosrun registration_viewer viewer -kinect2 -cloud`.
 
@@ -122,6 +122,10 @@ When `kinect2_bridge` is running you can use the `registration_viewer` to displa
 /kinect2_head/rgb_lowres/image
 /kinect2_head/rgb_lowres/image/compressed
 ```
+
+## Notes
+
+- Images from the same frame have the same timestamp. Using the `message_filters::sync_policies::ExactTime` policy is recommended.
 
 ## Usage
 
