@@ -2,7 +2,7 @@
 
 ## Maintainer
 
-- Thiemo Wiedemeyer <<wiedemeyer@cs.uni-bremen.de>>, University of Bremen, Institute for Artificial Intelligence
+- Thiemo Wiedemeyer <<wiedemeyer@cs.uni-bremen.de>>, University of Bremen, [Institute for Artificial Intelligence](http://ai.uni-bremen.de/)
 
 ## Description
 

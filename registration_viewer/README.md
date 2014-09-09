@@ -2,11 +2,11 @@
 
 ## Maintainer
 
-- Thiemo Wiedemeyer <<wiedemeyer@cs.uni-bremen.de>>, University of Bremen, Institute for Artificial Intelligence
+- Thiemo Wiedemeyer <<wiedemeyer@cs.uni-bremen.de>>, University of Bremen, [Institute for Artificial Intelligence](http://ai.uni-bremen.de/)
 
 ## Description
 
-This is a simple viewer for the combined color an depth image provided by kinect like depth sensors.
+This is a simple viewer for the combined color an depth image provided by Kinect like depth sensors.
 
 It just listens to two ROS topics and displays a the color with the overlayed colored depth image or a registered point cloud.
 
@@ -35,3 +35,6 @@ Predefined topics for color and depth:
   -pr2        topics for the head mount kinect on pr2
   -xtion      topics for the xtion
 ```
+
+Example: `rosrun registration_viewer viewer -kinect2 -cloud`
+
