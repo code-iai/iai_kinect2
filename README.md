@@ -43,8 +43,10 @@ To gain access to the Kinect One for non root users you have to add a rule to th
   ```
 # ATTR{product}=="Kinect2"
 SUBSYSTEM=="usb", ATTR{idVendor}=="045e", ATTR{idProduct}=="02c4", MODE="0666"
+SUBSYSTEM=="usb", ATTR{idVendor}=="045e", ATTR{idProduct}=="02d8", MODE="0666"
+SUBSYSTEM=="usb", ATTR{idVendor}=="045e", ATTR{idProduct}=="02d9", MODE="0666"
 ```
-3. Change the `idProduct` to the one of your sensor (or add another line). You can obtain it by running `dmesg | grep "045e"`.
+3. Check if the `idProduct` of your sensor is in the list. If not just add another line with the `idProduct` of your sensor. You can obtain it by running `dmesg | grep "045e"`.
 4. Reconnect the sensor and you should be able to access it.
 
 ## Screenshots
