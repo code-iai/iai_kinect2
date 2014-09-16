@@ -73,7 +73,7 @@ void kernel setZero(global ushort* rendered, global float *selDist){
 void kernel project(global const ushort *depth, global int4 *idx, global ushort *zImg, global float4 *dists, global float *selDist, global ushort *rendered){
   const uint i = get_global_id(0);
 
-  const int xD = i % widthD;
+  const int xD = i %% widthD;
   const int yD = i / widthD;
 
   const ushort d = depth[i];
@@ -193,7 +193,7 @@ void kernel render(global const int4 *idx, global const ushort *zImg, global con
 /*void kernel project(global const unsigned short *depth, global int *idx, global unsigned short *zImg, global unsigned short *rendered){
   const uint i = get_global_id(0);
 
-  const int xD = i % widthD;
+  const int xD = i %% widthD;
   const int yD = i / widthD;
 
   const ushort d = depth[i];
