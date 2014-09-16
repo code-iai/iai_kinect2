@@ -49,6 +49,8 @@ public:
   void depthToRGBResolution(const cv::Mat &registered, cv::Mat &upscaled);
 
 private:
+  void generateOptions(std::string &options) const;
+
   bool readProgram(std::string &source) const;
 };
 

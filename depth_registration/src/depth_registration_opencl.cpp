@@ -99,9 +99,12 @@ bool DepthRegistrationOpenCL::init()
 
     data->devices = data->context.getInfo<CL_CONTEXT_DEVICES>();
 
+    std::string options;
+    generateOptions(options);
+
     cl::Program::Sources source(1, std::make_pair(sourceCode.c_str(), sourceCode.length()));
     data->program = cl::Program(data->context, source);
-    data->program.build(data->devices);
+    data->program.build(data->devices, options.c_str());
 
     data->queue = cl::CommandQueue(data->context, data->devices[0], 0, &err);
 
@@ -240,32 +243,64 @@ void DepthRegistrationOpenCL::depthToRGBResolution(const cv::Mat &registered, cv
   //cv::medianBlur(upscaled, upscaled, 5);
 }
 
+void DepthRegistrationOpenCL::generateOptions(std::string &options) const
+{
+  std::ostringstream oss;
+  oss.precision(16);
+  oss << std::scientific;
+
+  // Rotation
+  oss << " -D r00=" << rotation.at<double>(0, 0) << "f";
+  oss << " -D r01=" << rotation.at<double>(0, 1) << "f";
+  oss << " -D r02=" << rotation.at<double>(0, 2) << "f";
+  oss << " -D r10=" << rotation.at<double>(1, 0) << "f";
+  oss << " -D r11=" << rotation.at<double>(1, 1) << "f";
+  oss << " -D r12=" << rotation.at<double>(1, 2) << "f";
+  oss << " -D r20=" << rotation.at<double>(2, 0) << "f";
+  oss << " -D r21=" << rotation.at<double>(2, 1) << "f";
+  oss << " -D r22=" << rotation.at<double>(2, 2) << "f";
+
+  // Translation
+  oss << " -D tx=" << translation.at<double>(0, 0) << "f";
+  oss << " -D ty=" << translation.at<double>(1, 0) << "f";
+  oss << " -D tz=" << translation.at<double>(2, 0) << "f";
+
+  // Camera parameter upscaled depth
+  oss << " -D fxD=" << cameraMatrixDepth.at<double>(0, 0) << "f";
+  oss << " -D fyD=" << cameraMatrixDepth.at<double>(1, 1) << "f";
+  oss << " -D cxD=" << cameraMatrixDepth.at<double>(0, 2) << "f";
+  oss << " -D cyD=" << cameraMatrixDepth.at<double>(1, 2) << "f";
+  oss << " -D fxDInv=" << (1.0 / cameraMatrixDepth.at<double>(0, 0)) << "f";
+  oss << " -D fyDInv=" << (1.0 / cameraMatrixDepth.at<double>(1, 1)) << "f";
+
+  // Camera parameter color
+  oss << " -D fxC=" << cameraMatrixColor.at<double>(0, 0) << "f";
+  oss << " -D fyC=" << cameraMatrixColor.at<double>(1, 1) << "f";
+  oss << " -D cxC=" << cameraMatrixColor.at<double>(0, 2) << "f";
+  oss << " -D cyC=" << cameraMatrixColor.at<double>(1, 2) << "f";
+
+  // Clipping distances
+  oss << " -D zNear=" << zNear;
+  oss << " -D zFar=" << zFar;
+  oss << " -D zDist=" << zDist << "f";
+
+  // Size color image
+  oss << " -D heightC=" << sizeColor.height;
+  oss << " -D widthC=" << sizeColor.width;
+
+  // Size depth image
+  oss << " -D heightD=" << sizeDepth.height;
+  oss << " -D widthD=" << sizeDepth.width;
+
+  // Size raw depth image
+  oss << " -D heightR=" << sizeRaw.height;
+  oss << " -D widthR=" << sizeRaw.width;
+
+  options = oss.str();
+}
+
 bool DepthRegistrationOpenCL::readProgram(std::string &source) const
 {
-  const float r00 = rotation.at<double>(0, 0);
-  const float r01 = rotation.at<double>(0, 1);
-  const float r02 = rotation.at<double>(0, 2);
-  const float r10 = rotation.at<double>(1, 0);
-  const float r11 = rotation.at<double>(1, 1);
-  const float r12 = rotation.at<double>(1, 2);
-  const float r20 = rotation.at<double>(2, 0);
-  const float r21 = rotation.at<double>(2, 1);
-  const float r22 = rotation.at<double>(2, 2);
-
-  const float tx = translation.at<double>(0, 0);
-  const float ty = translation.at<double>(1, 0);
-  const float tz = translation.at<double>(2, 0);
-
-  const float fxD = cameraMatrixDepth.at<double>(0, 0);
-  const float fyD = cameraMatrixDepth.at<double>(1, 1);
-  const float cxD = cameraMatrixDepth.at<double>(0, 2);
-  const float cyD = cameraMatrixDepth.at<double>(1, 2);
-
-  const float fxC = cameraMatrixColor.at<double>(0, 0);
-  const float fyC = cameraMatrixColor.at<double>(1, 1);
-  const float cxC = cameraMatrixColor.at<double>(0, 2);// + 0.5;
-  const float cyC = cameraMatrixColor.at<double>(1, 2);// + 0.5;
-
   std::ifstream file(REG_OPENCL_FILE);
 
   if(!file.is_open())
@@ -273,17 +308,8 @@ bool DepthRegistrationOpenCL::readProgram(std::string &source) const
     return false;
   }
 
-  std::string rawSource((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+  source = std::string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
   file.close();
-
-  char *buffer = new char[rawSource.length() + 1000];
-
-  int len = std::sprintf(buffer, rawSource.c_str(), r00, r01, r02, r10, r11, r12, r20, r21, r22, tx, ty, tz,
-                         fxD, fyD, cxD, cyD, fxC, fyC, cxC, cyC, zNear, zFar, zDist,
-                         sizeColor.height, sizeColor.width, sizeDepth.height, sizeDepth.width, sizeRaw.height, sizeRaw.width);
-  source = std::string(buffer, len);
-
-  delete[] buffer;
 
   //std::cout << source << std::endl;
   return true;

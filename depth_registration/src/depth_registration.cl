@@ -15,53 +15,6 @@
  * limitations under the License.
  */
 
-// Rotation
-#define r00 %0.14e
-#define r01 %0.14e
-#define r02 %0.14e
-#define r10 %0.14e
-#define r11 %0.14e
-#define r12 %0.14e
-#define r20 %0.14e
-#define r21 %0.14e
-#define r22 %0.14e
-
-// Translation
-#define tx %0.14e
-#define ty %0.14e
-#define tz %0.14e
-
-// Camera parameter upscaled depth
-#define fxD %.14e
-#define fyD %.14e
-#define cxD %.14e
-#define cyD %.14e
-#define fxDInv (1.0f / fxD)
-#define fyDInv (1.0f / fyD)
-
-// Camera parameter color
-#define fxC %.14e
-#define fyC %.14e
-#define cxC %.14e
-#define cyC %.14e
-
-// Clipping distances
-#define zNear %d
-#define zFar %d
-#define zDist %.14e
-
-// Size color image
-#define heightC %d
-#define widthC %d
-
-// Size depth image
-#define heightD %d
-#define widthD %d
-
-// Size raw depth image
-#define heightR %d
-#define widthR %d
-
 // Set render buffer to zero
 void kernel setZero(global ushort* rendered, global float *selDist){
   const uint i = get_global_id(0);
@@ -73,7 +26,7 @@ void kernel setZero(global ushort* rendered, global float *selDist){
 void kernel project(global const ushort *depth, global int4 *idx, global ushort *zImg, global float4 *dists, global float *selDist, global ushort *rendered){
   const uint i = get_global_id(0);
 
-  const int xD = i %% widthD;
+  const int xD = i % widthD;
   const int yD = i / widthD;
 
   const ushort d = depth[i];
@@ -193,7 +146,7 @@ void kernel render(global const int4 *idx, global const ushort *zImg, global con
 /*void kernel project(global const unsigned short *depth, global int *idx, global unsigned short *zImg, global unsigned short *rendered){
   const uint i = get_global_id(0);
 
-  const int xD = i %% widthD;
+  const int xD = i % widthD;
   const int yD = i / widthD;
 
   const ushort d = depth[i];
