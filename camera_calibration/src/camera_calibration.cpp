@@ -93,9 +93,11 @@ private:
 
   std::thread displayThread;
 
+  int minIr, maxIr;
+
 public:
   Recorder(const std::string &path, const std::string &topicColor, const std::string &topicIr, const Source mode, const bool circleBoard, const cv::Size &boardDims, const float boardSize)
-    : circleBoard(circleBoard), boardDims(boardDims), boardSize(boardSize), mode(mode), path(path), topicColor(topicColor), topicIr(topicIr), update(false), foundColor(false), foundIr(false), frame(0), nh(), spinner(0), it(nh)
+    : circleBoard(circleBoard), boardDims(boardDims), boardSize(boardSize), mode(mode), path(path), topicColor(topicColor), topicIr(topicIr), update(false), foundColor(false), foundIr(false), frame(0), nh(), spinner(0), it(nh), minIr(0), maxIr(0x7FFF)
   {
     params.push_back(CV_IMWRITE_PNG_COMPRESSION);
     params.push_back(9);
@@ -150,18 +152,61 @@ public:
   }
 
 private:
+  void convertIr(const cv::Mat &ir, cv::Mat &grey, const int min, const int max)
+  {
+    const float factor = 255.0f / (max - min);
+    grey.create(ir.rows, ir.cols, CV_8U);
+
+    #pragma omp parallel for
+    for(size_t r = 0; r < (size_t)ir.rows; ++r)
+    {
+      const uint16_t *itI = ir.ptr<uint16_t>(r);
+      uint8_t *itO = grey.ptr<uint8_t>(r);
+
+      for(size_t c = 0; c < (size_t)ir.cols; ++c, ++itI, ++itO)
+      {
+        *itO = std::min(std::max(*itI - min, 0) * factor, 255.0f);
+      }
+    }
+  }
+
+  void findMinMax(const cv::Mat &ir)
+  {
+    minIr = 0xFFFF;
+    maxIr = 0;
+
+    for(size_t r = 0; r < (size_t)ir.rows; ++r)
+    {
+      const uint16_t *it = ir.ptr<uint16_t>(r);
+
+      for(size_t c = 0; c < (size_t)ir.cols; ++c, ++it)
+      {
+        minIr = std::min(minIr, (int) * it);
+        maxIr = std::max(maxIr, (int) * it);
+      }
+    }
+  }
+
   void callback(const sensor_msgs::Image::ConstPtr imageColor, const sensor_msgs::Image::ConstPtr imageIr)
   {
     std::vector<cv::Point2f> pointsColor, pointsIr;
-    cv::Mat color, ir, irGrey;
+    cv::Mat color, ir, irGrey, irScaled;
     bool foundColor = false;
     bool foundIr = false;
 
-    readImage(imageColor, color);
-    readImage(imageIr, ir);
+    if(mode == COLOR || mode == SYNC)
+    {
+      readImage(imageColor, color);
+    }
+    if(mode == IR || mode == SYNC)
+    {
+      readImage(imageIr, ir);
+      cv::resize(ir, irScaled, cv::Size(), 2.0, 2.0, cv::INTER_CUBIC);
+      convertIr(irScaled, irGrey, minIr, maxIr);
+      //ir.convertTo(irGrey, CV_8U, 255.0 / maxIr);
 
-    ir.convertTo(irGrey, CV_8U, 0.008);
-    clahe->apply(irGrey, irGrey);
+      clahe->apply(irGrey, irGrey);
+    }
 
     if(circleBoard)
     {
@@ -181,19 +226,33 @@ private:
     }
     else
     {
+      const cv::TermCriteria termCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::COUNT, 100, DBL_EPSILON);
       switch(mode)
       {
       case COLOR:
         foundColor = cv::findChessboardCorners(color, boardDims, pointsColor, cv::CALIB_CB_FAST_CHECK);
+        cv::cornerSubPix(color, pointsColor, cv::Size(11, 11), cv::Size(-1, -1), termCriteria);
         break;
       case IR:
         foundIr = cv::findChessboardCorners(irGrey, boardDims, pointsIr, cv::CALIB_CB_ADAPTIVE_THRESH + cv::CALIB_CB_NORMALIZE_IMAGE);
+        cv::cornerSubPix(irGrey, pointsIr, cv::Size(11, 11), cv::Size(-1, -1), termCriteria);
         break;
       case SYNC:
         foundColor = cv::findChessboardCorners(color, boardDims, pointsColor, cv::CALIB_CB_FAST_CHECK);
         foundIr = cv::findChessboardCorners(irGrey, boardDims, pointsIr, cv::CALIB_CB_ADAPTIVE_THRESH + cv::CALIB_CB_NORMALIZE_IMAGE);
+        cv::cornerSubPix(color, pointsColor, cv::Size(11, 11), cv::Size(-1, -1), termCriteria);
+        cv::cornerSubPix(irGrey, pointsIr, cv::Size(11, 11), cv::Size(-1, -1), termCriteria);
         break;
       }
+    }
+
+    if(foundIr)
+    {
+      // Update min and max ir value based on checkerboard values
+      cv::RotatedRect rect = cv::minAreaRect(pointsIr);
+      float dist = sqrt(rect.size.width * rect.size.width + rect.size.height + rect.size.height) * 0.9;
+      cv::Rect roi(rect.center.x - dist / 2, rect.center.y - dist / 2, dist, dist);
+      findMinMax(irScaled(roi));
     }
 
     lock.lock();
@@ -237,12 +296,20 @@ private:
         update = false;
         lock.unlock();
 
-        colorDisp = color.clone();
-        cv::cvtColor(irGrey, irDisp, CV_GRAY2BGR);
-        cv::drawChessboardCorners(colorDisp, boardDims, pointsColor, foundColor);
-        cv::drawChessboardCorners(irDisp, boardDims, pointsIr, foundIr);
-        cv::flip(colorDisp, colorDisp, 1);
-        cv::flip(irDisp, irDisp, 1);
+        if(mode == COLOR || mode == SYNC)
+        {
+          colorDisp = color.clone();
+          cv::drawChessboardCorners(colorDisp, boardDims, pointsColor, foundColor);
+          //cv::resize(colorDisp, colorDisp, cv::Size(), 0.5, 0.5);
+          //cv::flip(colorDisp, colorDisp, 1);
+        }
+        if(mode == IR || mode == SYNC)
+        {
+          cv::cvtColor(irGrey, irDisp, CV_GRAY2BGR);
+          cv::drawChessboardCorners(irDisp, boardDims, pointsIr, foundIr);
+          //cv::resize(irDisp, irDisp, cv::Size(), 0.5, 0.5);
+          //cv::flip(irDisp, irDisp, 1);
+        }
       }
 
       switch(mode)
@@ -273,7 +340,7 @@ private:
 
       if(save && ((mode == COLOR && foundColor) || (mode == IR && foundIr) || (mode == SYNC && foundColor && foundIr)))
       {
-        store(color, ir, irGrey);
+        store(color, ir, irGrey, pointsColor, pointsIr);
         save = false;
       }
     }
@@ -288,34 +355,40 @@ private:
     pCvImage->image.copyTo(image);
   }
 
-  void store(const cv::Mat &color, const cv::Mat &ir, const cv::Mat &irGrey)
+  void store(const cv::Mat &color, const cv::Mat &ir, const cv::Mat &irGrey, const std::vector<cv::Point2f> &pointsColor, std::vector<cv::Point2f> &pointsIr)
   {
     std::ostringstream oss;
     oss << std::setfill('0') << std::setw(4) << frame++;
-    std::string frameNumber(oss.str());
+    const std::string frameNumber(oss.str());
     std::cout << "storing frame: " << frameNumber << std::endl;
+    std::string base = path + frameNumber;
+
+    for(size_t i = 0; i < pointsIr.size(); ++i)
+    {
+      pointsIr[i].x /= 2.0;
+      pointsIr[i].y /= 2.0;
+    }
 
     if(mode == SYNC)
     {
-      frameNumber += CALIB_SYNC;
+      base += CALIB_SYNC;
     }
 
     if(mode == COLOR || mode == SYNC)
     {
-      oss.str("");
-      oss << path << frameNumber << CALIB_FILE_COLOR;
-      cv::imwrite(oss.str(), color, params);
+      cv::imwrite(base + CALIB_FILE_COLOR, color, params);
+
+      cv::FileStorage file(base + CALIB_POINTS_COLOR, cv::FileStorage::WRITE);
+      file << "points" << pointsColor;
     }
 
     if(mode == IR || mode == SYNC)
     {
-      oss.str("");
-      oss << path << frameNumber << CALIB_FILE_IR;
-      cv::imwrite(oss.str(), ir, params);
+      cv::imwrite(base + CALIB_FILE_IR, ir, params);
+      cv::imwrite(base + CALIB_FILE_IR_GREY, irGrey, params);
 
-      oss.str("");
-      oss << path << frameNumber << CALIB_FILE_IR_GREY;
-      cv::imwrite(oss.str(), irGrey, params);
+      cv::FileStorage file(base + CALIB_POINTS_IR, cv::FileStorage::WRITE);
+      file << "points" << pointsIr;
     }
   }
 };
@@ -332,20 +405,12 @@ private:
 
   std::vector<cv::Point3f> board;
 
-  std::vector<std::vector<cv::Point3f>> pointsColorBoard;
+  std::vector<std::vector<cv::Point3f>> pointsBoard;
   std::vector<std::vector<cv::Point2f>> pointsColor;
-
-  std::vector<std::vector<cv::Point3f>> pointsIrBoard;
   std::vector<std::vector<cv::Point2f>> pointsIr;
 
-  std::vector<std::vector<cv::Point3f>> pointsSyncBoard;
-  std::vector<std::vector<cv::Point2f>> pointsSyncColor;
-  std::vector<std::vector<cv::Point2f>> pointsSyncIr;
-
-  std::vector<cv::Mat> imagesColor;
-  std::vector<cv::Mat> imagesIr;
-  std::vector<cv::Mat> imagesSyncColor;
-  std::vector<cv::Mat> imagesSyncIr;
+  cv::Size sizeColor;
+  cv::Size sizeIr;
 
   cv::Mat cameraMatrixColor, distortionColor, rotationColor, translationColor, projectionColor;
   cv::Mat cameraMatrixIr, distortionIr, rotationIr, translationIr, projectionIr;
@@ -353,7 +418,7 @@ private:
 
 public:
   Calibrator(const std::string &path, const Source mode, const bool circleBoard, const cv::Size &boardDims, const float boardSize)
-    : circleBoard(circleBoard), boardDims(boardDims), boardSize(boardSize), mode(mode), path(path)
+    : circleBoard(circleBoard), boardDims(boardDims), boardSize(boardSize), mode(mode), path(path), sizeColor(1920, 1080), sizeIr(512, 424)
   {
     board.resize(boardDims.width * boardDims.height);
     for(size_t r = 0, i = 0; r < (size_t)boardDims.height; ++r)
@@ -401,7 +466,7 @@ public:
       {
         if(posColor != std::string::npos)
         {
-          std::string frameName = filename.substr(0, posSync);
+          std::string frameName = filename.substr(0, posColor);
           filesSync.push_back(frameName);
         }
         continue;
@@ -428,32 +493,22 @@ public:
     std::sort(filesIr.begin(), filesIr.end());
     std::sort(filesSync.begin(), filesSync.end());
 
-    pointsColorBoard.resize(filesColor.size(), board);
+    pointsBoard.resize(filesColor.size(), board);
     pointsColor.resize(filesColor.size());
-    imagesColor.resize(filesColor.size());
-
-    pointsIrBoard.resize(filesIr.size(), board);
     pointsIr.resize(filesIr.size());
-    imagesIr.resize(filesIr.size());
-
-    pointsSyncBoard.resize(filesSync.size(), board);
-    pointsSyncColor.resize(filesSync.size());
-    pointsSyncIr.resize(filesSync.size());
-    imagesSyncColor.resize(filesSync.size());
-    imagesSyncIr.resize(filesSync.size());
 
     bool ret = true;
     switch(mode)
     {
     case COLOR:
-      ret = ret && readFiles(filesColor, CALIB_FILE_COLOR, CV_LOAD_IMAGE_GRAYSCALE, imagesColor, pointsColor);
+      ret = ret && readFiles(filesColor, CALIB_POINTS_COLOR, pointsColor);
       break;
     case IR:
-      ret = ret && readFiles(filesIr, CALIB_FILE_IR_GREY, CV_LOAD_IMAGE_GRAYSCALE, imagesIr, pointsIr);
+      ret = ret && readFiles(filesIr, CALIB_POINTS_IR, pointsIr);
       break;
     case SYNC:
-      ret = ret && readFiles(filesSync, CALIB_SYNC_COLOR, CV_LOAD_IMAGE_GRAYSCALE, imagesSyncColor, pointsSyncColor);
-      ret = ret && readFiles(filesSync, CALIB_SYNC_IR_GREY, CV_LOAD_IMAGE_GRAYSCALE, imagesSyncIr, pointsSyncIr);
+      ret = ret && readFiles(filesColor, CALIB_POINTS_COLOR, pointsColor);
+      ret = ret && readFiles(filesIr, CALIB_POINTS_IR, pointsIr);
       break;
     }
 
@@ -466,10 +521,10 @@ public:
     switch(mode)
     {
     case COLOR:
-      calibrateIntrinsics(cv::Size(imagesColor.back().cols, imagesColor.back().rows), pointsColorBoard, pointsColor, cameraMatrixColor, distortionColor, rotationColor, projectionColor);
+      calibrateIntrinsics(sizeColor, pointsBoard, pointsColor, cameraMatrixColor, distortionColor, rotationColor, projectionColor);
       break;
     case IR:
-      calibrateIntrinsics(cv::Size(imagesIr.back().cols, imagesIr.back().rows), pointsIrBoard, pointsIr, cameraMatrixIr, distortionIr, rotationIr, projectionIr);
+      calibrateIntrinsics(sizeIr, pointsBoard, pointsIr, cameraMatrixIr, distortionIr, rotationIr, projectionIr);
       break;
     case SYNC:
       calibrateExtrinsics();
@@ -478,7 +533,7 @@ public:
     storeCalibration();
   }
 
-  void showResults()
+  /*void showResults()
   {
     const cv::Size sizeColor(imagesColor[0].cols, imagesColor[0].rows), sizeIr(imagesIr[0].cols, imagesIr[0].rows);
     cv::Mat map1Color, map2Color, map1UndistColor, map2UndistColor;
@@ -541,43 +596,22 @@ public:
     }
     cv::destroyAllWindows();
     cv::waitKey(100);
-  }
+  }*/
 
 private:
-  bool readFiles(const std::vector<std::string> &files, const std::string &ext, const int flags, std::vector<cv::Mat> &images, std::vector<std::vector<cv::Point2f>> &points) const
+  bool readFiles(const std::vector<std::string> &files, const std::string &ext, std::vector<std::vector<cv::Point2f>> &points) const
   {
-    const cv::TermCriteria termCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::COUNT, 100, DBL_EPSILON);
     bool ret = true;
     #pragma omp parallel for
     for(size_t i = 0; i < files.size(); ++i)
     {
-      std::string filename = path + files[i] + ext;
+      std::string pointsname = path + files[i] + ext;
 
       #pragma omp critical
       std::cout << "restoring file: " << files[i] << ext << std::endl;
 
-      images[i] = cv::imread(filename, flags);
-
-      if(circleBoard)
-      {
-        if(!cv::findCirclesGrid(images[i], boardDims, points[i], cv::CALIB_CB_SYMMETRIC_GRID + cv::CALIB_CB_CLUSTERING))
-        {
-          ret = false;
-          std::cerr << "No board found for frame: " << files[i] << std::endl;
-        }
-      }
-      else
-      {
-        if(!cv::findChessboardCorners(images[i], boardDims, points[i], cv::CALIB_CB_ADAPTIVE_THRESH + cv::CALIB_CB_NORMALIZE_IMAGE))
-        {
-          ret = false;
-          std::cerr << "No board found for frame: " << files[i] << std::endl;
-        }
-        else
-        {
-          cv::cornerSubPix(images[i], points[i], cv::Size(11, 11), cv::Size(-1, -1), termCriteria);
-        }
-      }
+      cv::FileStorage file(pointsname, cv::FileStorage::READ);
+      file["points"] >> points[i];
     }
     return ret;
   }
@@ -603,7 +637,7 @@ private:
 
   void calibrateExtrinsics()
   {
-    if(imagesSyncColor.size() != imagesSyncIr.size())
+    if(pointsColor.size() != pointsIr.size())
     {
       std::cerr << "not the same size!" << std::endl;
       return;
@@ -617,9 +651,9 @@ private:
     std::cout << "Distortion Coeeficients Ir:" << std::endl << distortionIr << std::endl << std::endl;
 
     std::cout << "calibrating Color and Ir extrinsics..." << std::endl;
-    error = cv::stereoCalibrate(pointsSyncBoard, pointsSyncIr, pointsSyncColor, cameraMatrixIr, distortionIr, cameraMatrixColor, distortionColor, cv::Size(1920, 1080),
+    error = cv::stereoCalibrate(pointsBoard, pointsIr, pointsColor, cameraMatrixIr, distortionIr, cameraMatrixColor, distortionColor, sizeColor,
                                 rotation, translation, essential, fundamental, termCriteria,
-                                cv::CALIB_USE_INTRINSIC_GUESS);
+                                cv::CALIB_FIX_INTRINSIC);
     std::cout << "error: " << error << std::endl << std::endl;
 
     std::cout << "Rotation:" << std::endl << rotation << std::endl;
