@@ -53,7 +53,7 @@ void kernel project(global const ushort *depth, global int4 *idx, global ushort 
   const short xH = xL + 1;
   const short yH = yL + 1;
 
-  const float4 distXY = pown((float4)(x - xL, xH - x, y - yL, yH - y), 2);
+  const float4 distXY = (float4)((x - xL) * (x - xL), (xH - x) * (xH - x), (y - yL) * (y - yL), (yH - y) * (yH - y));
   const float4 dist2 = (float4)(distXY.s0 + distXY.s2, distXY.s1 + distXY.s2, distXY.s0 + distXY.s3, distXY.s1 + distXY.s3);
 
   const int yLI = yL * widthD;
@@ -251,7 +251,7 @@ void kernel remapDepth(global const ushort *in, global ushort *out, global const
     return;
   }
 
-  const float4 distXY = pown((float4)(x - xL, xH - x, y - yL, yH - y), 2);
+  const float4 distXY = (float4)((x - xL) * (x - xL), (xH - x) * (xH - x), (y - yL) * (y - yL), (yH - y) * (yH - y));
   const float4 tmp = (float4)(sqrt(2.0));
   const float4 dist2 = (float4)(distXY.s0 + distXY.s2, distXY.s1 + distXY.s2, distXY.s0 + distXY.s3, distXY.s1 + distXY.s3);
   const float4 dist = select((float4)(0), tmp - sqrt(dist2), valid);
