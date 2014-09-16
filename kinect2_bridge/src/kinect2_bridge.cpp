@@ -60,9 +60,9 @@ private:
   size_t frame;
   const cv::Size sizeColor, sizeIr, sizeDepth;
   cv::Mat color, ir, depth;
-  cv::Mat cameraMatrixColor, distortionColor, rotationColor, projectionColor, cameraMatrixDepth;
-  cv::Mat cameraMatrixIr, distortionIr, rotationIr, projectionIr;
-  cv::Mat rotation, translation, essential, fundamental;
+  cv::Mat cameraMatrixColor, distortionColor, cameraMatrixDepth;
+  cv::Mat cameraMatrixIr, distortionIr;
+  cv::Mat rotation, translation;
   cv::Mat map1Color, map2Color;
   cv::Mat map1Ir, map2Ir;
   cv::Mat map1ColorReg, map2ColorReg;
@@ -138,7 +138,7 @@ private:
 
 public:
   Kinect2Bridge(const double fps, const bool rawDepth)
-    : jpegQuality(95), pngLevel(0), maxDepth(10.0), queueSize(10), rawDepth(rawDepth), sizeColor(1920, 1080), sizeIr(512, 424),
+    : jpegQuality(95), pngLevel(0), maxDepth(10.0), queueSize(2), rawDepth(rawDepth), sizeColor(1920, 1080), sizeIr(512, 424),
       sizeDepth(rawDepth ? sizeIr : cv::Size(sizeColor.width / 2, sizeColor.height / 2)), newFrame(false), nh(),
       depthReg(DepthRegistration::New(sizeColor, sizeDepth, sizeIr, 0.5f, maxDepth, 0.015f, DepthRegistration::OPENCL)), deltaT(1.0 / fps),
       topics(COUNT)
@@ -185,21 +185,39 @@ public:
     device->setColorFrameListener(listener);
     device->setIrAndDepthFrameListener(listener);
 
+    std::cout << std::endl << "starting kinect2" << std::endl << std::endl;
+    device->start();
+
     serial = device->getSerialNumber();
-    std::cout << "device serial: " << serial << std::endl;
+    std::cout << std::endl << "device serial: " << serial << std::endl;
+    std::cout << "device firmware: " << device->getFirmwareVersion() << std::endl;
+
+
+    libfreenect2::Freenect2Device::ColorCameraParams colorParams = device->getColorCameraParams();
+    libfreenect2::Freenect2Device::IrCameraParams irParams = device->getIrCameraParams();
+
+    std::cout << std::endl << "default ir camera parameters: " << std::endl;
+    std::cout << "fx " << irParams.fx << ", fy " << irParams.fy << ", cx " << irParams.cx << ", cy " << irParams.cy << std::endl;
+    std::cout << "k1 " << irParams.k1 << ", k2 " << irParams.k2 << ", p1 " << irParams.p1 << ", p2 " << irParams.p2 << ", k3 " << irParams.k3 << std::endl;
+
+    std::cout << std::endl << "default color camera parameters: " << std::endl;
+    std::cout << "fx " << colorParams.fx << ", fy " << colorParams.fy << ", cx " << colorParams.cx << ", cy " << colorParams.cy << std::endl;
+
+    /*std::cout << "unknown color camera parameters: " << std::endl;
+    for(size_t i = 3; i < 25; ++i)
+    {
+      std::cout << i + 1 << ": " << colorParams.all[i] << std::endl;
+    }*/
 
     std::string calibPath = path + serial;
 
     struct stat fileStat;
     if(stat(calibPath.c_str(), &fileStat) != 0 || !S_ISDIR(fileStat.st_mode)
-       || !loadCalibrationFile(calibPath + K2_CALIB_COLOR, cameraMatrixColor, distortionColor, rotationColor, projectionColor)
-       || !loadCalibrationFile(calibPath + K2_CALIB_IR, cameraMatrixIr, distortionIr, rotationIr, projectionIr)
-       || !loadCalibrationPoseFile(calibPath + K2_CALIB_POSE, rotation, translation, essential, fundamental))
+       || !loadCalibrationFile(calibPath + K2_CALIB_COLOR, cameraMatrixColor, distortionColor)
+       || !loadCalibrationFile(calibPath + K2_CALIB_IR, cameraMatrixIr, distortionIr)
+       || !loadCalibrationPoseFile(calibPath + K2_CALIB_POSE, rotation, translation))
     {
-      std::cerr << std::endl << "Could not load calibration data from \"" << calibPath << "\". Using sensor defaults." << std::endl << std::endl;
-
-      libfreenect2::Freenect2Device::ColorCameraParams colorParams = device->getColorCameraParams();
-      libfreenect2::Freenect2Device::IrCameraParams irParams = device->getIrCameraParams();
+      std::cerr << std::endl << "could not load calibration data from \"" << calibPath << "\". using sensor defaults." << std::endl;
 
       cameraMatrixColor = cv::Mat::eye(3, 3, CV_64F);
       distortionColor = cv::Mat::zeros(1, 5, CV_64F);
@@ -224,14 +242,6 @@ public:
       distortionIr.at<double>(0, 3) = irParams.p2;
       distortionIr.at<double>(0, 4) = irParams.k3;
 
-      rotationColor = cv::Mat::eye(3, 3, CV_64F);
-      projectionColor = cv::Mat::eye(4, 4, CV_64F);
-      cameraMatrixColor.copyTo(projectionColor(cv::Rect(0, 0, 3, 3)));
-
-      rotationIr = cv::Mat::eye(3, 3, CV_64F);
-      projectionIr = cv::Mat::eye(4, 4, CV_64F);
-      cameraMatrixIr.copyTo(projectionIr(cv::Rect(0, 0, 3, 3)));
-
       rotation = cv::Mat::eye(3, 3, CV_64F);
       translation = cv::Mat::zeros(3, 1, CV_64F);
     }
@@ -249,16 +259,13 @@ public:
       cameraMatrixDepth.at<double>(1, 2) /= 2;
     }
 
-    /*std::cout << "Camera matrix color:" << std::endl << cameraMatrixColor << std::endl
-              << "Distortion coefficients color:" << std::endl << distortionColor << std::endl
-              << "Rotation color:" << std::endl << rotationColor << std::endl
-              << "Projection color:" << std::endl << projectionColor << std::endl << std::endl
-              << "Camera matrix ir:" << std::endl << cameraMatrixIr << std::endl
-              << "Distortion coefficients ir:" << std::endl << distortionIr << std::endl
-              << "Rotation ir:" << std::endl << rotationIr << std::endl
-              << "Projection ir:" << std::endl << projectionIr << std::endl << std::endl
-              << "Rotation:" << std::endl << rotation << std::endl
-              << "Translation:" << std::endl << translation << std::endl << std::endl;*/
+    std::cout << std::endl << "camera parameters used:" << std::endl
+              << "camera matrix color:" << std::endl << cameraMatrixColor << std::endl
+              << "distortion coefficients color:" << std::endl << distortionColor << std::endl
+              << "camera matrix ir:" << std::endl << cameraMatrixIr << std::endl
+              << "distortion coefficients ir:" << std::endl << distortionIr << std::endl
+              << "rotation:" << std::endl << rotation << std::endl
+              << "translation:" << std::endl << translation << std::endl << std::endl;
 
     const int mapType = CV_16SC2;
     cv::initUndistortRectifyMap(cameraMatrixColor, distortionColor, cv::Mat(), cameraMatrixColor, sizeColor, mapType, map1Color, map2Color);
@@ -342,11 +349,6 @@ public:
     {
       threads[i] = std::thread(&Kinect2Bridge::run_thread, this);
     }
-
-    std::cout << "starting kinect2" << std::endl;
-    device->start();
-    std::cout << "device serial: " << device->getSerialNumber() << std::endl;
-    std::cout << "device firmware: " << device->getFirmwareVersion() << std::endl;
 
     std::cout << "starting main loop" << std::endl;
     double nextFrame = ros::Time::now().toSec() + deltaT;
@@ -460,15 +462,13 @@ private:
     }
   }
 
-  bool loadCalibrationFile(const std::string &filename, cv::Mat &cameraMatrix, cv::Mat &distortion, cv::Mat &rotation, cv::Mat &projection) const
+  bool loadCalibrationFile(const std::string &filename, cv::Mat &cameraMatrix, cv::Mat &distortion) const
   {
     cv::FileStorage fs;
     if(fs.open(filename, cv::FileStorage::READ))
     {
       fs[K2_CALIB_CAMERA_MATRIX] >> cameraMatrix;
       fs[K2_CALIB_DISTORTION] >> distortion;
-      fs[K2_CALIB_ROTATION] >> rotation;
-      fs[K2_CALIB_PROJECTION] >> projection;
       fs.release();
     }
     else
@@ -479,15 +479,13 @@ private:
     return true;
   }
 
-  bool loadCalibrationPoseFile(const std::string &filename, cv::Mat &rotation, cv::Mat &translation, cv::Mat &essential, cv::Mat &fundamental) const
+  bool loadCalibrationPoseFile(const std::string &filename, cv::Mat &rotation, cv::Mat &translation) const
   {
     cv::FileStorage fs;
     if(fs.open(filename, cv::FileStorage::READ))
     {
       fs[K2_CALIB_ROTATION] >> rotation;
       fs[K2_CALIB_TRANSLATION] >> translation;
-      fs[K2_CALIB_ESSENTIAL] >> essential;
-      fs[K2_CALIB_FUNDAMENTAL] >> fundamental;
       fs.release();
     }
     else
