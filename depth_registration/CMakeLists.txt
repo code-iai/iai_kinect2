@@ -86,40 +86,26 @@ include_directories(include
   ${OpenCV_INCLUDE_DIR}
 )
 
-add_library(depth_registration SHARED src/depth_registration.cpp)
-target_link_libraries(depth_registration
-  ${catkin_LIBRARIES}
-  ${OpenCV_LIBRARIES}
-)
-
 if(DEPTH_REG_CPU)
   include_directories(
     ${Eigen_INCLUDE_DIRS}
   )
-  add_library(depth_registration_cpu SHARED src/depth_registration_cpu.cpp)
-  target_link_libraries(depth_registration_cpu
-    ${catkin_LIBRARIES}
-    ${OpenCV_LIBRARIES}
-    ${Eigen_LIBRARIES}
-  )
-
-  add_dependencies(depth_registration depth_registration_cpu)
-  target_link_libraries(depth_registration depth_registration_cpu)
+  set(MODULES ${MODULES} src/depth_registration_cpu.cpp)
+  set(MODULE_LIBS ${MODULE_LIBS} ${Eigen_LIBRARIES})
 endif()
 
 if(DEPTH_REG_OPENCL)
   add_definitions(-DREG_OPENCL_FILE="${PROJECT_SOURCE_DIR}/src/depth_registration.cl")
-  add_library(depth_registration_opencl SHARED src/depth_registration_opencl.cpp)
-  target_link_libraries(depth_registration_opencl
-    ${catkin_LIBRARIES}
-    ${OpenCV_LIBRARIES}
-    #${OPENCL_LIBRARIES}
-    OpenCL
-  )
-
-  add_dependencies(depth_registration depth_registration_opencl)
-  target_link_libraries(depth_registration depth_registration_opencl)
+  set(MODULES ${MODULES} src/depth_registration_opencl.cpp)
+  set(MODULE_LIBS ${MODULE_LIBS} ${OPENCL_LIBRARIES})
 endif()
+
+add_library(depth_registration SHARED src/depth_registration.cpp ${MODULES})
+target_link_libraries(depth_registration
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+  ${MODULE_LIBS}
+)
 
 #############
 ## Install ##

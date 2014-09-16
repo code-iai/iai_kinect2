@@ -18,7 +18,11 @@
 #include <fstream>
 
 #define __CL_ENABLE_EXCEPTIONS
-#include <CL/cl.hpp>
+#ifdef __APPLE__
+  #include <OpenCL/cl.hpp>
+#else
+  #include <CL/cl.hpp>
+#endif
 
 #ifndef REG_OPENCL_FILE
 #define REG_OPENCL_FILE ""
