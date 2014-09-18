@@ -303,6 +303,7 @@ private:
       case 'q':
         running = false;
         break;
+      case ' ':
       case 's':
         if(mode == IMAGE)
         {
@@ -380,6 +381,7 @@ private:
       case 'q':
         running = false;
         break;
+      case ' ':
       case 's':
         save = true;
         break;
@@ -482,7 +484,7 @@ private:
   void saveCloudAndImages(const pcl::PointCloud<pcl::PointXYZRGBA>::ConstPtr cloud, const cv::Mat &color, const cv::Mat &depth, const cv::Mat &depthColored)
   {
     oss.str("");
-    oss << "/home/wiedemeyer/data/" << std::setfill('0') << std::setw(4) << frame;
+    oss << "./" << std::setfill('0') << std::setw(4) << frame;
     const std::string baseName = oss.str();
     const std::string cloudName = baseName + "_cloud.pcd";
     const std::string colorName = baseName + "_color.jpg";

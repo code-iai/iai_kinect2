@@ -330,6 +330,7 @@ private:
       switch(key & 0xFF)
       {
       case ' ':
+      case 's':
         save = true;
         break;
       case 27:

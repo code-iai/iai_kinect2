@@ -29,7 +29,7 @@ camera_calibration [options]
 ## Key bindings
 
 Windows:
-- `q`, `ESC`: Quit
+- `ESC`, `q`: Quit
 - `SPACE`, `s`: Save the current image for calibration
 
 Terminal:
