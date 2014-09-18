@@ -74,7 +74,7 @@ catkin_package(
 ###########
 
 # Display additional files in qtcreator
-execute_process(COMMAND find ${PROJECT_SOURCE_DIR} -name "*.h*" -or -name "*.c*" OUTPUT_VARIABLE FILES_STRING)
+execute_process(COMMAND find ${PROJECT_SOURCE_DIR} -type f OUTPUT_VARIABLE FILES_STRING)
 string(REPLACE "\n" ";" FILES_LIST ${FILES_STRING})
 add_custom_target(additional_files_${PROJECT_NAME}
   SOURCES
