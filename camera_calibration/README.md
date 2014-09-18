@@ -26,6 +26,15 @@ camera_calibration [options]
   output path: '<PATH>'
 ```
 
+## Key bindings
+
+Windows:
+- `q`, `ESC`: Quit
+- `SPACE`, `s`: Save the current image for calibration
+
+Terminal:
+- `CRTL`+`c`: Quit
+
 ## Calibrating the Kinect One
 
 1. Record images for the color camera: `rosrun camera_calibration camera_calibration record color`
@@ -36,3 +45,7 @@ camera_calibration [options]
 
 The standard board is a 7x6 0.108m chessboard from the PR2. But any other board can be specified with as parameter. For example a circle board with 8x7 circles in 0.02m distance between them `rosrun camera_calibration camera_calibration record color circle8x7x0.02`.
 
+
+## Example results
+
+Example calibration results can be found in the directory [kinect2_bridge/data/](https://github.com/code-iai/iai_kinect2/tree/master/kinect2_bridge/data).

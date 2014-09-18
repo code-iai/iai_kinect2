@@ -38,3 +38,11 @@ Predefined topics for color and depth:
 
 Example: `rosrun registration_viewer viewer -kinect2 -cloud`
 
+## Key bindings
+
+Windows:
+- `q`, `ESC`: Quit
+- `s`: Save the current image, cloud in the current directory
+
+Terminal:
+- `CRTL`+`c`: Quit

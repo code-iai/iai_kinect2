@@ -136,3 +136,8 @@ kinect2_bridge [options]
   -raw           output raw depth image as 512x424 instead of 960x540
 ```
 
+## Key bindings
+
+Terminal:
+- `CRTL`+`c`: Quit
+
