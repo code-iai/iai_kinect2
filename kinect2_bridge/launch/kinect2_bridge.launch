@@ -1,3 +1,8 @@
 <launch>
+  <arg name="publish_frame" default="false" />
+
+  <include file="$(find kinect2_bridge)/launch/include/kinect2_frames.launch">
+    <arg name="publish_frame" value="$(arg publish_frame)" />
+  </include>
   <node name="kinect2_bridge" pkg="kinect2_bridge" type="kinect2_bridge" respawn="true" output="screen"/>
 </launch>
