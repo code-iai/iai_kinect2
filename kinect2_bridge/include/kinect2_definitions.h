@@ -20,8 +20,8 @@
 #define __KINECT2_DEFINITIONS_H__
 
 #define K2_TOPIC_BASE          "kinect2_head/"
-#define K2_TF_RGB_FRAME        "/head_mount_kinect2_rgb_optical_frame"
-#define K2_TF_IR_FRAME         "/head_mount_kinect2_ir_optical_frame"
+#define K2_TF_RGB_FRAME        "head_mount_kinect2_rgb_optical_frame"
+#define K2_TF_IR_FRAME         "head_mount_kinect2_ir_optical_frame"
 
 #define K2_TOPIC_IMAGE_IR      K2_TOPIC_BASE "ir/"
 #define K2_TOPIC_RECT_IR       K2_TOPIC_BASE "ir_rect/"
