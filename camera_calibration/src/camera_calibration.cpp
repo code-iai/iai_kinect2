@@ -494,24 +494,25 @@ public:
     std::sort(filesIr.begin(), filesIr.end());
     std::sort(filesSync.begin(), filesSync.end());
 
-    pointsColor.resize(filesColor.size());
-    pointsIr.resize(filesIr.size());
-
     bool ret = true;
     switch(mode)
     {
     case COLOR:
+      pointsColor.resize(filesColor.size());
       pointsBoard.resize(filesColor.size(), board);
       ret = ret && readFiles(filesColor, CALIB_POINTS_COLOR, pointsColor);
       break;
     case IR:
+      pointsIr.resize(filesIr.size());
       pointsBoard.resize(filesIr.size(), board);
       ret = ret && readFiles(filesIr, CALIB_POINTS_IR, pointsIr);
       break;
     case SYNC:
-      pointsBoard.resize(filesColor.size(), board);
-      ret = ret && readFiles(filesColor, CALIB_POINTS_COLOR, pointsColor);
-      ret = ret && readFiles(filesIr, CALIB_POINTS_IR, pointsIr);
+      pointsIr.resize(filesSync.size());
+      pointsColor.resize(filesSync.size());
+      pointsBoard.resize(filesSync.size(), board);
+      ret = ret && readFiles(filesSync, CALIB_POINTS_COLOR, pointsColor);
+      ret = ret && readFiles(filesSync, CALIB_POINTS_IR, pointsIr);
       break;
     }
 
