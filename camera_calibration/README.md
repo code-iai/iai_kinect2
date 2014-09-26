@@ -21,7 +21,10 @@ This tool uses OpenCV to calibrate two cameras to each other. It is specially de
 camera_calibration [options]
   mode: 'record' or 'calibrate'
   source: 'color', 'ir', 'sync'
-  board: 'circle<WIDTH>x<HEIGHT>x<SIZE>' or 'chess<WIDTH>x<HEIGHT>x<SIZE>'
+  board:
+    'circle<WIDTH>x<HEIGHT>x<SIZE>'  for symmentric cirle grid
+    'acircle<WIDTH>x<HEIGHT>x<SIZE>' for asymmentric cirle grid
+    'chess<WIDTH>x<HEIGHT>x<SIZE>'   for chessboard pattern
   topics: '-color <TOPIC>' and/or '-ir <TOPIC>'
   output path: '<PATH>'
 ```
@@ -35,6 +38,12 @@ Windows:
 Terminal:
 - `CRTL`+`c`: Quit
 
+## Calibration patterns
+
+Any chessboard pattern or symmetric or asymmetric circle grid should work. If you need a calibration pattern , you can use the ones provided by OpenCV:
+- [Chessboard pattern](http://docs.opencv.org/_downloads/pattern.png)
+- [Asymmetric circle grid](http://docs.opencv.org/_downloads/acircles_pattern.png)
+
 ## Calibrating the Kinect One
 
 1. Record images for the color camera: `rosrun camera_calibration camera_calibration record color`
@@ -44,7 +53,6 @@ Terminal:
 4. Calibrate the extrinsics: `rosrun camera_calibration camera_calibration calibrate sync`
 
 The standard board is a 7x6 0.108m chessboard from the PR2. But any other board can be specified with as parameter. For example a circle board with 8x7 circles in 0.02m distance between them `rosrun camera_calibration camera_calibration record color circle8x7x0.02`.
-
 
 ## Example results
 

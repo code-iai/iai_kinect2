@@ -64,6 +64,8 @@ class Recorder
 {
 private:
   const bool circleBoard;
+  int circleFlags;
+
   const cv::Size boardDims;
   const float boardSize;
   const Source mode;
@@ -96,9 +98,18 @@ private:
   int minIr, maxIr;
 
 public:
-  Recorder(const std::string &path, const std::string &topicColor, const std::string &topicIr, const Source mode, const bool circleBoard, const cv::Size &boardDims, const float boardSize)
+  Recorder(const std::string &path, const std::string &topicColor, const std::string &topicIr, const Source mode, const bool circleBoard, const bool symmetric, const cv::Size &boardDims, const float boardSize)
     : circleBoard(circleBoard), boardDims(boardDims), boardSize(boardSize), mode(mode), path(path), topicColor(topicColor), topicIr(topicIr), update(false), foundColor(false), foundIr(false), frame(0), nh(), spinner(0), it(nh), minIr(0), maxIr(0x7FFF)
   {
+    if(symmetric)
+    {
+      circleFlags = cv::CALIB_CB_SYMMETRIC_GRID + cv::CALIB_CB_CLUSTERING;
+    }
+    else
+    {
+      circleFlags = cv::CALIB_CB_ASYMMETRIC_GRID + cv::CALIB_CB_CLUSTERING;
+    }
+
     params.push_back(CV_IMWRITE_PNG_COMPRESSION);
     params.push_back(9);
 
@@ -213,14 +224,14 @@ private:
       switch(mode)
       {
       case COLOR:
-        foundColor = cv::findCirclesGrid(color, boardDims, pointsColor, cv::CALIB_CB_SYMMETRIC_GRID + cv::CALIB_CB_CLUSTERING);
+        foundColor = cv::findCirclesGrid(color, boardDims, pointsColor, circleFlags);
         break;
       case IR:
-        foundIr = cv::findCirclesGrid(irGrey, boardDims, pointsIr, cv::CALIB_CB_SYMMETRIC_GRID + cv::CALIB_CB_CLUSTERING);
+        foundIr = cv::findCirclesGrid(irGrey, boardDims, pointsIr, circleFlags);
         break;
       case SYNC:
-        foundColor = cv::findCirclesGrid(color, boardDims, pointsColor, cv::CALIB_CB_SYMMETRIC_GRID + cv::CALIB_CB_CLUSTERING);
-        foundIr = cv::findCirclesGrid(irGrey, boardDims, pointsIr, cv::CALIB_CB_SYMMETRIC_GRID + cv::CALIB_CB_CLUSTERING);
+        foundColor = cv::findCirclesGrid(color, boardDims, pointsColor, circleFlags);
+        foundIr = cv::findCirclesGrid(irGrey, boardDims, pointsIr, circleFlags);
         break;
       }
     }
@@ -755,7 +766,10 @@ void help(const std::string &path)
   std::cout << path << " [options]" << std::endl
             << "  mode: 'record' or 'calibrate'" << std::endl
             << "  source: 'color', 'ir', 'sync'" << std::endl
-            << "  board: 'circle<WIDTH>x<HEIGHT>x<SIZE>' or 'chess<WIDTH>x<HEIGHT>x<SIZE>'" << std::endl
+            << "  board:" << std::endl
+            << "    'circle<WIDTH>x<HEIGHT>x<SIZE>'  for symmentric cirle grid" << std::endl
+            << "    'acircle<WIDTH>x<HEIGHT>x<SIZE>' for asymmentric cirle grid" << std::endl
+            << "    'chess<WIDTH>x<HEIGHT>x<SIZE>'   for chessboard pattern" << std::endl
             << "  topics: '-color <TOPIC>' and/or '-ir <TOPIC>'" << std::endl
             << "  output path: '<PATH>'" << std::endl;
 }
@@ -765,6 +779,7 @@ int main(int argc, char **argv)
   Mode mode = RECORD;
   Source source = SYNC;
   bool circleBoard = false;
+  bool symmetric = true;
   cv::Size boardDims = cv::Size(7, 6);
   float boardSize = 0.108;
   std::string path = "./";
@@ -810,6 +825,20 @@ int main(int argc, char **argv)
     }
     else if(arg.find("circle") == 0 && arg.find('x') != arg.rfind('x') && arg.rfind('x') != std::string::npos)
     {
+      circleBoard = true;
+      const size_t start = 6;
+      const size_t leftX = arg.find('x');
+      const size_t rightX = arg.rfind('x');
+      const size_t end = arg.size();
+
+      int width = atoi(arg.substr(start, leftX - start).c_str());
+      int height = atoi(arg.substr(leftX + 1, rightX - leftX + 1).c_str());
+      boardSize = atof(arg.substr(rightX + 1, end - rightX + 1).c_str());
+      boardDims = cv::Size(width, height);
+    }
+    else if((arg.find("circle") == 0 || arg.find("acircle") == 0) && arg.find('x') != arg.rfind('x') && arg.rfind('x') != std::string::npos)
+    {
+      symmetric = arg.find("circle") == 0;
       circleBoard = true;
       const size_t start = 6;
       const size_t leftX = arg.find('x');
@@ -876,7 +905,7 @@ int main(int argc, char **argv)
   }
   if(mode == RECORD)
   {
-    Recorder recorder(path, topicColor, topicIr, source, circleBoard, boardDims, boardSize);
+    Recorder recorder(path, topicColor, topicIr, source, circleBoard, symmetric, boardDims, boardSize);
 
     std::cout << "starting recorder..." << std::endl;
     recorder.startRecord();
