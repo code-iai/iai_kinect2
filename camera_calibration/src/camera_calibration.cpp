@@ -302,7 +302,7 @@ private:
 
         if(mode == COLOR || mode == SYNC)
         {
-          colorDisp = color.clone();
+          cv::cvtColor(color, colorDisp, CV_GRAY2BGR);
           cv::drawChessboardCorners(colorDisp, boardDims, pointsColor, foundColor);
           //cv::resize(colorDisp, colorDisp, cv::Size(), 0.5, 0.5);
           //cv::flip(colorDisp, colorDisp, 1);
@@ -768,7 +768,7 @@ int main(int argc, char **argv)
   cv::Size boardDims = cv::Size(7, 6);
   float boardSize = 0.108;
   std::string path = "./";
-  std::string topicColor = K2_TOPIC_IMAGE_COLOR K2_TOPIC_RAW;
+  std::string topicColor = K2_TOPIC_IMAGE_MONO K2_TOPIC_RAW;
   std::string topicIr = K2_TOPIC_IMAGE_IR K2_TOPIC_RAW;
 
   ros::init(argc, argv, "kinect2_calib");
