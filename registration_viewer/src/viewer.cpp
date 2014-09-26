@@ -90,7 +90,7 @@ private:
   message_filters::Synchronizer<ExactSyncPolicy> *syncExact;
   message_filters::Synchronizer<ApproximateSyncPolicy> *syncApproximate;
 
-  std::thread imageViewerThread, cloudViewerThread;
+  std::thread imageViewerThread;
   Mode mode;
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr cloud;
@@ -120,6 +120,13 @@ public:
   {
   }
 
+  void run(const Mode mode)
+  {
+    start(mode);
+    stop();
+  }
+
+private:
   void start(const Mode mode)
   {
     this->mode = mode;
@@ -167,13 +174,18 @@ public:
     cloud->points.resize(cloud->height * cloud->width);
     createLookup(this->color.cols, this->color.rows);
 
-    if(mode != CLOUD)
+    switch(mode)
     {
+    case CLOUD:
+      cloudViewer();
+      break;
+    case IMAGE:
+      imageViewer();
+      break;
+    case BOTH:
       imageViewerThread = std::thread(&Receiver::imageViewer, this);
-    }
-    if(mode != IMAGE)
-    {
-      cloudViewerThread = std::thread(&Receiver::cloudViewer, this);
+      cloudViewer();
+      break;
     }
   }
 
@@ -196,13 +208,9 @@ public:
     delete subCameraInfoDepth;
 
     running = false;
-    if(mode != CLOUD)
+    if(mode == BOTH)
     {
       imageViewerThread.join();
-    }
-    if(mode != IMAGE)
-    {
-      cloudViewerThread.join();
     }
 
     if(depthReg)
@@ -211,12 +219,6 @@ public:
     }
   }
 
-  bool isRunning()
-  {
-    return running;
-  }
-
-private:
   void callback(const sensor_msgs::Image::ConstPtr imageColor, const sensor_msgs::Image::ConstPtr imageDepth,
                 const sensor_msgs::CameraInfo::ConstPtr cameraInfoColor, const sensor_msgs::CameraInfo::ConstPtr cameraInfoDepth)
   {
@@ -266,7 +268,7 @@ private:
     oss << "starting...";
 
     start = std::chrono::high_resolution_clock::now();
-    for(; running;)
+    for(; running && ros::ok();)
     {
       if(updateImage)
       {
@@ -345,7 +347,7 @@ private:
     visualizer->setCameraPosition(0, 0, 0, 0, -1, 0);
     visualizer->registerKeyboardCallback(&Receiver::keyboardEvent, *this);
 
-    for(; running;)
+    for(; running && ros::ok();)
     {
       if(updateCloud)
       {
@@ -624,17 +626,7 @@ int main(int argc, char **argv)
   Receiver receiver(topicColor, topicDepth, useExact);
 
   std::cout << "starting receiver..." << std::endl;
-  receiver.start(mode);
-
-  std::cout << "starting loop..." << std::endl;
-  std::chrono::milliseconds duration(100);
-  while(ros::ok() && receiver.isRunning())
-  {
-    std::this_thread::sleep_for(duration);
-  }
-
-  std::cout << "stopping viewer..." << std::endl;
-  receiver.stop();
+  receiver.run(mode);
 
   ros::shutdown();
   return 0;
