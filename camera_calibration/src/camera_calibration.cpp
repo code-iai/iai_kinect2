@@ -75,7 +75,6 @@ private:
   std::mutex lock;
 
   bool update;
-  bool running;
   bool foundColor, foundIr;
   cv::Mat color, ir, irGrey;
   cv::Ptr<cv::CLAHE> clahe;
@@ -92,8 +91,6 @@ private:
   image_transport::ImageTransport it;
   image_transport::SubscriberFilter *subImageColor, *subImageIr;
   message_filters::Synchronizer<ColorIrSyncPolicy> *sync;
-
-  std::thread displayThread;
 
   int minIr, maxIr;
 
@@ -129,11 +126,18 @@ public:
   {
   }
 
+  void run()
+  {
+    startRecord();
+
+    display();
+
+    stopRecord();
+  }
+
+private:
   void startRecord()
   {
-    running = true;
-    displayThread = std::thread(&Recorder::display, this);
-
     image_transport::TransportHints hints("compressed");
     image_transport::TransportHints hintsIr("compressed");
     subImageColor = new image_transport::SubscriberFilter(it, topicColor, 4, hints);
@@ -152,17 +156,8 @@ public:
     delete sync;
     delete subImageColor;
     delete subImageIr;
-
-    running = false;
-    displayThread.join();
   }
 
-  bool isRunning()
-  {
-    return running;
-  }
-
-private:
   void convertIr(const cv::Mat &ir, cv::Mat &grey, const int min, const int max)
   {
     const float factor = 255.0f / (max - min);
@@ -290,13 +285,14 @@ private:
     bool foundColor = false;
     bool foundIr = false;
     bool save = false;
+    bool running = true;
 
     while(!update)
     {
       usleep(1000);
     }
 
-    for(; running;)
+    for(; ros::ok() && running;)
     {
       if(update)
       {
@@ -908,16 +904,9 @@ int main(int argc, char **argv)
     Recorder recorder(path, topicColor, topicIr, source, circleBoard, symmetric, boardDims, boardSize);
 
     std::cout << "starting recorder..." << std::endl;
-    recorder.startRecord();
+    recorder.run();
 
-    std::cout << "starting loop..." << std::endl;
-    while(ros::ok() && recorder.isRunning())
-    {
-      usleep(10000);
-    }
-
-    std::cout << "stopping recording..." << std::endl;
-    recorder.stopRecord();
+    std::cout << "stopped recording..." << std::endl;
   }
   else
   {
@@ -930,6 +919,5 @@ int main(int argc, char **argv)
     calib.calibrate();
   }
 
-  ros::shutdown();
   return 0;
 }
