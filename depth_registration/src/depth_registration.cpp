@@ -25,6 +25,8 @@
 #include "depth_registration_opencl.h"
 #endif
 
+#define OUT_NAME(FUNCTION) "[DepthRegistration::" FUNCTION "] "
+
 DepthRegistration::DepthRegistration()
 {
 }
@@ -59,22 +61,22 @@ DepthRegistration *DepthRegistration::New(const cv::Size &color, const cv::Size 
   switch(method)
   {
   case DEFAULT:
-    std::cerr << "No default registration method available!" << std::endl;
+    std::cerr << OUT_NAME("New") "No default registration method available!" << std::endl;
     break;
   case CPU:
 #ifdef DEPTH_REG_CPU
-    std::cout << "Using CPU registration method!" << std::endl;
+    std::cout << OUT_NAME("New") "Using CPU registration method!" << std::endl;
     return new DepthRegistrationCPU(color, depth, raw, zNear, zFar);
 #else
-    std::cerr << "CPU registration method not available!" << std::endl;
+    std::cerr << OUT_NAME("New") "CPU registration method not available!" << std::endl;
     break;
 #endif
   case OPENCL:
 #ifdef DEPTH_REG_OPENCL
-    std::cout << "Using OpenCL registration method!" << std::endl;
+    std::cout << OUT_NAME("New") "Using OpenCL registration method!" << std::endl;
     return new DepthRegistrationOpenCL(color, depth, raw, zNear, zFar, zDist);
 #else
-    std::cerr << "OpenCL registration method not available!" << std::endl;
+    std::cerr << OUT_NAME("New") "OpenCL registration method not available!" << std::endl;
     break;
 #endif
   }

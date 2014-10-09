@@ -19,6 +19,8 @@
 
 #include "depth_registration_cpu.h"
 
+#define OUT_NAME(FUNCTION) "[DepthRegistrationCPU::" FUNCTION "] "
+
 DepthRegistrationCPU::DepthRegistrationCPU(const cv::Size &color, const cv::Size &depth, const cv::Size &raw, const float zNear, const float zFar)
   : DepthRegistration(), sizeDepth(depth), sizeColor(color), zNear(zNear), zFar(zFar)
 {

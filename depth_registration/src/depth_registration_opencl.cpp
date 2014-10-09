@@ -30,11 +30,12 @@
 
 #include "depth_registration_opencl.h"
 
+#define OUT_NAME(FUNCTION) "[DepthRegistrationOpenCL::" FUNCTION "] "
+
 struct DepthRegistrationOpenCL::OCLData
 {
   cl::Context context;
-  std::vector<cl::Platform> platforms;
-  std::vector<cl::Device> devices;
+  cl::Device device;
 
   cl::Program program;
   cl::CommandQueue queue;
@@ -76,6 +77,46 @@ DepthRegistrationOpenCL::~DepthRegistrationOpenCL()
   delete data;
 }
 
+bool selectDevice(const std::vector<cl::Platform> &platforms, const int type, cl::Device &device)
+{
+  bool selected = false;
+
+  for(size_t i = 0; i < platforms.size(); ++i)
+  {
+    const cl::Platform &platform = platforms[i];
+    std::string platformName, platformVendor;
+    platform.getInfo(CL_PLATFORM_NAME, &platformName);
+    platform.getInfo(CL_PLATFORM_VENDOR, &platformVendor);
+
+    std::cout << OUT_NAME("selectDevice") "found platform: " << platformName << " vendor: " << platformVendor << std::endl;
+
+    std::vector<cl::Device> devices;
+    if(platform.getDevices(type, &devices) != CL_SUCCESS)
+    {
+      std::cerr << OUT_NAME("selectDevice") "error while getting opencl devices." << std::endl;
+      return false;
+    }
+
+    for(size_t j = 0; j < devices.size(); ++j)
+    {
+      cl::Device &dev = devices[i];
+      std::string devName, devVendor;
+      dev.getInfo(CL_DEVICE_NAME, &devName);
+      dev.getInfo(CL_DEVICE_VENDOR, &devVendor);
+
+      std::cout << OUT_NAME("selectDevice") "found device: " << devName << " vendor: " << devVendor << std::endl;
+
+      if(!selected)
+      {
+        selected = true;
+        device = dev;
+      }
+    }
+  }
+
+  return selected;
+}
+
 bool DepthRegistrationOpenCL::init()
 {
   std::string sourceCode;
@@ -87,26 +128,38 @@ bool DepthRegistrationOpenCL::init()
   cl_int err = CL_SUCCESS;
   try
   {
-    cl::Platform::get(&data->platforms);
-    if(data->platforms.size() == 0)
+    std::vector<cl::Platform> platforms;
+    if(cl::Platform::get(&platforms) != CL_SUCCESS)
     {
-      std::cerr << "Platform size 0" << std::endl;
+      std::cerr << OUT_NAME("init") "error while getting opencl platforms." << std::endl;
+      return false;
+    }
+    if(platforms.empty())
+    {
+      std::cerr << OUT_NAME("init") "no opencl platforms found." << std::endl;
       return false;
     }
 
-    cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(data->platforms[0])(), 0};
-    data->context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
+    if(!selectDevice(platforms, CL_DEVICE_TYPE_GPU, data->device))
+    {
+      std::cout << OUT_NAME("init") "could not find any GPU device. trying CPU devices" << std::endl;
 
-    data->devices = data->context.getInfo<CL_CONTEXT_DEVICES>();
+      if(!selectDevice(platforms, CL_DEVICE_TYPE_CPU, data->device))
+      {
+        std::cerr << OUT_NAME("init") "could not find any suitable device" << std::endl;
+        return false;
+      }
+    }
+    data->context = cl::Context(data->device);
 
     std::string options;
     generateOptions(options);
 
     cl::Program::Sources source(1, std::make_pair(sourceCode.c_str(), sourceCode.length()));
     data->program = cl::Program(data->context, source);
-    data->program.build(data->devices, options.c_str());
+    data->program.build(options.c_str());
 
-    data->queue = cl::CommandQueue(data->context, data->devices[0], 0, &err);
+    data->queue = cl::CommandQueue(data->context, data->device, 0, &err);
 
     data->sizeDepth = sizeDepth.height * sizeDepth.width * sizeof(uint16_t);
     data->sizeIndex = sizeDepth.height * sizeDepth.width * sizeof(cl_int4);
@@ -158,13 +211,13 @@ bool DepthRegistrationOpenCL::init()
   }
   catch(cl::Error err)
   {
-    std::cerr << "ERROR: " << err.what() << "(" << err.err() << ")" << std::endl;
+    std::cerr << OUT_NAME("init") "ERROR: " << err.what() << "(" << err.err() << ")" << std::endl;
 
     if(err.err() == CL_BUILD_PROGRAM_FAILURE)
     {
-      std::cout << "Build Status: " << data->program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(data->devices[0]) << std::endl;
-      std::cout << "Build Options:\t" << data->program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(data->devices[0]) << std::endl;
-      std::cout << "Build Log:\t " << data->program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(data->devices[0]) << std::endl;
+      std::cout << OUT_NAME("init") "Build Status: " << data->program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(data->device) << std::endl;
+      std::cout << OUT_NAME("init") "Build Options:\t" << data->program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(data->device) << std::endl;
+      std::cout << OUT_NAME("init") "Build Log:\t " << data->program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(data->device) << std::endl;
     }
 
     return false;
@@ -195,7 +248,7 @@ void DepthRegistrationOpenCL::remapDepth(const cv::Mat &in, cv::Mat &out) const
   }
   catch(cl::Error err)
   {
-    std::cerr << "ERROR: " << err.what() << "(" << err.err() << ")" << std::endl;
+    std::cerr << OUT_NAME("remapDepth") "ERROR: " << err.what() << "(" << err.err() << ")" << std::endl;
     return;
   }
 }
@@ -232,7 +285,7 @@ void DepthRegistrationOpenCL::registerDepth(const cv::Mat &depth, cv::Mat &regis
   }
   catch(cl::Error err)
   {
-    std::cerr << "ERROR: " << err.what() << "(" << err.err() << ")" << std::endl;
+    std::cerr << OUT_NAME("registerDepth") "ERROR: " << err.what() << "(" << err.err() << ")" << std::endl;
     return;
   }
 }
@@ -311,6 +364,6 @@ bool DepthRegistrationOpenCL::readProgram(std::string &source) const
   source = std::string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
   file.close();
 
-  //std::cout << source << std::endl;
+  //std::cout << OUT_NAME("readProgram") "source:" << std::endl source << std::endl;
   return true;
 }
