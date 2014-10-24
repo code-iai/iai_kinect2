@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(camera_calibration)
+project(kinect2_calibration)
 
 set(CMAKE_BUILD_TYPE Release)
 #set(CMAKE_BUILD_TYPE RelWithDebInfo)
@@ -57,8 +57,8 @@ include_directories(include
   ${OpenCV_INCLUDE_DIR}
 )
 
-add_executable(camera_calibration src/camera_calibration.cpp)
-target_link_libraries(camera_calibration
+add_executable(kinect2_calibration src/kinect2_calibration.cpp)
+target_link_libraries(kinect2_calibration
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
 )

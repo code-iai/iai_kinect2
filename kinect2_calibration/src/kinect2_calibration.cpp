@@ -43,7 +43,7 @@
 #include <message_filters/synchronizer.h>
 #include <message_filters/sync_policies/exact_time.h>
 
-#include <camera_calibration_definitions.h>
+#include <kinect2_calibration_definitions.h>
 #include <kinect2_definitions.h>
 
 

@@ -16,8 +16,8 @@
  */
 
 #pragma once
-#ifndef __CAMERA_CALIBRATION_DEFINITIONS_H__
-#define __CAMERA_CALIBRATION_DEFINITIONS_H__
+#ifndef __KINECT2_CALIBRATION_DEFINITIONS_H__
+#define __KINECT2_CALIBRATION_DEFINITIONS_H__
 
 #define CALIB_FILE_EXT      ".png"
 #define CALIB_FILE_COLOR    "_color" CALIB_FILE_EXT
@@ -44,4 +44,4 @@
 #define CALIB_ESSENTIAL     "essential"
 #define CALIB_FUNDAMENTAL   "fundamental"
 
-#endif //__CAMERA_CALIBRATION_DEFINITIONS_H__
+#endif //__KINECT2_CALIBRATION_DEFINITIONS_H__

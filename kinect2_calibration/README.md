@@ -1,4 +1,4 @@
-# Camera Calibration
+# Kinect2 Calibration
 
 ## Maintainer
 
@@ -18,7 +18,7 @@ This tool uses OpenCV to calibrate two cameras to each other. It is specially de
 ## Usage
 
 ```
-camera_calibration [options]
+kinect2_calibration [options]
   mode: 'record' or 'calibrate'
   source: 'color', 'ir', 'sync'
   board:
@@ -46,13 +46,13 @@ Any chessboard pattern or symmetric or asymmetric circle grid should work. If yo
 
 ## Calibrating the Kinect One
 
-1. Record images for the color camera: `rosrun camera_calibration camera_calibration record color`
-2. Calibrate the intrinsics: `rosrun camera_calibration camera_calibration calibrate color`
+1. Record images for the color camera: `rosrun kinect2_calibration kinect2_calibration record color`
+2. Calibrate the intrinsics: `rosrun kinect2_calibration kinect2_calibration calibrate color`
 3. Redo step 1. and 2. for the infrared camera
-4. Record images on both cameras synchronized: `rosrun camera_calibration camera_calibration record sync`
-4. Calibrate the extrinsics: `rosrun camera_calibration camera_calibration calibrate sync`
+4. Record images on both cameras synchronized: `rosrun kinect2_calibration kinect2_calibration record sync`
+4. Calibrate the extrinsics: `rosrun kinect2_calibration kinect2_calibration calibrate sync`
 
-The standard board is a 7x6 0.108m chessboard from the PR2. But any other board can be specified with as parameter. For example a circle board with 8x7 circles in 0.02m distance between them `rosrun camera_calibration camera_calibration record color circle8x7x0.02`.
+The standard board is a 7x6 0.108m chessboard from the PR2. But any other board can be specified with as parameter. For example a circle board with 8x7 circles in 0.02m distance between them `rosrun kinect2_calibration kinect2_calibration record color circle8x7x0.02`.
 
 ## Example results
 
