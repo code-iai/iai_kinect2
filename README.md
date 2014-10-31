@@ -21,7 +21,7 @@ It contains:
 - PCL
 - Eigen (optional)
 - OpenCL (optional)
-- libfreenect2 (either directly form [this fork](https://github.com/wiedemeyer/libfreenect2) or with the changes of [this pull-request](https://github.com/OpenKinect/libfreenect2/pull/48) and [this pull-request](https://github.com/OpenKinect/libfreenect2/pull/47).)
+- libfreenect2 (either directly from [this fork](https://github.com/wiedemeyer/libfreenect2) or with the changes of [this pull-request](https://github.com/OpenKinect/libfreenect2/pull/48) and [this pull-request](https://github.com/OpenKinect/libfreenect2/pull/47).)
 
 ## Install
 

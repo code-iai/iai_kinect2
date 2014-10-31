@@ -233,7 +233,11 @@ private:
     {
       if(depthReg == NULL)
       {
+#ifdef USE_OPENCL_REGISTRATION
+        depthReg = DepthRegistration::New(cv::Size(color.cols, color.rows), cv::Size(depth.cols, depth.rows), cv::Size(depth.cols, depth.rows), 0.5f, 20.0f, 0.015f, DepthRegistration::OPENCL);
+#else
         depthReg = DepthRegistration::New(cv::Size(color.cols, color.rows), cv::Size(depth.cols, depth.rows), cv::Size(depth.cols, depth.rows), 0.5f, 20.0f, 0.015f, DepthRegistration::CPU);
+#endif
         depthReg->init(cameraMatrixColor, cameraMatrixDepth, cv::Mat::eye(3, 3, CV_64F), cv::Mat::zeros(1, 3, CV_64F), cv::Mat::zeros(depth.rows, depth.cols, CV_32F), cv::Mat::zeros(depth.rows, depth.cols, CV_32F));
       }
       depthReg->depthToRGBResolution(depth, scaled);

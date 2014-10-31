@@ -27,9 +27,12 @@
 #include <sys/stat.h>
 
 #include <opencv2/opencv.hpp>
+#ifdef USE_OPENCV_OPENCL
 #if CV_VERSION_EPOCH > 2 || (CV_VERSION_EPOCH == 2 && (CV_VERSION_MAJOR > 4 || CV_VERSION_MAJOR == 4 && CV_VERSION_MINOR >= 8))
-#define CV_OCL
 #include <opencv2/ocl/ocl.hpp>
+#else
+#undef USE_OPENCV_OPENCL
+#endif
 #endif
 
 #include <ros/ros.h>
@@ -67,7 +70,7 @@ private:
   cv::Mat map1Ir, map2Ir;
   cv::Mat map1ColorReg, map2ColorReg;
   cv::Mat map1Depth, map2Depth;
-#ifdef CV_OCL
+#ifdef USE_OPENCV_OPENCL
   cv::ocl::oclMat inColor, outColor;
   cv::ocl::oclMat inIr, outIr;
   cv::ocl::oclMat inDepth, outDepth;
@@ -140,8 +143,12 @@ public:
   Kinect2Bridge(const double fps, const bool rawDepth)
     : jpegQuality(95), pngLevel(0), maxDepth(10.0), queueSize(2), rawDepth(rawDepth), sizeColor(1920, 1080), sizeIr(512, 424),
       sizeDepth(rawDepth ? sizeIr : cv::Size(sizeColor.width / 2, sizeColor.height / 2)), newFrame(false), nh(),
-      depthReg(DepthRegistration::New(sizeColor, sizeDepth, sizeIr, 0.5f, maxDepth, 0.015f, DepthRegistration::OPENCL)), deltaT(1.0 / fps),
-      topics(COUNT)
+#ifdef USE_OPENCL_REGISTRATION
+      depthReg(DepthRegistration::New(sizeColor, sizeDepth, sizeIr, 0.5f, maxDepth, 0.015f, DepthRegistration::OPENCL)),
+#else
+      depthReg(DepthRegistration::New(sizeColor, sizeDepth, sizeIr, 0.5f, maxDepth, 0.015f, DepthRegistration::CPU)),
+#endif
+      deltaT(1.0 / fps), topics(COUNT)
   {
     topics[IR] = K2_TOPIC_IMAGE_IR;
     topics[IR_RECT] = K2_TOPIC_RECT_IR;
@@ -273,7 +280,7 @@ public:
     cv::initUndistortRectifyMap(cameraMatrixColor, distortionColor, cv::Mat(), cameraMatrixDepth, sizeDepth, mapType, map1ColorReg, map2ColorReg);
     cv::initUndistortRectifyMap(cameraMatrixIr, distortionIr, cv::Mat(), cameraMatrixDepth, sizeDepth, CV_32FC1, map1Depth, map2Depth);
 
-#ifdef CV_OCL
+#ifdef USE_OPENCV_OPENCL
     cv::ocl::DevicesInfo devices;
     cv::ocl::getOpenCLDevices(devices);
     cv::ocl::setDevice(devices[0]);
@@ -344,7 +351,13 @@ public:
     pubFrame = 0;
 
     process_lock.lock();
-    threads.resize(std::thread::hardware_concurrency());
+    size_t numOfThreads = std::thread::hardware_concurrency();
+    if(numOfThreads == 0)
+    {
+      std::cerr << "std::thread::hardware_concurrency() not returning a valid value. Using " << MIN_WORKER_THREADS << " worker threads." << std::endl;
+    }
+    numOfThreads = std::max(MIN_WORKER_THREADS, (int)numOfThreads);
+    threads.resize(numOfThreads);
     for(size_t i = 0; i < threads.size(); ++i)
     {
       threads[i] = std::thread(&Kinect2Bridge::run_thread, this);
@@ -585,7 +598,7 @@ private:
     }
     if(status[IR_RECT])
     {
-#ifdef CV_OCL
+#ifdef USE_OPENCV_OPENCL
       inIr.upload(images[IR]);
       cv::ocl::remap(inIr, outIr, map1IrOCL, map2IrOCL, cv::INTER_LINEAR, cv::BORDER_CONSTANT);
       outIr.download(images[IR_RECT]);
@@ -603,7 +616,7 @@ private:
     {
       if(rawDepth)
       {
-#ifdef CV_OCL
+#ifdef USE_OPENCV_OPENCL
         inDepth.upload(images[DEPTH]);
         cv::ocl::remap(inDepth, outDepth, map1DepthOCL, map2DepthOCL, cv::INTER_NEAREST, cv::BORDER_CONSTANT);
         outDepth.download(images[DEPTH_RECT]);
@@ -640,7 +653,7 @@ private:
     images[COLOR] = color;
     if(status[COLOR_RECT] || status[MONO_RECT])
     {
-#ifdef CV_OCL
+#ifdef USE_OPENCV_OPENCL
       inColor.upload(images[COLOR]);
       cv::ocl::remap(inColor, outColor, map1ColorOCL, map2ColorOCL, cv::INTER_LINEAR, cv::BORDER_CONSTANT);
       outColor.download(images[COLOR_RECT]);
@@ -650,7 +663,7 @@ private:
     }
     if(status[COLOR_REG] || status[MONO_REG])
     {
-#ifdef CV_OCL
+#ifdef USE_OPENCV_OPENCL
       inColorReg.upload(images[COLOR]);
       cv::ocl::remap(inColorReg, outColorReg, map1ColorRegOCL, map2ColorRegOCL, cv::INTER_LINEAR, cv::BORDER_CONSTANT);
       outColorReg.download(images[COLOR_REG]);
