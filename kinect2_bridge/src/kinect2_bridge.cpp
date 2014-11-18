@@ -46,6 +46,8 @@
 #include <compressed_depth_image_transport/compression_common.h>
 
 #include <libfreenect2/libfreenect2.hpp>
+#include <libfreenect2/frame_listener_impl.h>
+#include <libfreenect2/packet_pipeline.h>
 
 #include <kinect2_definitions.h>
 #include <depth_registration.h>
@@ -92,8 +94,9 @@ private:
 
   libfreenect2::Freenect2 freenect2;
   libfreenect2::Freenect2Device *device;
-  libfreenect2::FrameListener *listener;
+  libfreenect2::SyncMultiFrameListener *listener;
   libfreenect2::FrameMap frames;
+  libfreenect2::PacketPipeline *packetPipeline;
 
   ros::NodeHandle nh;
 
@@ -143,11 +146,6 @@ public:
   Kinect2Bridge(const double fps, const bool rawDepth)
     : jpegQuality(95), pngLevel(0), maxDepth(10.0), queueSize(2), rawDepth(rawDepth), sizeColor(1920, 1080), sizeIr(512, 424),
       sizeDepth(rawDepth ? sizeIr : cv::Size(sizeColor.width / 2, sizeColor.height / 2)), newFrame(false), nh(),
-#ifdef USE_OPENCL_REGISTRATION
-      depthReg(DepthRegistration::New(sizeColor, sizeDepth, sizeIr, 0.5f, maxDepth, 0.015f, DepthRegistration::OPENCL)),
-#else
-      depthReg(DepthRegistration::New(sizeColor, sizeDepth, sizeIr, 0.5f, maxDepth, 0.015f, DepthRegistration::CPU)),
-#endif
       deltaT(1.0 / fps), topics(COUNT)
   {
     topics[IR] = K2_TOPIC_IMAGE_IR;
@@ -174,20 +172,31 @@ public:
     compressionParams[3] = pngLevel;
     compressionParams[4] = CV_IMWRITE_PNG_STRATEGY;
     compressionParams[5] = CV_IMWRITE_PNG_STRATEGY_RLE;
+
+#ifdef USE_OPENCL_REGISTRATION
+    depthReg = DepthRegistration::New(sizeColor, sizeDepth, sizeIr, 0.5f, maxDepth, 0.015f, DepthRegistration::OPENCL);
+#else
+    depthReg = DepthRegistration::New(sizeColor, sizeDepth, sizeIr, 0.5f, maxDepth, 0.015f, DepthRegistration::CPU);
+#endif
+#ifdef USE_OPENCL_PIPELINE
+    packetPipeline = new libfreenect2::OpenCLPacketPipeline();
+#else
+    packetPipeline = new libfreenect2::DefaultPacketPipeline();
+#endif
   }
 
   bool init(const std::string &path)
   {
     std::string serial;
 
-    device = freenect2.openDefaultDevice();
+    device = freenect2.openDefaultDevice(packetPipeline);
 
     if(device == 0)
     {
       std::cout << "no device connected or failure opening the default one!" << std::endl;
       return -1;
     }
-    listener = libfreenect2::FrameListener::create(libfreenect2::Frame::Color | libfreenect2::Frame::Ir | libfreenect2::Frame::Depth);
+    listener = new libfreenect2::SyncMultiFrameListener(libfreenect2::Frame::Color | libfreenect2::Frame::Ir | libfreenect2::Frame::Depth);
 
     device->setColorFrameListener(listener);
     device->setIrAndDepthFrameListener(listener);
@@ -369,7 +378,21 @@ public:
     {
       cv::Mat color, depth, ir;
 
-      listener->waitForNewFrame(frames);
+      bool newFrames = listener->waitForNewFrame(frames, 1000);
+
+      if(!ros::ok())
+      {
+        if(newFrames)
+        {
+          listener->release(frames);
+        }
+        break;
+      }
+      if(!newFrames)
+      {
+        continue;
+      }
+
       libfreenect2::Frame *colorFrame = frames[libfreenect2::Frame::Color];
       libfreenect2::Frame *irFrame = frames[libfreenect2::Frame::Ir];
       libfreenect2::Frame *depthFrame = frames[libfreenect2::Frame::Depth];
@@ -383,11 +406,6 @@ public:
       cv::flip(depthMat, depth, 1);
 
       listener->release(frames);
-
-      if(!ros::ok())
-      {
-        break;
-      }
 
       double now = ros::Time::now().toSec();
       if(now < nextFrame)

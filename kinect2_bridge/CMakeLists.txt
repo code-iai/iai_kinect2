@@ -1,18 +1,33 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(kinect2_bridge)
 
-option(USE_OPENCL_REGISTRATION "Use OpenCL implementation of the depth registration" ON)
-option(USE_OPENCV_OPENCL       "Use OpenCV OpenCL functions for rectification"       OFF)
+option(USE_OPENCL_REGISTRATION "Use OpenCL implementation of the depth registration"       ON)
+option(USE_OPENCL_PIPELINE     "Use OpenCL implementation of libfreenect2 packet pipeline" ON)
+option(USE_OPENCV_OPENCL       "Use OpenCV OpenCL functions for rectification"             OFF)
 set(MIN_WORKER_THREADS 2 CACHE STRING "Minimum number of worker threads")
 
 set(CMAKE_BUILD_TYPE Release)
 #set(CMAKE_BUILD_TYPE RelWithDebInfo)
 #set(CMAKE_BUILD_TYPE Debug)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -std=c++11 -DBT_USE_DOUBLE_PRECISION -Wall")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBT_USE_DOUBLE_PRECISION -Wall")
 # Unused warnings
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wuninitialized -Winit-self -Wunused-function -Wunused-label -Wunused-variable -Wunused-but-set-variable -Wunused-but-set-parameter")
 # Additional warnings
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Warray-bounds -Wtype-limits -Wreturn-type -Wsequence-point -Wparentheses -Wmissing-braces -Wchar-subscripts -Wswitch -Wwrite-strings -Wenum-compare -Wempty-body -Wlogical-op")
+
+# Check for c++11 support
+INCLUDE(CheckCXXCompilerFlag)
+CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
+CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
+IF(COMPILER_SUPPORTS_CXX11)
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+ELSEIF(COMPILER_SUPPORTS_CXX0X)
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+ELSE()
+  MESSAGE(STATUS "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
+ENDIF()
+
+find_package(freenect2 CONFIG)
 
 find_package(catkin REQUIRED COMPONENTS roscpp rostime std_msgs sensor_msgs cv_bridge compressed_depth_image_transport depth_registration)
 find_package(cmake_modules QUIET)
@@ -61,22 +76,27 @@ add_custom_target(additional_files_${PROJECT_NAME}
 include_directories(include
   ${catkin_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIR}
+  ${freenect2_INCLUDE_DIR}
 )
 
 if(USE_OPENCL_REGISTRATION)
   add_definitions(-DUSE_OPENCL_REGISTRATION)
+endif()
+if(USE_OPENCL_PIPELINE)
+  add_definitions(-DUSE_OPENCL_PIPELINE)
 endif()
 if(USE_OPENCV_OPENCL)
   add_definitions(-USE_OPENCV_OPENCL)
 endif()
 add_definitions(-DMIN_WORKER_THREADS=${MIN_WORKER_THREADS})
 add_definitions(-DK2_CALIB_PATH="${PROJECT_SOURCE_DIR}/data/")
+add_definitions(${freenect2_DEFINITIONS})
 
 add_executable(kinect2_bridge src/kinect2_bridge.cpp)
 target_link_libraries(kinect2_bridge
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
-  freenect2
+  ${freenect2_LIBRARY}
 )
 
 #############
