@@ -13,13 +13,13 @@ This is a bridge between [libfreenect2](https://github.com/OpenKinect/libfreenec
 - delivers up to 30 frames per second on non high end hardware
 - delivers up to 30 frames per second over gigabit ethernet
 - support for compressed image transport
-- utilizes multiple cores and uses special OpenCL based implementation of the depth registration and libfreenect2
+- utilizes multiple cores and uses special OpenCL based implementation of the depth registration
 
 ## Dependencies
 
 - ROS Hydro/Indigo
 - OpenCV
-- libfreenect2 (either directly form [this fork](https://github.com/wiedemeyer/libfreenect2) or with the changes of [this pull-request](https://github.com/OpenKinect/libfreenect2/pull/48) and [this pull-request](https://github.com/OpenKinect/libfreenect2/pull/47).)
+- [libfreenect2](https://github.com/OpenKinect/libfreenect2)
 
 *for the ROS packages look at the package.xml*
 
