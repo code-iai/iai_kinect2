@@ -21,11 +21,11 @@ It contains:
 - PCL
 - Eigen (optional)
 - OpenCL (optional)
-- libfreenect2 (either directly from [this fork](https://github.com/wiedemeyer/libfreenect2) or with the changes of [this pull-request](https://github.com/OpenKinect/libfreenect2/pull/48) and [this pull-request](https://github.com/OpenKinect/libfreenect2/pull/47).)
+- [libfreenect2](https://github.com/OpenKinect/libfreenect2)
 
 ## Install
 
-1. Install the dependencies. *Note that a modified version of libfreenect2 is needed*
+1. Install the dependencies.
 2. Clone this repository into your catkin workspace.
 3. Build it.
 4. Connect your sensor and run `kinect2_bridge`.
