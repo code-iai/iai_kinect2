@@ -32,6 +32,7 @@ It contains:
 - Enable C++11 in [line 8](https://github.com/OpenKinect/libfreenect2/blob/master/examples/protonect/CMakeLists.txt#L8)
 - Change [line 102](https://github.com/OpenKinect/libfreenect2/blob/master/examples/protonect/CMakeLists.txt#L102) from 'usb-1.0' to 'usb-1.0.a'
 - Replace [line 51 to 57](https://github.com/OpenKinect/libfreenect2/blob/master/examples/protonect/CMakeLists.txt#L51-57) with
+
   ```
 # GLEW
 FIND_PACKAGE(GLEW REQUIRED)
@@ -40,6 +41,7 @@ INCLUDE_DIRECTORIES(${GLEW_INCLUDE_DIR})
 
 [freenect2.cmake.in](https://github.com/OpenKinect/libfreenect2/blob/master/examples/protonect/freenect2.cmake.in):
 - Add the following lines to the end of the file:
+
   ```
 IF("@ENABLE_OPENCL@" AND "@OPENCL_FOUND@")
     SET(freenect2_DEFINITIONS "${freenect2_DEFINITIONS} -DWITH_OPENCL_SUPPORT")
