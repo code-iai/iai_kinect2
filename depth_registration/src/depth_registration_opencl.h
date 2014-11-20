@@ -26,27 +26,16 @@ class DepthRegistrationOpenCL : public DepthRegistration
 private:
   struct OCLData;
 
-  const cv::Size sizeColor, sizeDepth, sizeRaw;
-
-  const uint16_t zNear;
-  const uint16_t zFar;
-  const float zDist;
-
   OCLData *data;
-  cv::Mat map1, map2;
 
 public:
-  DepthRegistrationOpenCL(const cv::Size &color, const cv::Size &depth, const cv::Size &raw, const float zNear = 0.5f, const float zFar = 12.0f, const float zDist = 0.015f);
+  DepthRegistrationOpenCL();
 
   ~DepthRegistrationOpenCL();
 
   bool init();
 
-  void remapDepth(const cv::Mat &in, cv::Mat &out) const;
-
   void registerDepth(const cv::Mat &depth, cv::Mat &registered);
-
-  void depthToRGBResolution(const cv::Mat &registered, cv::Mat &upscaled);
 
 private:
   void generateOptions(std::string &options) const;

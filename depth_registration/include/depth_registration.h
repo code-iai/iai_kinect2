@@ -34,7 +34,9 @@ public:
   };
 
 protected:
-  cv::Mat cameraMatrixColor, cameraMatrixDepth, rotation, translation, mapX, mapY;
+  cv::Mat cameraMatrixRegistered, cameraMatrixDepth, rotation, translation, mapX, mapY;
+  cv::Size sizeRegistered, sizeDepth;
+  float zNear, zFar;
 
   DepthRegistration();
 
@@ -43,15 +45,13 @@ protected:
 public:
   virtual ~DepthRegistration();
 
-  bool init(const cv::Mat &cameraMatrixColor, const cv::Mat &cameraMatrixDepth, const cv::Mat &rotation, const cv::Mat &translation, const cv::Mat &mapX, const cv::Mat &mapY);
-
-  virtual void remapDepth(const cv::Mat &in, cv::Mat &out) const = 0;
+  bool init(const cv::Mat &cameraMatrixRegistered, const cv::Size &sizeRegistered, const cv::Mat &cameraMatrixDepth, const cv::Size &sizeDepth,
+            const cv::Mat &distortionDepth, const cv::Mat &rotation, const cv::Mat &translation,
+            const float zNear = 0.5f, const float zFar = 12.0f);
 
   virtual void registerDepth(const cv::Mat &depth, cv::Mat &registered) = 0;
 
-  virtual void depthToRGBResolution(const cv::Mat &registered, cv::Mat &upscaled) = 0;
-
-  static DepthRegistration *New(const cv::Size &color, const cv::Size &depth, const cv::Size &raw, const float zNear = 0.5f, const float zFar = 12.0f, const float zDist = 0.015f, Method method = DEFAULT);
+  static DepthRegistration *New(Method method = DEFAULT);
 };
 
 #endif //__DEPTH_REGISTRATION_H__

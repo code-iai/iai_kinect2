@@ -19,36 +19,33 @@
 #ifndef __DEPTH_REGISTRATION_CPU_H__
 #define __DEPTH_REGISTRATION_CPU_H__
 
+#include <Eigen/Geometry>
+
 #include <depth_registration.h>
 
 class DepthRegistrationCPU : public DepthRegistration
 {
 private:
-  const cv::Size sizeDepth, sizeColor;
-
-  const float zNear;
-  const float zFar;
-
   cv::Mat lookupX, lookupY;
-  cv::Mat map1, map2;
+  Eigen::Matrix4d proj;
+  double fx, fy, cx, cy;
 
 public:
-  DepthRegistrationCPU(const cv::Size &color, const cv::Size &depth, const cv::Size &raw, const float zNear = 0.5f, const float zFar = 12.0f);
+  DepthRegistrationCPU();
 
   ~DepthRegistrationCPU();
 
   bool init();
 
-  void remapDepth(const cv::Mat &in, cv::Mat &out) const;
-
   void registerDepth(const cv::Mat &depth, cv::Mat &registered);
-
-  void depthToRGBResolution(const cv::Mat &registered, cv::Mat &upscaled);
 
 private:
   void createLookup();
 
   uint16_t interpolate(const cv::Mat &in, const float &x, const float &y) const;
+
+  void remapDepth(const cv::Mat &depth, cv::Mat &scaled) const;
+  void projectDepth(const cv::Mat &scaled, cv::Mat &registered) const;
 };
 
 #endif //__DEPTH_REGISTRATION_CPU_H__

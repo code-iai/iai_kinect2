@@ -50,7 +50,7 @@
 
 #include <kinect2_definitions.h>
 
-#include <depth_registration.h>
+//#include <depth_registration.h>
 
 class Receiver
 {
@@ -98,12 +98,12 @@ private:
   std::ostringstream oss;
   std::vector<int> params;
 
-  DepthRegistration *depthReg;
+  //DepthRegistration *depthReg;
 
 public:
   Receiver(const std::string &topicColor, const std::string &topicDepth, const bool useExact)
     : topicColor(topicColor), topicDepth(topicDepth), useExact(useExact), updateImage(false), updateCloud(false), save(false), running(false), frame(0), queueSize(5),
-      nh(), spinner(0), it(nh), mode(CLOUD), depthReg(NULL)
+      nh(), spinner(0), it(nh), mode(CLOUD)//, depthReg(NULL)
   {
     cameraMatrixColor = cv::Mat::zeros(3, 3, CV_64F);
     cameraMatrixDepth = cv::Mat::zeros(3, 3, CV_64F);
@@ -213,10 +213,10 @@ private:
       imageViewerThread.join();
     }
 
-    if(depthReg)
+    /*if(depthReg)
     {
       delete depthReg;
-    }
+    }*/
   }
 
   void callback(const sensor_msgs::Image::ConstPtr imageColor, const sensor_msgs::Image::ConstPtr imageDepth,
@@ -229,7 +229,7 @@ private:
     readImage(imageColor, color);
     readImage(imageDepth, depth);
 
-    if(depth.rows != color.rows || depth.cols != color.cols)
+    /*if(depth.rows != color.rows || depth.cols != color.cols)
     {
       if(depthReg == NULL)
       {
@@ -245,11 +245,11 @@ private:
     else
     {
       scaled = depth;
-    }
+    }*/
 
     lock.lock();
     this->color = color;
-    this->depth = scaled;
+    this->depth = depth;
     updateImage = true;
     updateCloud = true;
     lock.unlock();
@@ -559,8 +559,8 @@ int main(int argc, char **argv)
     return 0;
   }
 
-  std::string topicColor = "/" K2_TOPIC_RECT_COLOR K2_TOPIC_RAW;
-  std::string topicDepth = "/" K2_TOPIC_REG_DEPTH K2_TOPIC_RAW;
+  std::string topicColor = K2_TOPIC_LORES_COLOR K2_TOPIC_RAW;
+  std::string topicDepth = K2_TOPIC_LORES_DEPTH K2_TOPIC_RAW;
   bool useExact = true;
   Receiver::Mode mode = Receiver::CLOUD;
 
@@ -576,27 +576,15 @@ int main(int argc, char **argv)
     }
     else if(param == "-kinect2")
     {
-      topicColor = "/" K2_TOPIC_REG_COLOR K2_TOPIC_RAW;
-      topicDepth = "/" K2_TOPIC_REG_DEPTH K2_TOPIC_RAW;
+      topicColor = K2_TOPIC_LORES_COLOR K2_TOPIC_RAW;
+      topicDepth = K2_TOPIC_LORES_DEPTH K2_TOPIC_RAW;
       useExact = true;
     }
     else if(param == "-kinect2hd")
     {
-      topicColor = "/" K2_TOPIC_RECT_COLOR K2_TOPIC_RAW;
-      topicDepth = "/" K2_TOPIC_REG_DEPTH K2_TOPIC_RAW;
+      topicColor = K2_TOPIC_RECT_COLOR K2_TOPIC_RAW;
+      topicDepth = K2_TOPIC_HIRES_DEPTH K2_TOPIC_RAW;
       useExact = true;
-    }
-    else if(param == "-pr2")
-    {
-      topicColor = "/kinect_head/rgb/image_color"; //"/kinect_head/rgb/image_rect_color"
-      topicDepth = "/kinect_head/depth_registered/image_raw";
-      useExact = false;
-    }
-    else if(param == "-xtion")
-    {
-      topicColor = "/camera/rgb/image_raw";
-      topicDepth = "/camera/depth_registered/image_raw";
-      useExact = false;
     }
     else if(param == "-color" && i + 1 < (size_t)argc)
     {
