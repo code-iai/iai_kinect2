@@ -35,19 +35,25 @@ DepthRegistration::~DepthRegistration()
 {
 }
 
-bool DepthRegistration::init(const cv::Mat &cameraMatrixColor, const cv::Mat &cameraMatrixDepth, const cv::Mat &rotation, const cv::Mat &translation, const cv::Mat &mapX, const cv::Mat &mapY)
+bool DepthRegistration::init(const cv::Mat &cameraMatrixRegistered, const cv::Size &sizeRegistered, const cv::Mat &cameraMatrixDepth, const cv::Size &sizeDepth,
+                             const cv::Mat &distortionDepth, const cv::Mat &rotation, const cv::Mat &translation,
+                             const float zNear, const float zFar)
 {
-  this->cameraMatrixColor = cameraMatrixColor;
+  this->cameraMatrixRegistered = cameraMatrixRegistered;
   this->cameraMatrixDepth = cameraMatrixDepth;
   this->rotation = rotation;
   this->translation = translation;
-  this->mapX = mapX;
-  this->mapY = mapY;
+  this->sizeRegistered = sizeRegistered;
+  this->sizeDepth = sizeDepth;
+  this->zNear = zNear;
+  this->zFar = zFar;
+
+  cv::initUndistortRectifyMap(cameraMatrixDepth, distortionDepth, cv::Mat(), cameraMatrixRegistered, sizeRegistered, CV_32FC1, mapX, mapY);
 
   return init();
 }
 
-DepthRegistration *DepthRegistration::New(const cv::Size &color, const cv::Size &depth, const cv::Size &raw, const float zNear, const float zFar, const float zDist, Method method)
+DepthRegistration *DepthRegistration::New(Method method)
 {
   if(method == DEFAULT)
   {
@@ -66,7 +72,7 @@ DepthRegistration *DepthRegistration::New(const cv::Size &color, const cv::Size 
   case CPU:
 #ifdef DEPTH_REG_CPU
     std::cout << OUT_NAME("New") "Using CPU registration method!" << std::endl;
-    return new DepthRegistrationCPU(color, depth, raw, zNear, zFar);
+    return new DepthRegistrationCPU();
 #else
     std::cerr << OUT_NAME("New") "CPU registration method not available!" << std::endl;
     break;
@@ -74,7 +80,7 @@ DepthRegistration *DepthRegistration::New(const cv::Size &color, const cv::Size 
   case OPENCL:
 #ifdef DEPTH_REG_OPENCL
     std::cout << OUT_NAME("New") "Using OpenCL registration method!" << std::endl;
-    return new DepthRegistrationOpenCL(color, depth, raw, zNear, zFar, zDist);
+    return new DepthRegistrationOpenCL();
 #else
     std::cerr << OUT_NAME("New") "OpenCL registration method not available!" << std::endl;
     break;

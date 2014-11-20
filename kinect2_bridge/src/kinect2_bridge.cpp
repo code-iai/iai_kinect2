@@ -71,7 +71,6 @@ private:
   cv::Mat map1Color, map2Color;
   cv::Mat map1Ir, map2Ir;
   cv::Mat map1ColorReg, map2ColorReg;
-  cv::Mat map1Depth, map2Depth;
 #ifdef USE_OPENCV_OPENCL
   cv::ocl::oclMat inColor, outColor;
   cv::ocl::oclMat inIr, outIr;
@@ -85,10 +84,10 @@ private:
 
   std::vector<std::thread> threads;
   std::mutex lock;
-  std::mutex process_lock;
-  std::mutex pub_lock;
-  std::mutex depth_remap_lock;
-  std::mutex depth_register_lock;
+  std::mutex lockProcess;
+  std::mutex lockPub;
+  std::mutex lockRegLowRes;
+  std::mutex lockRegHighRes;
   size_t pubFrame;
   bool newFrame;
 
@@ -100,7 +99,8 @@ private:
 
   ros::NodeHandle nh;
 
-  DepthRegistration *depthReg;
+  DepthRegistration *depthRegLowRes;
+  DepthRegistration *depthRegHighRes;
 
   const double deltaT;
 
@@ -111,16 +111,16 @@ private:
 
     DEPTH,
     DEPTH_RECT,
-    DEPTH_REG,
+    DEPTH_LORES,
     DEPTH_HIRES,
 
     COLOR,
     COLOR_RECT,
-    COLOR_REG,
+    COLOR_LORES,
 
     MONO,
     MONO_RECT,
-    MONO_REG,
+    MONO_LORES,
 
     COUNT
   };
@@ -152,14 +152,14 @@ public:
     topics[IR_RECT] = K2_TOPIC_RECT_IR;
     topics[DEPTH] = K2_TOPIC_IMAGE_DEPTH;
     topics[DEPTH_RECT] = K2_TOPIC_RECT_DEPTH;
-    topics[DEPTH_REG] = K2_TOPIC_REG_DEPTH;
+    topics[DEPTH_LORES] = K2_TOPIC_LORES_DEPTH;
     topics[DEPTH_HIRES] = K2_TOPIC_HIRES_DEPTH;
     topics[COLOR] = K2_TOPIC_IMAGE_COLOR;
     topics[COLOR_RECT] = K2_TOPIC_RECT_COLOR;
-    topics[COLOR_REG] = K2_TOPIC_REG_COLOR;
+    topics[COLOR_LORES] = K2_TOPIC_LORES_COLOR;
     topics[MONO] = K2_TOPIC_IMAGE_MONO;
     topics[MONO_RECT] = K2_TOPIC_RECT_MONO;
-    topics[MONO_REG] = K2_TOPIC_REG_MONO;
+    topics[MONO_LORES] = K2_TOPIC_LORES_MONO;
 
     color = cv::Mat::zeros(sizeColor, CV_8UC3);
     ir = cv::Mat::zeros(sizeIr, CV_32F);
@@ -174,9 +174,11 @@ public:
     compressionParams[5] = CV_IMWRITE_PNG_STRATEGY_RLE;
 
 #ifdef USE_OPENCL_REGISTRATION
-    depthReg = DepthRegistration::New(sizeColor, sizeDepth, sizeIr, 0.5f, maxDepth, 0.015f, DepthRegistration::OPENCL);
+    depthRegLowRes = DepthRegistration::New(DepthRegistration::OPENCL);
+    depthRegHighRes = DepthRegistration::New(DepthRegistration::OPENCL);
 #else
-    depthReg = DepthRegistration::New(sizeColor, sizeDepth, sizeIr, 0.5f, maxDepth, 0.015f, DepthRegistration::CPU);
+    depthRegLowRes = DepthRegistration::New(DepthRegistration::CPU);
+    depthRegHighRes = DepthRegistration::New(DepthRegistration::CPU);
 #endif
 #ifdef USE_OPENCL_PIPELINE
     packetPipeline = new libfreenect2::OpenCLPacketPipeline();
@@ -287,7 +289,6 @@ public:
     cv::initUndistortRectifyMap(cameraMatrixColor, distortionColor, cv::Mat(), cameraMatrixColor, sizeColor, mapType, map1Color, map2Color);
     cv::initUndistortRectifyMap(cameraMatrixIr, distortionIr, cv::Mat(), cameraMatrixIr, sizeIr, mapType, map1Ir, map2Ir);
     cv::initUndistortRectifyMap(cameraMatrixColor, distortionColor, cv::Mat(), cameraMatrixDepth, sizeDepth, mapType, map1ColorReg, map2ColorReg);
-    cv::initUndistortRectifyMap(cameraMatrixIr, distortionIr, cv::Mat(), cameraMatrixDepth, sizeDepth, CV_32FC1, map1Depth, map2Depth);
 
 #ifdef USE_OPENCV_OPENCL
     cv::ocl::DevicesInfo devices;
@@ -323,7 +324,11 @@ public:
     map2DepthOCL.upload(map2Depth);
 #endif
 
-    return depthReg->init(cameraMatrixColor, cameraMatrixDepth, rotation, translation, map1Depth, map2Depth);
+    bool ret = true;
+    ret = ret && depthRegLowRes->init(cameraMatrixDepth, sizeDepth, cameraMatrixIr, sizeIr, distortionIr, rotation, translation, 0.5f, maxDepth);
+    ret = ret && depthRegHighRes->init(cameraMatrixColor, sizeColor, cameraMatrixIr, sizeIr, distortionIr, rotation, translation, 0.5f, maxDepth);
+
+    return ret;
   }
 
   void run()
@@ -359,7 +364,7 @@ public:
     frame = 0;
     pubFrame = 0;
 
-    process_lock.lock();
+    lockProcess.lock();
     size_t numOfThreads = std::thread::hardware_concurrency();
     if(numOfThreads == 0)
     {
@@ -423,7 +428,7 @@ public:
       if(!newFrame)
       {
         newFrame = true;
-        process_lock.unlock();
+        lockProcess.unlock();
       }
       createHeader();
       this->color = color;
@@ -438,7 +443,7 @@ public:
 
     for(size_t i = 0; i < threads.size(); ++i)
     {
-      process_lock.unlock();
+      lockProcess.unlock();
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
     for(size_t i = 0; i < threads.size(); ++i)
@@ -472,7 +477,7 @@ private:
 
     for(; ros::ok();)
     {
-      process_lock.lock();
+      lockProcess.lock();
       if(!newFrame)
       {
         continue;
@@ -547,9 +552,9 @@ private:
     createCameraInfo(sizeIr, cameraMatrixIr, cv::Mat::zeros(1, 5, CV_64F), cv::Mat::eye(3, 3, CV_64F), projIr, infos[IR_RECT]);
 
     createCameraInfo(sizeDepth, cameraMatrixDepth, cv::Mat::zeros(1, 5, CV_64F), cv::Mat::eye(3, 3, CV_64F), projDepth, infos[DEPTH_RECT]);
-    createCameraInfo(sizeDepth, cameraMatrixDepth, cv::Mat::zeros(1, 5, CV_64F), cv::Mat::eye(3, 3, CV_64F), projDepth, infos[COLOR_REG]);
-    createCameraInfo(sizeDepth, cameraMatrixDepth, cv::Mat::zeros(1, 5, CV_64F), cv::Mat::eye(3, 3, CV_64F), projDepth, infos[MONO_REG]);
-    createCameraInfo(sizeDepth, cameraMatrixDepth, cv::Mat::zeros(1, 5, CV_64F), cv::Mat::eye(3, 3, CV_64F), projDepth, infos[DEPTH_REG]);
+    createCameraInfo(sizeDepth, cameraMatrixDepth, cv::Mat::zeros(1, 5, CV_64F), cv::Mat::eye(3, 3, CV_64F), projDepth, infos[COLOR_LORES]);
+    createCameraInfo(sizeDepth, cameraMatrixDepth, cv::Mat::zeros(1, 5, CV_64F), cv::Mat::eye(3, 3, CV_64F), projDepth, infos[MONO_LORES]);
+    createCameraInfo(sizeDepth, cameraMatrixDepth, cv::Mat::zeros(1, 5, CV_64F), cv::Mat::eye(3, 3, CV_64F), projDepth, infos[DEPTH_LORES]);
 
     createCameraInfo(sizeColor, cameraMatrixColor, cv::Mat::zeros(1, 5, CV_64F), cv::Mat::eye(3, 3, CV_64F), projColor, infos[DEPTH_HIRES]);
   }
@@ -626,45 +631,37 @@ private:
     }
 
     // DEPTH
-    if(status[DEPTH] || status[DEPTH_RECT] || status[DEPTH_REG] || status[DEPTH_HIRES])
+    if(status[DEPTH] || status[DEPTH_RECT] || status[DEPTH_LORES] || status[DEPTH_HIRES])
     {
       depth.convertTo(images[DEPTH], CV_16U);
     }
-    if(status[DEPTH_RECT] || status[DEPTH_REG] || status[DEPTH_HIRES])
+    if(status[DEPTH_RECT])
     {
-      if(rawDepth)
-      {
 #ifdef USE_OPENCV_OPENCL
         inDepth.upload(images[DEPTH]);
         cv::ocl::remap(inDepth, outDepth, map1DepthOCL, map2DepthOCL, cv::INTER_NEAREST, cv::BORDER_CONSTANT);
         outDepth.download(images[DEPTH_RECT]);
 #else
-        cv::remap(images[DEPTH], images[DEPTH_RECT], map1Depth, map2Depth, cv::INTER_NEAREST);
+        cv::remap(images[DEPTH], images[DEPTH_RECT], map1Ir, map2Ir, cv::INTER_NEAREST);
 #endif
-      }
-      else
-      {
-        depth_remap_lock.lock();
-        //double start = ros::Time::now().toSec();
-        depthReg->remapDepth(images[DEPTH], images[DEPTH_RECT]);
-        //double end = ros::Time::now().toSec();
-        depth_remap_lock.unlock();
-        //std::cout << "remapDepth: " << (end - start) * 1000 << std::endl;
-        //cv::medianBlur(images[DEPTH_RECT], images[DEPTH_RECT], 3);
-      }
     }
-    if(status[DEPTH_REG] || status[DEPTH_HIRES])
+    if(status[DEPTH_LORES])
     {
-      depth_register_lock.lock();
-      //double start = ros::Time::now().toSec();
-      depthReg->registerDepth(images[DEPTH_RECT], images[DEPTH_REG]);
-      //double end = ros::Time::now().toSec();
-      depth_register_lock.unlock();
-      //std::cout << "registerDepth: " << (end - start) * 1000 << std::endl;
+      lockRegLowRes.lock();
+      double start = ros::Time::now().toSec();
+      depthRegLowRes->registerDepth(images[DEPTH], images[DEPTH_LORES]);
+      double end = ros::Time::now().toSec();
+      lockRegLowRes.unlock();
+      std::cout << "registerDepth: " << (end - start) * 1000 << std::endl;
     }
     if(status[DEPTH_HIRES])
     {
-      depthReg->depthToRGBResolution(images[DEPTH_REG], images[DEPTH_HIRES]);
+      lockRegHighRes.lock();
+      double start = ros::Time::now().toSec();
+      depthRegHighRes->registerDepth(images[DEPTH], images[DEPTH_HIRES]);
+      double end = ros::Time::now().toSec();
+      lockRegHighRes.unlock();
+      std::cout << "registerDepth: " << (end - start) * 1000 << std::endl;
     }
 
     // COLOR
@@ -679,14 +676,14 @@ private:
       cv::remap(images[COLOR], images[COLOR_RECT], map1Color, map2Color, cv::INTER_AREA);
 #endif
     }
-    if(status[COLOR_REG] || status[MONO_REG])
+    if(status[COLOR_LORES] || status[MONO_LORES])
     {
 #ifdef USE_OPENCV_OPENCL
       inColorReg.upload(images[COLOR]);
       cv::ocl::remap(inColorReg, outColorReg, map1ColorRegOCL, map2ColorRegOCL, cv::INTER_LINEAR, cv::BORDER_CONSTANT);
-      outColorReg.download(images[COLOR_REG]);
+      outColorReg.download(images[COLOR_LORES]);
 #else
-      cv::remap(images[COLOR], images[COLOR_REG], map1ColorReg, map2ColorReg, cv::INTER_AREA);
+      cv::remap(images[COLOR], images[COLOR_LORES], map1ColorReg, map2ColorReg, cv::INTER_AREA);
 #endif
     }
 
@@ -699,9 +696,9 @@ private:
     {
       cv::cvtColor(images[COLOR_RECT], images[MONO_RECT], CV_BGR2GRAY);
     }
-    if(status[MONO_REG])
+    if(status[MONO_LORES])
     {
-      cv::cvtColor(images[COLOR_REG], images[MONO_REG], CV_BGR2GRAY);
+      cv::cvtColor(images[COLOR_LORES], images[MONO_LORES], CV_BGR2GRAY);
     }
   }
 
@@ -723,7 +720,7 @@ private:
     {
       infoMsgs[i] = infos[i];
       infoMsgs[i].header = header;
-      infoMsgs[i].header.frame_id = i < DEPTH_REG ? K2_TF_IR_FRAME : K2_TF_RGB_FRAME;
+      infoMsgs[i].header.frame_id = i < DEPTH_LORES ? K2_TF_IR_FRAME : K2_TF_RGB_FRAME;
 
       switch(status[i])
       {
@@ -746,7 +743,7 @@ private:
     {
       std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
-    pub_lock.lock();
+    lockPub.lock();
     for(size_t i = 0; i < COUNT; ++i)
     {
       switch(status[i])
@@ -774,7 +771,7 @@ private:
     }
     //std::cout << "published frame: " << pubFrame << " delay: " << (ros::Time::now().toSec() - header.stamp.toSec()) * 1000.0 << " ms." << std::endl;
     ++pubFrame;
-    pub_lock.unlock();
+    lockPub.unlock();
   }
 
   void createImage(const cv::Mat &image, const std_msgs::Header &header, const Image type, sensor_msgs::Image &msgImage) const
@@ -791,18 +788,18 @@ private:
       break;
     case DEPTH:
     case DEPTH_RECT:
-    case DEPTH_REG:
+    case DEPTH_LORES:
     case DEPTH_HIRES:
       msgImage.encoding = sensor_msgs::image_encodings::TYPE_16UC1;
       break;
     case COLOR:
     case COLOR_RECT:
-    case COLOR_REG:
+    case COLOR_LORES:
       msgImage.encoding = sensor_msgs::image_encodings::BGR8;
       break;
     case MONO:
     case MONO_RECT:
-    case MONO_REG:
+    case MONO_LORES:
       msgImage.encoding = sensor_msgs::image_encodings::MONO8;
       break;
     case COUNT:
@@ -831,7 +828,7 @@ private:
       break;
     case DEPTH:
     case DEPTH_RECT:
-    case DEPTH_REG:
+    case DEPTH_LORES:
     case DEPTH_HIRES:
       {
         compressed_depth_image_transport::ConfigHeader compressionConfig;
@@ -849,13 +846,13 @@ private:
       }
     case COLOR:
     case COLOR_RECT:
-    case COLOR_REG:
+    case COLOR_LORES:
       msgImage.format = sensor_msgs::image_encodings::BGR8 + "; jpeg compressed bgr8";
       cv::imencode(".jpg", image, msgImage.data, compressionParams);
       break;
     case MONO:
     case MONO_RECT:
-    case MONO_REG:
+    case MONO_LORES:
       msgImage.format = sensor_msgs::image_encodings::MONO8 + "; png compressed ";
       cv::imencode(".png", image, msgImage.data, compressionParams);
       break;

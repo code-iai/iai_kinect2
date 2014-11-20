@@ -26,8 +26,8 @@ void kernel setZero(global ushort* rendered, global float *selDist){
 void kernel project(global const ushort *depth, global int4 *idx, global ushort *zImg, global float4 *dists, global float *selDist, global ushort *rendered){
   const uint i = get_global_id(0);
 
-  const int xD = i % widthD;
-  const int yD = i / widthD;
+  const int xR = i % widthR;
+  const int yR = i / widthR;
 
   const ushort d = depth[i];
 
@@ -38,7 +38,7 @@ void kernel project(global const ushort *depth, global int4 *idx, global ushort 
 
   // Compute 3D point
   const float z = d / 1000.0f;
-  const float4 point = (float4)((xD - cxD) * fxDInv * z, (yD - cyD) * fyDInv * z, z, 1.0f);
+  const float4 point = (float4)((xR - cxR) * fxRInv * z, (yR - cyR) * fyRInv * z, z, 1.0f);
 
   // Rotate and translate
   const float3 projected = (float3)(dot(point, projX), dot(point, projY), dot(point, projZ));
@@ -46,8 +46,8 @@ void kernel project(global const ushort *depth, global int4 *idx, global ushort 
   const float invZ = 1.0f / projected.z;
 
   // Compute projected image coordinates
-  const float x = (fxD * projected.x) * invZ + cxD;
-  const float y = (fyD * projected.y) * invZ + cyD;
+  const float x = (fxR * projected.x) * invZ + cxR;
+  const float y = (fyR * projected.y) * invZ + cyR;
   const short xL = (short)floor(x);
   const short yL = (short)floor(y);
   const short xH = xL + 1;
@@ -56,8 +56,8 @@ void kernel project(global const ushort *depth, global int4 *idx, global ushort 
   const float4 distXY = (float4)((x - xL) * (x - xL), (xH - x) * (xH - x), (y - yL) * (y - yL), (yH - y) * (yH - y));
   const float4 dist2 = (float4)(distXY.s0 + distXY.s2, distXY.s1 + distXY.s2, distXY.s0 + distXY.s3, distXY.s1 + distXY.s3);
 
-  const int yLI = yL * widthD;
-  const int yHI = yH * widthD;
+  const int yLI = yL * widthR;
+  const int yHI = yH * widthR;
   int4 indices = (int4)(yLI + xL, yLI + xH, yHI + xL, yHI + xH);
 
   const ushort zI = (ushort)(projected.z * 1000.0f);
@@ -71,11 +71,11 @@ void kernel project(global const ushort *depth, global int4 *idx, global ushort 
   {
     indices.s0 = indices.s1 = -1;
   }
-  if(xH >= widthD)
+  if(xH >= widthR)
   {
     indices.s1 = indices.s3 = -1;
   }
-  if(yH >= heightD)
+  if(yH >= heightR)
   {
     indices.s2 = indices.s3 = -1;
   }
@@ -142,71 +142,6 @@ void kernel render(global const int4 *idx, global const ushort *zImg, global con
   }
 }
 
-// Calculate 3d point, project them to color camera coordinate system and create rendered depth image
-/*void kernel project(global const unsigned short *depth, global int *idx, global unsigned short *zImg, global unsigned short *rendered){
-  const uint i = get_global_id(0);
-
-  const int xD = i % widthD;
-  const int yD = i / widthD;
-
-  const ushort d = depth[i];
-
-  // Projection matrix coloumns
-  const float4 projX = (float4)(r00, r01, r02, tx);
-  const float4 projY = (float4)(r10, r11, r12, ty);
-  const float4 projZ = (float4)(r20, r21, r22, tz);
-
-  // Compute 3D point
-  const float z = d / 1000.0f;
-  const float4 point = (float4)((xD - cxD) * fxDInv * z, (yD - cyD) * fyDInv * z, z, 1.0f);
-
-  // Rotate and translate
-  const float3 projected = (float3)(dot(point, projX), dot(point, projY), dot(point, projZ));
-
-  const float invZ = 1.0f / projected.z;
-
-  // Compute projected image coordinates
-  const short xI = (short)((fxD * projected.x) * invZ + cxD);
-  const short yI = (short)((fyD * projected.y) * invZ + cyD);
-
-  // Check if depth is valid and projection is inside the image
-  if(d >= zNear && d <= zFar && xI >= 0 && xI < widthD && yI >= 0 && yI < heightD)
-  {
-    const ushort zI = (ushort)(projected.z * 1000.0f);
-    const int index = xI + yI * widthD;
-
-    idx[i] = index;
-    zImg[i] = zI;
-
-    // Store in rendered image. Due to concurrency value can get overridden by other workers
-    if(rendered[index] == 0 || zI < rendered[index])
-    {
-      rendered[index] = zI;
-    }
-  }
-  else
-  {
-    idx[i] = -1;
-    zImg[i] = 0;
-  }
-}
-
-// update rendered depth image to make sure nearest depth values are used
-void kernel render(global const int *idx, global const ushort *zImg, global ushort *rendered){
-  const uint i = get_global_id(0);
-
-  const int index = idx[i];
-  const ushort zI = zImg[i];
-
-  if(index >= 0)
-  {
-    if(zI < rendered[index])
-    {
-      rendered[index] = zI;
-    }
-  }
-}*/
-
 // remap depth image
 void kernel remapDepth(global const ushort *in, global ushort *out, global const float *mapX, global const float *mapY)
 {
@@ -219,15 +154,15 @@ void kernel remapDepth(global const ushort *in, global ushort *out, global const
   const int yL = (int)floor(y);
   const int yH = yL + 1;
 
-  if(xL < 0 || yL < 0 || xH >= widthR || yH >= heightR)
+  if(xL < 0 || yL < 0 || xH >= widthD || yH >= heightD)
   {
     out[i] = 0;
     return;
   }
 
-  const uint iLT = yL * widthR + xL;
+  const uint iLT = yL * widthD + xL;
   const uint iRT = iLT + 1;
-  const uint iLB = iLT + widthR;
+  const uint iLB = iLT + widthD;
   const uint iRB = iLB + 1;
 
   const float4 p = (float4)(in[iLT], in[iRT], in[iLB], in[iRB]);

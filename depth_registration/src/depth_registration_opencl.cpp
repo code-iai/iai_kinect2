@@ -46,28 +46,26 @@ struct DepthRegistrationOpenCL::OCLData
   cl::Kernel kernelRemap;
 
   size_t sizeDepth;
+  size_t sizeRegistered;
   size_t sizeIndex;
   size_t sizeImgZ;
   size_t sizeDists;
   size_t sizeSelDist;
-  size_t sizeRendered;
-  size_t sizeRaw;
   size_t sizeMap;
 
   cl::Buffer bufferDepth;
+  cl::Buffer bufferScaled;
+  cl::Buffer bufferRegistered;
   cl::Buffer bufferIndex;
   cl::Buffer bufferImgZ;
   cl::Buffer bufferDists;
   cl::Buffer bufferSelDist;
-  cl::Buffer bufferRendered;
-  cl::Buffer bufferRemapIn;
-  cl::Buffer bufferRemapOut;
   cl::Buffer bufferMapX;
   cl::Buffer bufferMapY;
 };
 
-DepthRegistrationOpenCL::DepthRegistrationOpenCL(const cv::Size &color, const cv::Size &depth, const cv::Size &raw, const float zNear, const float zFar, const float zDist)
-  : DepthRegistration(), sizeColor(color), sizeDepth(depth), sizeRaw(raw), zNear(zNear * 1000), zFar(zFar * 1000), zDist(zDist)
+DepthRegistrationOpenCL::DepthRegistrationOpenCL()
+  : DepthRegistration()
 {
   data = new OCLData;
 }
@@ -162,47 +160,45 @@ bool DepthRegistrationOpenCL::init()
     data->queue = cl::CommandQueue(data->context, data->device, 0, &err);
 
     data->sizeDepth = sizeDepth.height * sizeDepth.width * sizeof(uint16_t);
-    data->sizeIndex = sizeDepth.height * sizeDepth.width * sizeof(cl_int4);
-    data->sizeImgZ = sizeDepth.height * sizeDepth.width * sizeof(uint16_t);
-    data->sizeDists = sizeDepth.height * sizeDepth.width * sizeof(cl_float4);
-    data->sizeSelDist = sizeDepth.height * sizeDepth.width * sizeof(float);
-    data->sizeRendered = sizeDepth.height * sizeDepth.width * sizeof(uint16_t);
-    data->sizeRaw = sizeRaw.height * sizeRaw.width * sizeof(uint16_t);
-    data->sizeMap = sizeDepth.height * sizeDepth.width * sizeof(float);
+    data->sizeRegistered = sizeRegistered.height * sizeRegistered.width * sizeof(uint16_t);
+    data->sizeIndex = sizeRegistered.height * sizeRegistered.width * sizeof(cl_int4);
+    data->sizeImgZ = sizeRegistered.height * sizeRegistered.width * sizeof(uint16_t);
+    data->sizeDists = sizeRegistered.height * sizeRegistered.width * sizeof(cl_float4);
+    data->sizeSelDist = sizeRegistered.height * sizeRegistered.width * sizeof(float);
+    data->sizeMap = sizeRegistered.height * sizeRegistered.width * sizeof(float);
 
     data->bufferDepth = cl::Buffer(data->context, CL_READ_ONLY_CACHE, data->sizeDepth, NULL, &err);
+    data->bufferScaled = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeRegistered, NULL, &err);
+    data->bufferRegistered = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeRegistered, NULL, &err);
     data->bufferIndex = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeIndex, NULL, &err);
     data->bufferImgZ = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeImgZ, NULL, &err);
     data->bufferDists = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeDists, NULL, &err);
     data->bufferSelDist = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeSelDist, NULL, &err);
-    data->bufferRendered = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeRendered, NULL, &err);
-    data->bufferRemapIn = cl::Buffer(data->context, CL_READ_ONLY_CACHE, data->sizeRaw, NULL, &err);
-    data->bufferRemapOut = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeDepth, NULL, &err);
     data->bufferMapX = cl::Buffer(data->context, CL_READ_ONLY_CACHE, data->sizeMap, NULL, &err);
     data->bufferMapY = cl::Buffer(data->context, CL_READ_ONLY_CACHE, data->sizeMap, NULL, &err);
 
     data->kernelSetZero = cl::Kernel(data->program, "setZero", &err);
-    data->kernelSetZero.setArg(0, data->bufferRendered);
+    data->kernelSetZero.setArg(0, data->bufferRegistered);
     data->kernelSetZero.setArg(1, data->bufferSelDist);
 
     data->kernelProject = cl::Kernel(data->program, "project", &err);
-    data->kernelProject.setArg(0, data->bufferDepth);
+    data->kernelProject.setArg(0, data->bufferScaled);
     data->kernelProject.setArg(1, data->bufferIndex);
     data->kernelProject.setArg(2, data->bufferImgZ);
     data->kernelProject.setArg(3, data->bufferDists);
     data->kernelProject.setArg(4, data->bufferSelDist);
-    data->kernelProject.setArg(5, data->bufferRendered);
+    data->kernelProject.setArg(5, data->bufferRegistered);
 
     data->kernelRender = cl::Kernel(data->program, "render", &err);
     data->kernelRender.setArg(0, data->bufferIndex);
     data->kernelRender.setArg(1, data->bufferImgZ);
     data->kernelRender.setArg(2, data->bufferDists);
     data->kernelRender.setArg(3, data->bufferSelDist);
-    data->kernelRender.setArg(4, data->bufferRendered);
+    data->kernelRender.setArg(4, data->bufferRegistered);
 
     data->kernelRemap = cl::Kernel(data->program, "remapDepth", &err);
-    data->kernelRemap.setArg(0, data->bufferRemapIn);
-    data->kernelRemap.setArg(1, data->bufferRemapOut);
+    data->kernelRemap.setArg(0, data->bufferDepth);
+    data->kernelRemap.setArg(1, data->bufferScaled);
     data->kernelRemap.setArg(2, data->bufferMapX);
     data->kernelRemap.setArg(3, data->bufferMapY);
 
@@ -223,52 +219,27 @@ bool DepthRegistrationOpenCL::init()
     return false;
   }
 
-  cv::initUndistortRectifyMap(cameraMatrixDepth, cv::Mat(), cv::Mat(), cameraMatrixColor, sizeColor, CV_16SC2, map1, map2);
   return true;
-}
-
-void DepthRegistrationOpenCL::remapDepth(const cv::Mat &in, cv::Mat &out) const
-{
-  if(out.empty() || out.rows != sizeDepth.height || out.cols != sizeDepth.width || out.type() != CV_16U)
-  {
-    out = cv::Mat(sizeDepth, CV_16U);
-  }
-
-  try
-  {
-    cl::Event eventKernel;
-    cl::NDRange range(sizeDepth.height * sizeDepth.width);
-
-    data->queue.enqueueWriteBuffer(data->bufferRemapIn, CL_TRUE, 0, data->sizeRaw, in.data);
-
-    data->queue.enqueueNDRangeKernel(data->kernelRemap, cl::NullRange, range, cl::NullRange, NULL, &eventKernel);
-    eventKernel.wait();
-
-    data->queue.enqueueReadBuffer(data->bufferRemapOut, CL_TRUE, 0, data->sizeDepth, out.data);
-  }
-  catch(cl::Error err)
-  {
-    std::cerr << OUT_NAME("remapDepth") "ERROR: " << err.what() << "(" << err.err() << ")" << std::endl;
-    return;
-  }
 }
 
 void DepthRegistrationOpenCL::registerDepth(const cv::Mat &depth, cv::Mat &registered)
 {
-  if(registered.empty() || registered.rows != sizeDepth.height || registered.cols != sizeDepth.width || registered.type() != CV_16U)
+  if(registered.empty() || registered.rows != sizeRegistered.height || registered.cols != sizeRegistered.width || registered.type() != CV_16U)
   {
-    registered = cv::Mat(sizeDepth, CV_16U);
+    registered = cv::Mat(sizeRegistered, CV_16U);
   }
 
   try
   {
-    cl::Event eventBuffer, eventKernel;
-    cl::NDRange range(sizeDepth.height * sizeDepth.width);
+    cl::Event eventKernel, eventZero;
+    cl::NDRange range(sizeRegistered.height * sizeRegistered.width);
 
-    data->queue.enqueueNDRangeKernel(data->kernelSetZero, cl::NullRange, range, cl::NullRange, NULL, &eventKernel);
-    data->queue.enqueueWriteBuffer(data->bufferDepth, CL_FALSE, 0, data->sizeDepth, depth.data, NULL, &eventBuffer);
-    eventBuffer.wait();
+    data->queue.enqueueWriteBuffer(data->bufferDepth, CL_TRUE, 0, data->sizeDepth, depth.data);
+    data->queue.enqueueNDRangeKernel(data->kernelSetZero, cl::NullRange, range, cl::NullRange, NULL, &eventZero);
+
+    data->queue.enqueueNDRangeKernel(data->kernelRemap, cl::NullRange, range, cl::NullRange, NULL, &eventKernel);
     eventKernel.wait();
+    eventZero.wait();
 
     data->queue.enqueueNDRangeKernel(data->kernelProject, cl::NullRange, range, cl::NullRange, NULL, &eventKernel);
     eventKernel.wait();
@@ -280,20 +251,13 @@ void DepthRegistrationOpenCL::registerDepth(const cv::Mat &depth, cv::Mat &regis
     //data->queue.enqueueNDRangeKernel(data->kernelRender, cl::NullRange, range, cl::NullRange, NULL, &eventKernel);
     //eventKernel.wait();
 
-    data->queue.enqueueReadBuffer(data->bufferRendered, CL_FALSE, 0, data->sizeRendered, registered.data, NULL, &eventBuffer);
-    eventBuffer.wait();
+    data->queue.enqueueReadBuffer(data->bufferRegistered, CL_TRUE, 0, data->sizeRegistered, registered.data);
   }
   catch(cl::Error err)
   {
     std::cerr << OUT_NAME("registerDepth") "ERROR: " << err.what() << "(" << err.err() << ")" << std::endl;
     return;
   }
-}
-
-void DepthRegistrationOpenCL::depthToRGBResolution(const cv::Mat &registered, cv::Mat &upscaled)
-{
-  cv::remap(registered, upscaled, map1, map2, cv::INTER_NEAREST);
-  //cv::medianBlur(upscaled, upscaled, 5);
 }
 
 void DepthRegistrationOpenCL::generateOptions(std::string &options) const
@@ -319,35 +283,24 @@ void DepthRegistrationOpenCL::generateOptions(std::string &options) const
   oss << " -D tz=" << translation.at<double>(2, 0) << "f";
 
   // Camera parameter upscaled depth
-  oss << " -D fxD=" << cameraMatrixDepth.at<double>(0, 0) << "f";
-  oss << " -D fyD=" << cameraMatrixDepth.at<double>(1, 1) << "f";
-  oss << " -D cxD=" << cameraMatrixDepth.at<double>(0, 2) << "f";
-  oss << " -D cyD=" << cameraMatrixDepth.at<double>(1, 2) << "f";
-  oss << " -D fxDInv=" << (1.0 / cameraMatrixDepth.at<double>(0, 0)) << "f";
-  oss << " -D fyDInv=" << (1.0 / cameraMatrixDepth.at<double>(1, 1)) << "f";
-
-  // Camera parameter color
-  oss << " -D fxC=" << cameraMatrixColor.at<double>(0, 0) << "f";
-  oss << " -D fyC=" << cameraMatrixColor.at<double>(1, 1) << "f";
-  oss << " -D cxC=" << cameraMatrixColor.at<double>(0, 2) << "f";
-  oss << " -D cyC=" << cameraMatrixColor.at<double>(1, 2) << "f";
+  oss << " -D fxR=" << cameraMatrixRegistered.at<double>(0, 0) << "f";
+  oss << " -D fyR=" << cameraMatrixRegistered.at<double>(1, 1) << "f";
+  oss << " -D cxR=" << cameraMatrixRegistered.at<double>(0, 2) << "f";
+  oss << " -D cyR=" << cameraMatrixRegistered.at<double>(1, 2) << "f";
+  oss << " -D fxRInv=" << (1.0 / cameraMatrixRegistered.at<double>(0, 0)) << "f";
+  oss << " -D fyRInv=" << (1.0 / cameraMatrixRegistered.at<double>(1, 1)) << "f";
 
   // Clipping distances
-  oss << " -D zNear=" << zNear;
-  oss << " -D zFar=" << zFar;
-  oss << " -D zDist=" << zDist << "f";
+  oss << " -D zNear=" << (uint16_t)(zNear * 1000);
+  oss << " -D zFar=" << (uint16_t)(zFar * 1000);
 
-  // Size color image
-  oss << " -D heightC=" << sizeColor.height;
-  oss << " -D widthC=" << sizeColor.width;
+  // Size registered image
+  oss << " -D heightR=" << sizeRegistered.height;
+  oss << " -D widthR=" << sizeRegistered.width;
 
   // Size depth image
   oss << " -D heightD=" << sizeDepth.height;
   oss << " -D widthD=" << sizeDepth.width;
-
-  // Size raw depth image
-  oss << " -D heightR=" << sizeRaw.height;
-  oss << " -D widthR=" << sizeRaw.width;
 
   options = oss.str();
 }

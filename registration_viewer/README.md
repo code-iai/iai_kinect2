@@ -32,8 +32,6 @@ Visualization:
 Predefined topics for color and depth:
   -kinect2    topics for the low res depth and color
   -kinect2hd  topics for the high res depth and color
-  -pr2        topics for the head mount kinect on pr2
-  -xtion      topics for the xtion
 ```
 
 Example: `rosrun registration_viewer viewer -kinect2 -cloud`
