@@ -27,13 +27,6 @@
 #include <sys/stat.h>
 
 #include <opencv2/opencv.hpp>
-#ifdef USE_OPENCV_OPENCL
-#if CV_VERSION_EPOCH > 2 || (CV_VERSION_EPOCH == 2 && (CV_VERSION_MAJOR > 4 || CV_VERSION_MAJOR == 4 && CV_VERSION_MINOR >= 8))
-#include <opencv2/ocl/ocl.hpp>
-#else
-#undef USE_OPENCV_OPENCL
-#endif
-#endif
 
 #include <ros/ros.h>
 #include <std_msgs/Header.h>
@@ -71,16 +64,6 @@ private:
   cv::Mat map1Color, map2Color;
   cv::Mat map1Ir, map2Ir;
   cv::Mat map1ColorReg, map2ColorReg;
-#ifdef USE_OPENCV_OPENCL
-  cv::ocl::oclMat inColor, outColor;
-  cv::ocl::oclMat inIr, outIr;
-  cv::ocl::oclMat inDepth, outDepth;
-  cv::ocl::oclMat inColorReg, outColorReg;
-  cv::ocl::oclMat map1ColorOCL, map2ColorOCL;
-  cv::ocl::oclMat map1IrOCL, map2IrOCL;
-  cv::ocl::oclMat map1ColorRegOCL, map2ColorRegOCL;
-  cv::ocl::oclMat map1DepthOCL, map2DepthOCL;
-#endif
 
   std::vector<std::thread> threads;
   std::mutex lock;
@@ -296,40 +279,6 @@ public:
     cv::initUndistortRectifyMap(cameraMatrixColor, distortionColor, cv::Mat(), cameraMatrixColor, sizeColor, mapType, map1Color, map2Color);
     cv::initUndistortRectifyMap(cameraMatrixIr, distortionIr, cv::Mat(), cameraMatrixIr, sizeIr, mapType, map1Ir, map2Ir);
     cv::initUndistortRectifyMap(cameraMatrixColor, distortionColor, cv::Mat(), cameraMatrixDepth, sizeDepth, mapType, map1ColorReg, map2ColorReg);
-
-#ifdef USE_OPENCV_OPENCL
-    cv::ocl::DevicesInfo devices;
-    cv::ocl::getOpenCLDevices(devices);
-    cv::ocl::setDevice(devices[0]);
-
-    std::cout << "OpenCL device: " << devices[0]->deviceName << ' ' << devices[0]->deviceProfile << std::endl;
-
-    inColor.createEx(sizeColor, CV_8UC3, cv::ocl::DEVICE_MEM_R_ONLY, cv::ocl::DEVICE_MEM_DEFAULT);
-    inIr.createEx(sizeIr, CV_16U, cv::ocl::DEVICE_MEM_R_ONLY, cv::ocl::DEVICE_MEM_DEFAULT);
-    inDepth.createEx(sizeIr, CV_16U, cv::ocl::DEVICE_MEM_R_ONLY, cv::ocl::DEVICE_MEM_DEFAULT);
-    inColor.createEx(sizeColor, CV_8UC3, cv::ocl::DEVICE_MEM_R_ONLY, cv::ocl::DEVICE_MEM_DEFAULT);
-    outColorReg.createEx(sizeColor, CV_8UC3, cv::ocl::DEVICE_MEM_W_ONLY, cv::ocl::DEVICE_MEM_DEFAULT);
-    outIr.createEx(sizeIr, CV_16U, cv::ocl::DEVICE_MEM_W_ONLY, cv::ocl::DEVICE_MEM_DEFAULT);
-    outDepth.createEx(sizeIr, CV_16U, cv::ocl::DEVICE_MEM_W_ONLY, cv::ocl::DEVICE_MEM_DEFAULT);
-    outColorReg.createEx(sizeColor, CV_8UC3, cv::ocl::DEVICE_MEM_W_ONLY, cv::ocl::DEVICE_MEM_DEFAULT);
-
-    /*map1ColorOCL.createEx(cv::Size(map1Color.cols, map1Color.rows), mapType, cv::ocl::DEVICE_MEM_R_ONLY, cv::ocl::DEVICE_MEM_DEFAULT);
-    map2ColorOCL.createEx(cv::Size(map2Color.cols, map2Color.rows), mapType, cv::ocl::DEVICE_MEM_R_ONLY, cv::ocl::DEVICE_MEM_DEFAULT);
-    map1IrOCL.createEx(cv::Size(map1Ir.cols, map1Ir.rows), mapType, cv::ocl::DEVICE_MEM_R_ONLY, cv::ocl::DEVICE_MEM_DEFAULT);
-    map2IrOCL.createEx(cv::Size(map2Ir.cols, map2Ir.rows), mapType, cv::ocl::DEVICE_MEM_R_ONLY, cv::ocl::DEVICE_MEM_DEFAULT);
-    map1ColorRegOCL.createEx(cv::Size(map1ColorReg.cols, map1ColorReg.rows), mapType, cv::ocl::DEVICE_MEM_R_ONLY, cv::ocl::DEVICE_MEM_DEFAULT);
-    map2ColorRegOCL.createEx(cv::Size(map2ColorReg.cols, map2ColorReg.rows), mapType, cv::ocl::DEVICE_MEM_R_ONLY, cv::ocl::DEVICE_MEM_DEFAULT);
-    map1DepthOCL.createEx(cv::Size(map1Depth.cols, map1Depth.rows), CV_32FC2, cv::ocl::DEVICE_MEM_R_ONLY, cv::ocl::DEVICE_MEM_DEFAULT);
-    map2DepthOCL.createEx(cv::Size(map2Depth.cols, map2Depth.rows), CV_32FC2, cv::ocl::DEVICE_MEM_R_ONLY, cv::ocl::DEVICE_MEM_DEFAULT);*/
-    map1ColorOCL.upload(map1Color);
-    map2ColorOCL.upload(map2Color);
-    map1IrOCL.upload(map1Ir);
-    map2IrOCL.upload(map2Ir);
-    map1ColorRegOCL.upload(map1ColorReg);
-    map2ColorRegOCL.upload(map2ColorReg);
-    map1DepthOCL.upload(map1Depth);
-    map2DepthOCL.upload(map2Depth);
-#endif
 
     bool ret = true;
     ret = ret && depthRegLowRes->init(cameraMatrixDepth, sizeDepth, cameraMatrixIr, sizeIr, distortionIr, rotation, translation, 0.5f, maxDepth);
@@ -628,13 +577,7 @@ private:
     }
     if(status[IR_RECT])
     {
-#ifdef USE_OPENCV_OPENCL
-      inIr.upload(images[IR]);
-      cv::ocl::remap(inIr, outIr, map1IrOCL, map2IrOCL, cv::INTER_LINEAR, cv::BORDER_CONSTANT);
-      outIr.download(images[IR_RECT]);
-#else
       cv::remap(images[IR], images[IR_RECT], map1Ir, map2Ir, cv::INTER_AREA);
-#endif
     }
 
     // DEPTH
@@ -644,13 +587,7 @@ private:
     }
     if(status[DEPTH_RECT])
     {
-#ifdef USE_OPENCV_OPENCL
-        inDepth.upload(images[DEPTH]);
-        cv::ocl::remap(inDepth, outDepth, map1DepthOCL, map2DepthOCL, cv::INTER_NEAREST, cv::BORDER_CONSTANT);
-        outDepth.download(images[DEPTH_RECT]);
-#else
         cv::remap(images[DEPTH], images[DEPTH_RECT], map1Ir, map2Ir, cv::INTER_NEAREST);
-#endif
     }
     if(status[DEPTH_LORES])
     {
@@ -675,23 +612,11 @@ private:
     images[COLOR] = color;
     if(status[COLOR_RECT] || status[MONO_RECT])
     {
-#ifdef USE_OPENCV_OPENCL
-      inColor.upload(images[COLOR]);
-      cv::ocl::remap(inColor, outColor, map1ColorOCL, map2ColorOCL, cv::INTER_LINEAR, cv::BORDER_CONSTANT);
-      outColor.download(images[COLOR_RECT]);
-#else
       cv::remap(images[COLOR], images[COLOR_RECT], map1Color, map2Color, cv::INTER_AREA);
-#endif
     }
     if(status[COLOR_LORES] || status[MONO_LORES])
     {
-#ifdef USE_OPENCV_OPENCL
-      inColorReg.upload(images[COLOR]);
-      cv::ocl::remap(inColorReg, outColorReg, map1ColorRegOCL, map2ColorRegOCL, cv::INTER_LINEAR, cv::BORDER_CONSTANT);
-      outColorReg.download(images[COLOR_LORES]);
-#else
       cv::remap(images[COLOR], images[COLOR_LORES], map1ColorReg, map2ColorReg, cv::INTER_AREA);
-#endif
     }
 
     // MONO
