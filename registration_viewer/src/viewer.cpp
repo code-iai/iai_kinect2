@@ -50,8 +50,6 @@
 
 #include <kinect2_definitions.h>
 
-//#include <depth_registration.h>
-
 class Receiver
 {
 public:
@@ -66,7 +64,7 @@ private:
   std::mutex lock;
 
   const std::string topicColor, topicDepth;
-  const bool useExact;
+  const bool useExact, useCompressed;
 
   bool updateImage, updateCloud;
   bool save;
@@ -98,19 +96,18 @@ private:
   std::ostringstream oss;
   std::vector<int> params;
 
-  //DepthRegistration *depthReg;
-
 public:
-  Receiver(const std::string &topicColor, const std::string &topicDepth, const bool useExact)
-    : topicColor(topicColor), topicDepth(topicDepth), useExact(useExact), updateImage(false), updateCloud(false), save(false), running(false), frame(0), queueSize(5),
-      nh(), spinner(0), it(nh), mode(CLOUD)//, depthReg(NULL)
+  Receiver(const std::string &topicColor, const std::string &topicDepth, const bool useExact, const bool useCompressed)
+    : topicColor(topicColor), topicDepth(topicDepth), useExact(useExact), useCompressed(useCompressed),
+      updateImage(false), updateCloud(false), save(false), running(false), frame(0), queueSize(5),
+      nh(), spinner(0), it(nh), mode(CLOUD)
   {
     cameraMatrixColor = cv::Mat::zeros(3, 3, CV_64F);
     cameraMatrixDepth = cv::Mat::zeros(3, 3, CV_64F);
     params.push_back(cv::IMWRITE_JPEG_QUALITY);
     params.push_back(100);
     params.push_back(cv::IMWRITE_PNG_COMPRESSION);
-    params.push_back(0);
+    params.push_back(1);
     params.push_back(cv::IMWRITE_PNG_STRATEGY);
     params.push_back(cv::IMWRITE_PNG_STRATEGY_RLE);
     params.push_back(0);
@@ -135,8 +132,8 @@ private:
     std::string topicCameraInfoColor = topicColor.substr(0, topicColor.rfind('/')) + "/camera_info";
     std::string topicCameraInfoDepth = topicDepth.substr(0, topicDepth.rfind('/')) + "/camera_info";
 
-    image_transport::TransportHints hints("compressed");
-    image_transport::TransportHints hintsDepth("compressedDepth");
+    image_transport::TransportHints hints(useCompressed ? "compressed" : "raw");
+    image_transport::TransportHints hintsDepth(useCompressed ? "compressedDepth" : "raw");
     subImageColor = new image_transport::SubscriberFilter(it, topicColor, queueSize, hints);
     subImageDepth = new image_transport::SubscriberFilter(it, topicDepth, queueSize, hintsDepth);
     subCameraInfoColor = new message_filters::Subscriber<sensor_msgs::CameraInfo>(nh, topicCameraInfoColor, queueSize);
@@ -212,40 +209,25 @@ private:
     {
       imageViewerThread.join();
     }
-
-    /*if(depthReg)
-    {
-      delete depthReg;
-    }*/
   }
 
   void callback(const sensor_msgs::Image::ConstPtr imageColor, const sensor_msgs::Image::ConstPtr imageDepth,
                 const sensor_msgs::CameraInfo::ConstPtr cameraInfoColor, const sensor_msgs::CameraInfo::ConstPtr cameraInfoDepth)
   {
-    cv::Mat color, depth, scaled;
+    cv::Mat color, depth;
 
     readCameraInfo(cameraInfoColor, cameraMatrixColor);
     readCameraInfo(cameraInfoDepth, cameraMatrixDepth);
     readImage(imageColor, color);
     readImage(imageDepth, depth);
 
-    /*if(depth.rows != color.rows || depth.cols != color.cols)
+    // IR image input
+    if(color.type() == CV_16U)
     {
-      if(depthReg == NULL)
-      {
-#ifdef USE_OPENCL_REGISTRATION
-        depthReg = DepthRegistration::New(cv::Size(color.cols, color.rows), cv::Size(depth.cols, depth.rows), cv::Size(depth.cols, depth.rows), 0.5f, 20.0f, 0.015f, DepthRegistration::OPENCL);
-#else
-        depthReg = DepthRegistration::New(cv::Size(color.cols, color.rows), cv::Size(depth.cols, depth.rows), cv::Size(depth.cols, depth.rows), 0.5f, 20.0f, 0.015f, DepthRegistration::CPU);
-#endif
-        depthReg->init(cameraMatrixColor, cameraMatrixDepth, cv::Mat::eye(3, 3, CV_64F), cv::Mat::zeros(1, 3, CV_64F), cv::Mat::zeros(depth.rows, depth.cols, CV_32F), cv::Mat::zeros(depth.rows, depth.cols, CV_32F));
-      }
-      depthReg->depthToRGBResolution(depth, scaled);
+      cv::Mat tmp;
+      color.convertTo(tmp, CV_8U, 0.02);
+      cv::cvtColor(tmp, color, CV_GRAY2BGR);
     }
-    else
-    {
-      scaled = depth;
-    }*/
 
     lock.lock();
     this->color = color;
@@ -503,7 +485,7 @@ private:
     cv::imwrite(colorName, color, params);
     std::cout << "saving depth: " << depthName << std::endl;
     cv::imwrite(depthName, depth, params);
-    std::cout << "saving depth: " << depthName << std::endl;
+    std::cout << "saving depth: " << depthColoredName << std::endl;
     cv::imwrite(depthColoredName, depthColored, params);
     std::cout << "saving complete!" << std::endl;
     ++frame;
@@ -539,6 +521,8 @@ void help(const std::string &path)
             << "Image topics:" << std::endl
             << "  -depth      ROS topic of depth image" << std::endl
             << "  -color      ROS topic of color image" << std::endl
+            << "  -approx     use approximate time synchronization" << std::endl
+            << "  -raw        use raw instead of compressed topics" << std::endl
             << "Visualization:" << std::endl
             << "  -image      displays the depth image overlayed to the color image" << std::endl
             << "  -cloud      displays the point cloud in a PCL visualizer" << std::endl
@@ -546,8 +530,7 @@ void help(const std::string &path)
             << "Predefined topics for color and depth:" << std::endl
             << "  -kinect2    topics for the low res depth and color" << std::endl
             << "  -kinect2hd  topics for the high res depth and color" << std::endl
-            << "  -pr2        topics for the head mount kinect on pr2" << std::endl
-            << "  -xtion      topics for the xtion" << std::endl;
+            << "  -kinect2ir  topics for the depth and ir" << std::endl;
 }
 
 int main(int argc, char **argv)
@@ -562,6 +545,7 @@ int main(int argc, char **argv)
   std::string topicColor = K2_TOPIC_LORES_COLOR K2_TOPIC_RAW;
   std::string topicDepth = K2_TOPIC_LORES_DEPTH K2_TOPIC_RAW;
   bool useExact = true;
+  bool useCompressed = true;
   Receiver::Mode mode = Receiver::CLOUD;
 
   for(size_t i = 1; i < (size_t)argc; ++i)
@@ -586,6 +570,12 @@ int main(int argc, char **argv)
       topicDepth = K2_TOPIC_HIRES_DEPTH K2_TOPIC_RAW;
       useExact = true;
     }
+    else if(param == "-kinect2ir")
+    {
+      topicColor = K2_TOPIC_RECT_IR K2_TOPIC_RAW;
+      topicDepth = K2_TOPIC_RECT_DEPTH K2_TOPIC_RAW;
+      useExact = true;
+    }
     else if(param == "-color" && i + 1 < (size_t)argc)
     {
       ++i;
@@ -596,7 +586,14 @@ int main(int argc, char **argv)
     {
       ++i;
       topicDepth = argv[i];
+    }
+    else if(param == "-approx")
+    {
       useExact = false;
+    }
+    else if(param == "-raw")
+    {
+      useCompressed = false;
     }
     else if(param == "-image")
     {
@@ -615,7 +612,7 @@ int main(int argc, char **argv)
   std::cout << "topic color: " << topicColor << std::endl;
   std::cout << "topic depth: " << topicDepth << std::endl;
 
-  Receiver receiver(topicColor, topicDepth, useExact);
+  Receiver receiver(topicColor, topicDepth, useExact, useCompressed);
 
   std::cout << "starting receiver..." << std::endl;
   receiver.run(mode);
