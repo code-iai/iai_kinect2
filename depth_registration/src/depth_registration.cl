@@ -105,8 +105,8 @@ void kernel project(global const ushort *depth, global int4 *idx, global ushort 
   zImg[i] = zI;
 }
 
-// update rendered depth image to make sure nearest depth values are used
-void kernel render(global const int4 *idx, global const ushort *zImg, global const float4 *dists, global float *selDist, global ushort *rendered){
+// checks and updates registered depth image to make sure nearest depth values are used
+void kernel checkDepth(global const int4 *idx, global const ushort *zImg, global const float4 *dists, global float *selDist, global ushort *rendered){
   const uint i = get_global_id(0);
 
   const int4 index = idx[i];

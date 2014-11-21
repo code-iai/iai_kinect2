@@ -42,7 +42,7 @@ struct DepthRegistrationOpenCL::OCLData
 
   cl::Kernel kernelSetZero;
   cl::Kernel kernelProject;
-  cl::Kernel kernelRender;
+  cl::Kernel kernelCheckDepth;
   cl::Kernel kernelRemap;
 
   size_t sizeDepth;
@@ -189,12 +189,12 @@ bool DepthRegistrationOpenCL::init()
     data->kernelProject.setArg(4, data->bufferSelDist);
     data->kernelProject.setArg(5, data->bufferRegistered);
 
-    data->kernelRender = cl::Kernel(data->program, "render", &err);
-    data->kernelRender.setArg(0, data->bufferIndex);
-    data->kernelRender.setArg(1, data->bufferImgZ);
-    data->kernelRender.setArg(2, data->bufferDists);
-    data->kernelRender.setArg(3, data->bufferSelDist);
-    data->kernelRender.setArg(4, data->bufferRegistered);
+    data->kernelCheckDepth = cl::Kernel(data->program, "checkDepth", &err);
+    data->kernelCheckDepth.setArg(0, data->bufferIndex);
+    data->kernelCheckDepth.setArg(1, data->bufferImgZ);
+    data->kernelCheckDepth.setArg(2, data->bufferDists);
+    data->kernelCheckDepth.setArg(3, data->bufferSelDist);
+    data->kernelCheckDepth.setArg(4, data->bufferRegistered);
 
     data->kernelRemap = cl::Kernel(data->program, "remapDepth", &err);
     data->kernelRemap.setArg(0, data->bufferDepth);
@@ -244,12 +244,8 @@ void DepthRegistrationOpenCL::registerDepth(const cv::Mat &depth, cv::Mat &regis
     data->queue.enqueueNDRangeKernel(data->kernelProject, cl::NullRange, range, cl::NullRange, NULL, &eventKernel);
     eventKernel.wait();
 
-    data->queue.enqueueNDRangeKernel(data->kernelRender, cl::NullRange, range, cl::NullRange, NULL, &eventKernel);
+    data->queue.enqueueNDRangeKernel(data->kernelCheckDepth, cl::NullRange, range, cl::NullRange, NULL, &eventKernel);
     eventKernel.wait();
-    //data->queue.enqueueNDRangeKernel(data->kernelRender, cl::NullRange, range, cl::NullRange, NULL, &eventKernel);
-    //eventKernel.wait();
-    //data->queue.enqueueNDRangeKernel(data->kernelRender, cl::NullRange, range, cl::NullRange, NULL, &eventKernel);
-    //eventKernel.wait();
 
     data->queue.enqueueReadBuffer(data->bufferRegistered, CL_TRUE, 0, data->sizeRegistered, registered.data);
   }
