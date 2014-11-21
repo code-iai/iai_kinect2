@@ -25,6 +25,8 @@ viewer [options]
 Image topics:
   -depth      ROS topic of depth image
   -color      ROS topic of color image
+  -approx     use approximate time synchronization
+  -raw        use raw instead of compressed topics
 Visualization:
   -image      displays the depth image overlayed to the color image
   -cloud      displays the point cloud in a PCL visualizer
@@ -32,6 +34,7 @@ Visualization:
 Predefined topics for color and depth:
   -kinect2    topics for the low res depth and color
   -kinect2hd  topics for the high res depth and color
+  -kinect2ir  topics for the depth and ir
 ```
 
 Example: `rosrun registration_viewer viewer -kinect2 -cloud`
