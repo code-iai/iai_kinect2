@@ -126,8 +126,8 @@ private:
   std::vector<Status> statusPubs;
 
 public:
-  Kinect2Bridge(const double fps, const bool rawDepth)
-    : jpegQuality(95), pngLevel(0), maxDepth(10.0), queueSize(2), rawDepth(rawDepth), sizeColor(1920, 1080), sizeIr(512, 424),
+  Kinect2Bridge(const double fps, const bool rawDepth, const int compression)
+    : jpegQuality(compression), pngLevel(1), maxDepth(10.0), queueSize(2), rawDepth(rawDepth), sizeColor(1920, 1080), sizeIr(512, 424),
       sizeDepth(rawDepth ? sizeIr : cv::Size(sizeColor.width / 2, sizeColor.height / 2)), newFrame(false), nh(),
       deltaT(1.0 / fps), topics(COUNT)
   {
@@ -148,13 +148,14 @@ public:
     ir = cv::Mat::zeros(sizeIr, CV_32F);
     depth = cv::Mat::zeros(sizeIr, CV_32F);
 
-    compressionParams.resize(6, 0);
+    compressionParams.resize(7, 0);
     compressionParams[0] = CV_IMWRITE_JPEG_QUALITY;
     compressionParams[1] = jpegQuality;
     compressionParams[2] = CV_IMWRITE_PNG_COMPRESSION;
     compressionParams[3] = pngLevel;
     compressionParams[4] = CV_IMWRITE_PNG_STRATEGY;
     compressionParams[5] = CV_IMWRITE_PNG_STRATEGY_RLE;
+    compressionParams[6] = 0;
 
 #ifdef USE_OPENCL_REGISTRATION
     depthRegLowRes = DepthRegistration::New(DepthRegistration::OPENCL);
@@ -585,20 +586,14 @@ private:
     if(status[DEPTH_LORES])
     {
       lockRegLowRes.lock();
-      double start = ros::Time::now().toSec();
       depthRegLowRes->registerDepth(images[DEPTH], images[DEPTH_LORES]);
-      double end = ros::Time::now().toSec();
       lockRegLowRes.unlock();
-      std::cout << "registerDepth: " << (end - start) * 1000 << std::endl;
     }
     if(status[DEPTH_HIRES])
     {
       lockRegHighRes.lock();
-      double start = ros::Time::now().toSec();
       depthRegHighRes->registerDepth(images[DEPTH], images[DEPTH_HIRES]);
-      double end = ros::Time::now().toSec();
       lockRegHighRes.unlock();
-      std::cout << "registerDepth: " << (end - start) * 1000 << std::endl;
     }
 
     // COLOR
@@ -792,7 +787,8 @@ void help(const std::string &path)
   std::cout << path << " [options]" << std::endl
             << "  -fps <num>     limit the frames per second to <num> (float)" << std::endl
             << "  -calib <path>  path to the calibration files" << std::endl
-            << "  -raw           output raw depth image as 512x424 instead of 960x540" << std::endl;
+            << "  -raw           output raw depth image as 512x424 instead of 960x540" << std::endl
+            << "  -comp <num>    jpg compression level from 0 to 100 (default 90)." << std::endl;
 }
 
 int main(int argc, char **argv)
@@ -806,6 +802,7 @@ int main(int argc, char **argv)
 #endif
   double fps = -1;
   bool rawDepth = false;
+  int compression = 90;
 
   for(int argI = 1; argI < argc; ++argI)
   {
@@ -819,6 +816,10 @@ int main(int argc, char **argv)
     else if(arg == "-fps" && argI + 1 < argc)
     {
       fps = atof(argv[++argI]);
+    }
+    else if(arg == "-comp" && argI + 1 < argc)
+    {
+      compression = std::max(0, std::min(100, atoi(argv[++argI])));
     }
     else if(arg == "-calib")
     {
@@ -851,7 +852,7 @@ int main(int argc, char **argv)
     return -1;
   }
 
-  Kinect2Bridge kinect2(fps, rawDepth);
+  Kinect2Bridge kinect2(fps, rawDepth, compression);
 
   if(kinect2.init(path))
   {
