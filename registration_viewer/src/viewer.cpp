@@ -155,14 +155,11 @@ private:
     std::chrono::milliseconds duration(1);
     while(!updateImage || !updateCloud)
     {
-      if(ros::ok())
-      {
-        std::this_thread::sleep_for(duration);
-      }
-      else
+      if(!ros::ok())
       {
         return;
       }
+      std::this_thread::sleep_for(duration);
     }
     cloud = pcl::PointCloud<pcl::PointXYZRGBA>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBA>());
     cloud->height = color.rows;

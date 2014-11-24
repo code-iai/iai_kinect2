@@ -287,9 +287,10 @@ private:
     bool save = false;
     bool running = true;
 
-    while(!update)
+    std::chrono::milliseconds duration(1);
+    while(!update && ros::ok())
     {
-      usleep(1000);
+      std::this_thread::sleep_for(duration);
     }
 
     for(; ros::ok() && running;)
