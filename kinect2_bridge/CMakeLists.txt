@@ -1,13 +1,10 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(kinect2_bridge)
 
-option(USE_OPENCL_REGISTRATION "Use OpenCL implementation of the depth registration"       ON)
-option(USE_OPENCL_PIPELINE     "Use OpenCL implementation of libfreenect2 packet pipeline" ON)
-set(MIN_WORKER_THREADS 2 CACHE STRING "Minimum number of worker threads")
+option(K2_USE_OPENCL_REGISTRATION "Use OpenCL implementation of the depth registration"       ON)
+option(K2_USE_OPENCL_PIPELINE     "Use OpenCL implementation of libfreenect2 packet pipeline" ON)
+set(K2_MIN_WORKER_THREADS 2 CACHE STRING "Minimum number of worker threads")
 
-set(CMAKE_BUILD_TYPE Release)
-#set(CMAKE_BUILD_TYPE RelWithDebInfo)
-#set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBT_USE_DOUBLE_PRECISION -Wall")
 # Unused warnings
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wuninitialized -Winit-self -Wunused-function -Wunused-label -Wunused-variable -Wunused-but-set-variable -Wunused-but-set-parameter")
@@ -23,7 +20,7 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 ELSEIF(COMPILER_SUPPORTS_CXX0X)
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
 ELSE()
-  MESSAGE(STATUS "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
+  MESSAGE(ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
 ENDIF()
 
 find_package(freenect2 CONFIG)
@@ -78,13 +75,13 @@ include_directories(include
   ${freenect2_INCLUDE_DIRS}
 )
 
-if(USE_OPENCL_REGISTRATION)
+if(K2_USE_OPENCL_REGISTRATION)
   add_definitions(-DUSE_OPENCL_REGISTRATION)
 endif()
-if(USE_OPENCL_PIPELINE)
+if(K2_USE_OPENCL_PIPELINE)
   add_definitions(-DUSE_OPENCL_PIPELINE)
 endif()
-add_definitions(-DMIN_WORKER_THREADS=${MIN_WORKER_THREADS})
+add_definitions(-DMIN_WORKER_THREADS=${K2_MIN_WORKER_THREADS})
 add_definitions(-DK2_CALIB_PATH="${PROJECT_SOURCE_DIR}/data/")
 add_definitions(${freenect2_DEFINITIONS})
 
