@@ -54,6 +54,8 @@ private:
   const size_t queueSize;
   std::vector<int> compressionParams;
   const bool rawDepth;
+  std::string compression16BitExt;
+  std::string compression16BitString;
 
   size_t frame;
   const cv::Size sizeColor, sizeIr, sizeDepth;
@@ -168,6 +170,13 @@ public:
     packetPipeline = new libfreenect2::OpenCLPacketPipeline();
 #else
     packetPipeline = new libfreenect2::DefaultPacketPipeline();
+#endif
+#ifdef USE_TIFF_COMRESSION
+    compression16BitExt = ".tiff";
+    compression16BitString = "; tiff compressed ";
+#else
+    compression16BitExt = ".png";
+    compression16BitString = "; png compressed ";
 #endif
   }
 
@@ -743,8 +752,8 @@ private:
     {
     case IR:
     case IR_RECT:
-      msgImage.format = sensor_msgs::image_encodings::TYPE_16UC1 + "; png compressed ";
-      cv::imencode(".png", image, msgImage.data, compressionParams);
+      msgImage.format = sensor_msgs::image_encodings::TYPE_16UC1 + compression16BitString;
+      cv::imencode(compression16BitExt, image, msgImage.data, compressionParams);
       break;
     case DEPTH:
     case DEPTH_RECT:
@@ -757,7 +766,7 @@ private:
 
         std::vector<uint8_t> data;
         msgImage.format = sensor_msgs::image_encodings::TYPE_16UC1 + "; compressedDepth";
-        cv::imencode(".png", image, data, compressionParams);
+        cv::imencode(compression16BitExt, image, data, compressionParams);
 
         msgImage.data.resize(headerSize + data.size());
         memcpy(&msgImage.data[0], &compressionConfig, headerSize);
