@@ -74,6 +74,56 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="045e", ATTR{idProduct}=="02d9", MODE="0666"
 3. Check if the `idProduct` of your sensor is in the list. If not just add another line with the `idProduct` of your sensor. You can obtain it by running `dmesg | grep "045e"`.
 4. Reconnect the sensor and you should be able to access it.
 
+## OpenCL with Intel GPU on Linux
+
+#### Known configuration
+- Ubuntu 14.04
+- Kernel 3.13 (>= 3.13.0-35-generic) or Kernel 3.16 (needed for the Intel USB 3.0 Controller)
+- Beignet v1.0 (http://www.freedesktop.org/wiki/Software/Beignet/)
+
+#### Dependencies for Beignet
+For Beignet the following depencies have to be installed manually:
+* ocl-icd-dev
+* ocl-icd-libopencl1
+* libdrm / libdrm-dev
+* llvm-3.5 / llvm-3.5-dev
+* clang-3.5 / clang-3.5-dev
+* libegl1-mesa-dev
+* libedit-dev
+
+#### Building Beignet
+Download and compile the Beignet v1.0 release from source (there is a Beignet_v0.3 binary for Trusty, but it is very old, buggy and slow)
+
+##### Additional steps (if needed):
+
+* Error "clang: not found":
+
+  ```
+sudo ln -s /usr/lib/llvm-3.5/bin/clang /usr/bin/clang
+```
+* Known Beignet issue with Kernel 3.15/3.16 (see Beignet readme); fix is to disable cmd_parser:
+
+  ```
+sudo su
+echo 0 > /sys/module/i915/parameters/enable_cmd_parser
+```
+
+* To get 100% pass rate on the Beignet unit tests you may have to:
+  * Execute directly on hw: ssh-session might not work
+  * Execute as root
+
+*Note: Both previous points have to to with the fact that no x-server was installed. Apparently this will be fixed in a future release of Beignet.*
+
+#### Results on Intel i7-3840QM (mobile hardware)
+* **~100 fps** on the OpenCLDepthPacketProcessor (compared to < *5 fps* on same hardware using CPU-based depth registration!)
+
+  ```
+...
+[OpenCLDepthPacketProcessor] avg. time: 10.1716ms -> ~98.3129Hz
+[TurboJpegRgbPacketProcessor] avg. time: 16.0787ms -> ~62.194Hz
+...
+```
+
 ## Screenshots
 
 Here are some screenshots from our toolkit:
