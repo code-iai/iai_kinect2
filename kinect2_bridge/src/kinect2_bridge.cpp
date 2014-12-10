@@ -176,11 +176,18 @@ public:
     compressionParams[5] = CV_IMWRITE_PNG_STRATEGY_RLE;
   }
 
-  bool init(const std::string &path)
+  bool init(const std::string &path, const std::string &cam)
   {
     std::string serial;
 
-    device = freenect2.openDefaultDevice();
+    if(cam.empty())
+    {
+      device = freenect2.openDefaultDevice();
+    }
+    else
+    {
+      device = freenect2.openDevice(cam);
+    }
 
     if(device == 0)
     {
@@ -864,6 +871,7 @@ int main(int argc, char **argv)
 #else
   std::string path = "";
 #endif
+  std::string cam = "";
   double fps = -1;
   bool rawDepth = false;
 
@@ -875,6 +883,18 @@ int main(int argc, char **argv)
     {
       help(argv[0]);
       return 0;
+    }
+    else if(arg == "-cam")
+    {
+      if(++argI < argc)
+      {
+        cam = argv[argI];
+      }
+      else
+      {
+        std::cerr << "Camera serial number not given!" << std::endl;
+        return -1;
+      }
     }
     else if(arg == "-fps" && argI + 1 < argc)
     {
@@ -913,7 +933,7 @@ int main(int argc, char **argv)
 
   Kinect2Bridge kinect2(fps, rawDepth);
 
-  if(kinect2.init(path))
+  if(kinect2.init(path, cam))
   {
     kinect2.run();
   }
