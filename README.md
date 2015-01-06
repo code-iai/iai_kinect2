@@ -21,7 +21,7 @@ It contains:
 - PCL
 - Eigen (optional)
 - OpenCL (optional)
-- [libfreenect2](https://github.com/OpenKinect/libfreenect2)
+- [libfreenect2](https://github.com/OpenKinect/libfreenect2) or the iai_kinect2 branch of [my fork](https://github.com/wiedemeyer/libfreenect2/tree/iai_kinect2) which already includes the modifications
 
 ## Modifications to Upstream libfreenect2
 
