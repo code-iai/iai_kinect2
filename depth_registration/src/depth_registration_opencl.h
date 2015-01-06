@@ -33,7 +33,7 @@ public:
 
   ~DepthRegistrationOpenCL();
 
-  bool init();
+  bool init(const int deviceId);
 
   void registerDepth(const cv::Mat &depth, cv::Mat &registered);
 

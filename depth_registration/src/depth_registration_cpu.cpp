@@ -28,7 +28,7 @@ DepthRegistrationCPU::~DepthRegistrationCPU()
 {
 }
 
-bool DepthRegistrationCPU::init()
+bool DepthRegistrationCPU::init(const int deviceId)
 {
   createLookup();
 
