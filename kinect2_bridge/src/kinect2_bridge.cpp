@@ -128,7 +128,7 @@ private:
   std::vector<Status> statusPubs;
 
 public:
-  Kinect2Bridge(const double fps, const bool rawDepth, const int compression)
+  Kinect2Bridge(const double fps, const bool rawDepth, const int compression, const int deviceIdDepth)
     : jpegQuality(compression), pngLevel(1), maxDepth(10.0), queueSize(2), rawDepth(rawDepth), sizeColor(1920, 1080), sizeIr(512, 424),
       sizeDepth(rawDepth ? sizeIr : cv::Size(sizeColor.width / 2, sizeColor.height / 2)), newFrame(false), nh(),
       deltaT(1.0 / fps), topics(COUNT)
@@ -167,7 +167,7 @@ public:
     depthRegHighRes = DepthRegistration::New(DepthRegistration::CPU);
 #endif
 #ifdef USE_OPENCL_PIPELINE
-    packetPipeline = new libfreenect2::OpenCLPacketPipeline();
+    packetPipeline = new libfreenect2::OpenCLPacketPipeline(deviceIdDepth);
 #else
     packetPipeline = new libfreenect2::DefaultPacketPipeline();
 #endif
@@ -180,7 +180,7 @@ public:
 #endif
   }
 
-  bool init(const std::string &path, const std::string &cam, const int deviceId)
+  bool init(const std::string &path, const std::string &cam, const int deviceIdReg)
   {
     std::string serial;
 
@@ -209,7 +209,6 @@ public:
     serial = device->getSerialNumber();
     std::cout << std::endl << "device serial: " << serial << std::endl;
     std::cout << "device firmware: " << device->getFirmwareVersion() << std::endl;
-
 
     libfreenect2::Freenect2Device::ColorCameraParams colorParams = device->getColorCameraParams();
     libfreenect2::Freenect2Device::IrCameraParams irParams = device->getIrCameraParams();
@@ -291,8 +290,8 @@ public:
     cv::initUndistortRectifyMap(cameraMatrixColor, distortionColor, cv::Mat(), cameraMatrixDepth, sizeDepth, mapType, map1ColorReg, map2ColorReg);
 
     bool ret = true;
-    ret = ret && depthRegLowRes->init(cameraMatrixDepth, sizeDepth, cameraMatrixIr, sizeIr, distortionIr, rotation, translation, 0.5f, maxDepth, deviceId);
-    ret = ret && depthRegHighRes->init(cameraMatrixColor, sizeColor, cameraMatrixIr, sizeIr, distortionIr, rotation, translation, 0.5f, maxDepth, deviceId);
+    ret = ret && depthRegLowRes->init(cameraMatrixDepth, sizeDepth, cameraMatrixIr, sizeIr, distortionIr, rotation, translation, 0.5f, maxDepth, deviceIdReg);
+    ret = ret && depthRegHighRes->init(cameraMatrixColor, sizeColor, cameraMatrixIr, sizeIr, distortionIr, rotation, translation, 0.5f, maxDepth, deviceIdReg);
 
     return ret;
   }
@@ -805,7 +804,9 @@ void help(const std::string &path)
             << "  -calib <path>    path to the calibration files" << std::endl
             << "  -raw             output raw depth image as 512x424 instead of 960x540" << std::endl
             << "  -comp <num>      jpg compression level from 0 to 100 (default 90)." << std::endl
-            << "  -oclReg <num>    openCL device to use for depth registration." << std::endl;
+            << "  -oclDev <num>    openCL device to use for depth registration and processing." << std::endl
+            << "  -oclReg <num>    openCL device to use for depth registration." << std::endl
+            << "  -oclDepth <num>  openCL device to use for depth processing." << std::endl;
 }
 
 int main(int argc, char **argv)
@@ -821,7 +822,8 @@ int main(int argc, char **argv)
   double fps = -1;
   bool rawDepth = false;
   int compression = 90;
-  int deviceId = -1;
+  int deviceIdReg = -1;
+  int deviceIdDepth = -1;
 
   for(int argI = 1; argI < argc; ++argI)
   {
@@ -868,7 +870,32 @@ int main(int argc, char **argv)
     {
       if(++argI < argc)
       {
-        deviceId = atoi(argv[argI]);
+        deviceIdReg = atoi(argv[argI]);
+      }
+      else
+      {
+        std::cerr << "Device ID not given!" << std::endl;
+        return -1;
+      }
+    }
+    else if(arg == "-oclDepth")
+    {
+      if(++argI < argc)
+      {
+        deviceIdDepth = atoi(argv[argI]);
+      }
+      else
+      {
+        std::cerr << "Device ID not given!" << std::endl;
+        return -1;
+      }
+    }
+    else if(arg == "-oclDev")
+    {
+      if(++argI < argc)
+      {
+        deviceIdReg = atoi(argv[argI]);
+        deviceIdDepth = deviceIdReg;
       }
       else
       {
@@ -895,9 +922,9 @@ int main(int argc, char **argv)
     return -1;
   }
 
-  Kinect2Bridge kinect2(fps, rawDepth, compression);
+  Kinect2Bridge kinect2(fps, rawDepth, compression, deviceIdDepth);
 
-  if(kinect2.init(path, cam, deviceId))
+  if(kinect2.init(path, cam, deviceIdReg))
   {
     kinect2.run();
   }

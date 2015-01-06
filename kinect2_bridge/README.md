@@ -135,7 +135,9 @@ kinect2_bridge [options]
   -calib <path>    path to the calibration files
   -raw             output raw depth image as 512x424 instead of 960x540
   -comp <num>      jpg compression level from 0 to 100 (default 90).
+  -oclDev <num>    openCL device to use for depth registration and processing.
   -oclReg <num>    openCL device to use for depth registration.
+  -oclDepth <num>  openCL device to use for depth processing.
 ```
 
 ## Key bindings
