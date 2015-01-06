@@ -180,7 +180,7 @@ public:
 #endif
   }
 
-  bool init(const std::string &path, const std::string &cam)
+  bool init(const std::string &path, const std::string &cam, const int deviceId)
   {
     std::string serial;
 
@@ -291,8 +291,8 @@ public:
     cv::initUndistortRectifyMap(cameraMatrixColor, distortionColor, cv::Mat(), cameraMatrixDepth, sizeDepth, mapType, map1ColorReg, map2ColorReg);
 
     bool ret = true;
-    ret = ret && depthRegLowRes->init(cameraMatrixDepth, sizeDepth, cameraMatrixIr, sizeIr, distortionIr, rotation, translation, 0.5f, maxDepth);
-    ret = ret && depthRegHighRes->init(cameraMatrixColor, sizeColor, cameraMatrixIr, sizeIr, distortionIr, rotation, translation, 0.5f, maxDepth);
+    ret = ret && depthRegLowRes->init(cameraMatrixDepth, sizeDepth, cameraMatrixIr, sizeIr, distortionIr, rotation, translation, 0.5f, maxDepth, deviceId);
+    ret = ret && depthRegHighRes->init(cameraMatrixColor, sizeColor, cameraMatrixIr, sizeIr, distortionIr, rotation, translation, 0.5f, maxDepth, deviceId);
 
     return ret;
   }
@@ -597,7 +597,7 @@ private:
     }
     if(status[DEPTH_RECT])
     {
-        cv::remap(images[DEPTH], images[DEPTH_RECT], map1Ir, map2Ir, cv::INTER_NEAREST);
+      cv::remap(images[DEPTH], images[DEPTH_RECT], map1Ir, map2Ir, cv::INTER_NEAREST);
     }
     if(status[DEPTH_LORES])
     {
@@ -801,10 +801,11 @@ private:
 void help(const std::string &path)
 {
   std::cout << path << " [options]" << std::endl
-            << "  -fps <num>     limit the frames per second to <num> (float)" << std::endl
-            << "  -calib <path>  path to the calibration files" << std::endl
-            << "  -raw           output raw depth image as 512x424 instead of 960x540" << std::endl
-            << "  -comp <num>    jpg compression level from 0 to 100 (default 90)." << std::endl;
+            << "  -fps <num>       limit the frames per second to <num> (float)" << std::endl
+            << "  -calib <path>    path to the calibration files" << std::endl
+            << "  -raw             output raw depth image as 512x424 instead of 960x540" << std::endl
+            << "  -comp <num>      jpg compression level from 0 to 100 (default 90)." << std::endl
+            << "  -oclReg <num>    openCL device to use for depth registration." << std::endl;
 }
 
 int main(int argc, char **argv)
@@ -820,6 +821,7 @@ int main(int argc, char **argv)
   double fps = -1;
   bool rawDepth = false;
   int compression = 90;
+  int deviceId = -1;
 
   for(int argI = 1; argI < argc; ++argI)
   {
@@ -862,6 +864,18 @@ int main(int argc, char **argv)
         return -1;
       }
     }
+    else if(arg == "-oclReg")
+    {
+      if(++argI < argc)
+      {
+        deviceId = atoi(argv[argI]);
+      }
+      else
+      {
+        std::cerr << "Device ID not given!" << std::endl;
+        return -1;
+      }
+    }
     else if(arg == "-raw")
     {
       rawDepth = true;
@@ -883,7 +897,7 @@ int main(int argc, char **argv)
 
   Kinect2Bridge kinect2(fps, rawDepth, compression);
 
-  if(kinect2.init(path, cam))
+  if(kinect2.init(path, cam, deviceId))
   {
     kinect2.run();
   }

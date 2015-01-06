@@ -131,10 +131,11 @@ When `kinect2_bridge` is running you can use the `registration_viewer` to displa
 
 ```
 kinect2_bridge [options]
-  -fps <num>     limit the frames per second to <num> (float)
-  -calib <path>  path to the calibration files
-  -raw           output raw depth image as 512x424 instead of 960x540
-  -comp <num>    jpg compression level from 0 to 100 (default 90).
+  -fps <num>       limit the frames per second to <num> (float)
+  -calib <path>    path to the calibration files
+  -raw             output raw depth image as 512x424 instead of 960x540
+  -comp <num>      jpg compression level from 0 to 100 (default 90).
+  -oclReg <num>    openCL device to use for depth registration.
 ```
 
 ## Key bindings
