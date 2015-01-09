@@ -4,5 +4,30 @@
   <include file="$(find kinect2_bridge)/launch/include/kinect2_frames.launch">
     <arg name="publish_frame" value="$(arg publish_frame)" />
   </include>
-  <node name="kinect2_bridge" pkg="kinect2_bridge" type="kinect2_bridge" respawn="true" output="screen"/>
+
+  <node name="kinect2_bridge" pkg="kinect2_bridge" type="kinect2_bridge"
+        respawn="true"
+        output="screen"/>
+
+  <!-- low resolution point cloud (960 x 540) -->
+  <node pkg="nodelet" type="nodelet" name="points_xyzrgb_lowres"
+        args="standalone depth_image_proc/point_cloud_xyzrgb"
+        respawn="false">
+    <remap from="rgb/camera_info"             to="/kinect2_head/rgb_lowres/camera_info" />
+    <remap from="rgb/image_rect_color"        to="/kinect2_head/rgb_lowres/image" />
+    <remap from="depth_registered/image_rect" to="/kinect2_head/depth_lowres/image" />
+    <remap from="depth_registered/points"     to="/kinect2_head/depth_lowres/points" />
+    <param name="queue_size" type="int" value="2" />
+  </node>
+
+  <!-- high resolution point cloud (1920 x 1080) -->
+  <node pkg="nodelet" type="nodelet" name="points_xyzrgb_highres"
+        args="standalone depth_image_proc/point_cloud_xyzrgb"
+        respawn="false">
+    <remap from="rgb/camera_info"             to="/kinect2_head/rgb_rect/camera_info" />
+    <remap from="rgb/image_rect_color"        to="/kinect2_head/rgb_rect/image" />
+    <remap from="depth_registered/image_rect" to="/kinect2_head/depth_highres/image" />
+    <remap from="depth_registered/points"     to="/kinect2_head/depth_highres/points" />
+    <param name="queue_size" type="int" value="2" />
+  </node>
 </launch>
