@@ -39,15 +39,6 @@ FIND_PACKAGE(GLEW REQUIRED)
 INCLUDE_DIRECTORIES(${GLEW_INCLUDE_DIR})
 ```
 
-[freenect2.cmake.in](https://github.com/OpenKinect/libfreenect2/blob/master/examples/protonect/freenect2.cmake.in):
-- Add the following lines to the end of the file:
-
-  ```
-IF("@ENABLE_OPENCL@" AND "@OPENCL_FOUND@")
-    SET(freenect2_DEFINITIONS "${freenect2_DEFINITIONS} -DWITH_OPENCL_SUPPORT")
-ENDIF("@ENABLE_OPENCL@" AND "@OPENCL_FOUND@")
-```
-
 ## Install
 
 1. Install the dependencies.
