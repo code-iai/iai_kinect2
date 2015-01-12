@@ -87,7 +87,6 @@ if(K2_USE_TIFF_COMRESSION)
 endif()
 add_definitions(-DMIN_WORKER_THREADS=${K2_MIN_WORKER_THREADS})
 add_definitions(-DK2_CALIB_PATH="${PROJECT_SOURCE_DIR}/data/")
-add_definitions(${freenect2_DEFINITIONS})
 
 add_executable(kinect2_bridge src/kinect2_bridge.cpp)
 target_link_libraries(kinect2_bridge

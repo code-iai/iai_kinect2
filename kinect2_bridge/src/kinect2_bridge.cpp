@@ -41,6 +41,7 @@
 #include <libfreenect2/libfreenect2.hpp>
 #include <libfreenect2/frame_listener_impl.h>
 #include <libfreenect2/packet_pipeline.h>
+#include <libfreenect2/config.h>
 
 #include <kinect2_definitions.h>
 #include <depth_registration.h>
@@ -166,7 +167,7 @@ public:
     depthRegLowRes = DepthRegistration::New(DepthRegistration::CPU);
     depthRegHighRes = DepthRegistration::New(DepthRegistration::CPU);
 #endif
-#ifdef USE_OPENCL_PIPELINE
+#if defined(USE_OPENCL_PIPELINE) && defined(LIBFREENECT2_WITH_OPENCL_SUPPORT)
     packetPipeline = new libfreenect2::OpenCLPacketPipeline(deviceIdDepth);
 #else
     packetPipeline = new libfreenect2::DefaultPacketPipeline();
