@@ -183,16 +183,36 @@ public:
 
   bool init(const std::string &path, const std::string &cam, const int deviceIdReg)
   {
-    std::string serial;
+    std::string camSerial = cam;
+    bool deviceFound = false;
+    const int numOfDevs = freenect2.enumerateDevices();
 
-    if(cam.empty())
+    if(numOfDevs <= 0)
     {
-      device = freenect2.openDefaultDevice(packetPipeline);
+      std::cerr << "Error: no Kinect2 devices found!" << std::endl;
+      return false;
     }
-    else
+
+    if(camSerial.empty())
     {
-      device = freenect2.openDevice(cam, packetPipeline);
+      camSerial = freenect2.getDefaultDeviceSerialNumber();
     }
+
+    std::cout << "Kinect2 devices found: " << std::endl;
+    for(int i = 0; i < numOfDevs; ++i)
+    {
+      const std::string &s = freenect2.getDeviceSerialNumber(i);
+      deviceFound = deviceFound || s == camSerial;
+      std::cout << "  " << i << ": " << s << (s == camSerial ? " (selected)" : "") << std::endl;
+    }
+
+    if(!deviceFound)
+    {
+      std::cerr << "Error: Device with serial '" << camSerial << "' not found!" << std::endl;
+      return false;
+    }
+
+    device = freenect2.openDevice(camSerial, packetPipeline);
 
     if(device == 0)
     {
@@ -207,7 +227,7 @@ public:
     std::cout << std::endl << "starting kinect2" << std::endl << std::endl;
     device->start();
 
-    serial = device->getSerialNumber();
+    std::string serial = device->getSerialNumber();
     std::cout << std::endl << "device serial: " << serial << std::endl;
     std::cout << "device firmware: " << device->getFirmwareVersion() << std::endl;
 
