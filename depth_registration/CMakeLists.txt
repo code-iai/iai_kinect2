@@ -19,6 +19,9 @@ ELSE()
   MESSAGE(ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
 ENDIF()
 
+# additional cmake modules
+LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
+
 find_package(catkin REQUIRED COMPONENTS roscpp)
 find_package(cmake_modules QUIET)
 
@@ -26,7 +29,7 @@ find_package(cmake_modules QUIET)
 find_package(OpenCV REQUIRED)
 find_package(OpenMP)
 find_package(Eigen)
-find_library(OPENCL_LIBRARIES OpenCL)
+find_package(OpenCL)
 
 if(OPENMP_FOUND)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
@@ -45,7 +48,7 @@ else()
   set(DEPTH_REG_CPU OFF)
 endif()
 
-if(OPENCL_LIBRARIES)
+if(OPENCL_FOUND)
   message(STATUS "OpenCL based depth registration enabled")
   set(DEPTH_REG_OPENCL ON)
   add_definitions(-DDEPTH_REG_OPENCL)
@@ -104,6 +107,7 @@ if(DEPTH_REG_CPU)
 endif()
 
 if(DEPTH_REG_OPENCL)
+  include_directories(${OPENCL_INCLUDE_DIRS})
   add_definitions(-DREG_OPENCL_FILE="${PROJECT_SOURCE_DIR}/src/depth_registration.cl")
   set(MODULES ${MODULES} src/depth_registration_opencl.cpp)
   set(MODULE_LIBS ${MODULE_LIBS} ${OPENCL_LIBRARIES})
