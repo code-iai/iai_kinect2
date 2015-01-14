@@ -56,7 +56,7 @@ cd ../build
 mkdir linux
 cd linux
 cmake ../../examples/protonect/
-make && sudo make installsudo
+make && sudo make install
 ```
 4. Clone this repository into your catkin workspace, install the dependencies and build it:
 
