@@ -20,6 +20,8 @@
   <build_depend>compressed_image_transport</build_depend>
   <build_depend>compressed_depth_image_transport</build_depend>
   <build_depend>kinect2_bridge</build_depend>
+  <build_depend>libpcl-all-dev</build_depend>
+  <build_depend>libopencv-dev</build_depend>
 
   <run_depend>message_runtime</run_depend>
   <run_depend>roscpp</run_depend>
@@ -31,6 +33,9 @@
   <run_depend>image_transport</run_depend>
   <run_depend>compressed_image_transport</run_depend>
   <run_depend>compressed_depth_image_transport</run_depend>
+  <run_depend>libpcl-all-dev</run_depend>
+  <run_depend>libpcl-all</run_depend>
+  <run_depend>libopencv-dev</run_depend>
 
   <export>
   </export>
