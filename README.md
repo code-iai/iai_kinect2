@@ -61,8 +61,10 @@ make && sudo make install
 4. Clone this repository into your catkin workspace, install the dependencies and build it:
 
    ```
-git clone https://github.com/code-iai/iai_kinect2.git ~/catkin_ws/src/iai_kinect2
-rosdep install -r depth_registration kinect2_bridge kinect2_calibration registration_viewer
+cd ~/catkin_ws/src/
+git clone https://github.com/code-iai/iai_kinect2.git
+cd iai_kinect2
+rosdep install -r --from-paths .
 cd ~/catkin_ws
 catkin_make -DCMAKE_BUILD_TYPE="Release"
 ```
