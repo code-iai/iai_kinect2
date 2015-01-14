@@ -44,6 +44,7 @@ INCLUDE_DIRECTORIES(${GLEW_INCLUDE_DIR})
 1. Install the ROS. [Instructions for Ubuntu 14.04](http://wiki.ros.org/indigo/Installation/Ubuntu)
 2. [Setup your ROS environment](http://wiki.ros.org/ROS/Tutorials/InstallingandConfiguringROSEnvironment)
 3. Install [libfreenect2](https://github.com/OpenKinect/libfreenect2) with the described modifications or use [my fork](https://github.com/wiedemeyer/libfreenect2/tree/iai_kinect2) which includes the modifications:
+
    ```
 cd ~
 sudo apt-get install -y build-essential libturbojpeg libtool autoconf libudev-dev cmake mesa-common-dev freeglut3-dev libxrandr-dev doxygen libxi-dev libopencv-dev
@@ -58,6 +59,7 @@ cmake ../../examples/protonect/
 make && sudo make installsudo
 ```
 4. Clone this repository into your catkin workspace, install the dependencies and build it:
+
    ```
 git clone https://github.com/code-iai/iai_kinect2.git ~/catkin_ws/src/iai_kinect2
 rosdep install -r depth_registration kinect2_bridge kinect2_calibration registration_viewer
@@ -65,6 +67,7 @@ cd ~/catkin_ws
 catkin_make -DCMAKE_BUILD_TYPE="Release"
 ```
 5. Connect your sensor and run `kinect2_bridge`:
+
    ```
 rosrun kinect2_bridge kinect2_bridge
 ```
