@@ -41,13 +41,36 @@ INCLUDE_DIRECTORIES(${GLEW_INCLUDE_DIR})
 
 ## Install
 
-1. Install the dependencies.
-2. Clone this repository into your catkin workspace.
-3. Build it.
-4. Connect your sensor and run `kinect2_bridge`.
-5. Calibrate your sensor using the `kinect2_calibration`. [Further details](https://github.com/code-iai/iai_kinect2/tree/master/kinect2_calibration#calibrating-the-kinect-one)
-6. Add the calibration files to the `kinect2_bridge/data/<serialnumber>` folder. [Further details](https://github.com/code-iai/iai_kinect2/tree/master/kinect2_bridge#first-steps)
-7. Restart `kinect2_bridge` and view the results using `rosrun registration_viewer viewer -kinect2 -cloud`.
+1. Install the ROS. [Instructions for Ubuntu 14.04](http://wiki.ros.org/indigo/Installation/Ubuntu)
+2. [Setup your ROS environment](http://wiki.ros.org/ROS/Tutorials/InstallingandConfiguringROSEnvironment)
+3. Install [libfreenect2](https://github.com/OpenKinect/libfreenect2) with the described modifications or use [my fork](https://github.com/wiedemeyer/libfreenect2/tree/iai_kinect2) which includes the modifications:
+   ```
+cd ~
+sudo apt-get install -y build-essential libturbojpeg libtool autoconf libudev-dev cmake mesa-common-dev freeglut3-dev libxrandr-dev doxygen libxi-dev libopencv-dev
+sudo ln -s /usr/lib/x86_64-linux-gnu/libturbojpeg.so.0 /usr/lib/x86_64-linux-gnu/libturbojpeg.so
+git clone https://github.com/wiedemeyer/libfreenect2.git
+cd libfreenect2/depends
+./install_ubuntu.sh
+cd ../build
+mkdir linux
+cd linux
+cmake ../../examples/protonect/
+make && sudo make installsudo
+```
+4. Clone this repository into your catkin workspace, install the dependencies and build it:
+   ```
+git clone https://github.com/code-iai/iai_kinect2.git ~/catkin_ws/src/iai_kinect2
+rosdep install -r depth_registration kinect2_bridge kinect2_calibration registration_viewer
+cd ~/catkin_ws
+catkin_make -DCMAKE_BUILD_TYPE="Release"
+```
+5. Connect your sensor and run `kinect2_bridge`:
+   ```
+rosrun kinect2_bridge kinect2_bridge
+```
+6. Calibrate your sensor using the `kinect2_calibration`. [Further details](https://github.com/code-iai/iai_kinect2/tree/master/kinect2_calibration#calibrating-the-kinect-one)
+7. Add the calibration files to the `kinect2_bridge/data/<serialnumber>` folder. [Further details](https://github.com/code-iai/iai_kinect2/tree/master/kinect2_bridge#first-steps)
+8. Restart `kinect2_bridge` and view the results using `rosrun registration_viewer viewer -kinect2 -cloud`.
 
 ## Permissions to access the Kinect One
 
