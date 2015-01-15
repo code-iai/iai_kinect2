@@ -71,12 +71,12 @@ private:
   const Source mode;
 
   const std::string path;
-  const std::string topicColor, topicIr;
+  const std::string topicColor, topicIr, topicDepth;
   std::mutex lock;
 
   bool update;
   bool foundColor, foundIr;
-  cv::Mat color, ir, irGrey;
+  cv::Mat color, ir, irGrey, depth;
   cv::Ptr<cv::CLAHE> clahe;
 
   size_t frame;
@@ -85,18 +85,20 @@ private:
   std::vector<cv::Point3f> board;
   std::vector<cv::Point2f> pointsColor, pointsIr;
 
-  typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, sensor_msgs::Image> ColorIrSyncPolicy;
+  typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::Image> ColorIrDepthSyncPolicy;
   ros::NodeHandle nh;
   ros::AsyncSpinner spinner;
   image_transport::ImageTransport it;
-  image_transport::SubscriberFilter *subImageColor, *subImageIr;
-  message_filters::Synchronizer<ColorIrSyncPolicy> *sync;
+  image_transport::SubscriberFilter *subImageColor, *subImageIr, *subImageDepth;
+  message_filters::Synchronizer<ColorIrDepthSyncPolicy> *sync;
 
   int minIr, maxIr;
 
 public:
-  Recorder(const std::string &path, const std::string &topicColor, const std::string &topicIr, const Source mode, const bool circleBoard, const bool symmetric, const cv::Size &boardDims, const float boardSize)
-    : circleBoard(circleBoard), boardDims(boardDims), boardSize(boardSize), mode(mode), path(path), topicColor(topicColor), topicIr(topicIr), update(false), foundColor(false), foundIr(false), frame(0), nh(), spinner(0), it(nh), minIr(0), maxIr(0x7FFF)
+  Recorder(const std::string &path, const std::string &topicColor, const std::string &topicIr, const std::string &topicDepth,
+           const Source mode, const bool circleBoard, const bool symmetric, const cv::Size &boardDims, const float boardSize)
+    : circleBoard(circleBoard), boardDims(boardDims), boardSize(boardSize), mode(mode), path(path), topicColor(topicColor), topicIr(topicIr),
+      topicDepth(topicDepth), update(false), foundColor(false), foundIr(false), frame(0), nh(), spinner(0), it(nh), minIr(0), maxIr(0x7FFF)
   {
     if(symmetric)
     {
@@ -140,11 +142,13 @@ private:
   {
     image_transport::TransportHints hints("compressed");
     image_transport::TransportHints hintsIr("compressed");
+    image_transport::TransportHints hintsDepth("compressedDepth");
     subImageColor = new image_transport::SubscriberFilter(it, topicColor, 4, hints);
     subImageIr = new image_transport::SubscriberFilter(it, topicIr, 4, hintsIr);
+    subImageDepth = new image_transport::SubscriberFilter(it, topicDepth, 4, hintsDepth);
 
-    sync = new message_filters::Synchronizer<ColorIrSyncPolicy>(ColorIrSyncPolicy(4), *subImageColor, *subImageIr);
-    sync->registerCallback(boost::bind(&Recorder::callback, this, _1, _2));
+    sync = new message_filters::Synchronizer<ColorIrDepthSyncPolicy>(ColorIrDepthSyncPolicy(4), *subImageColor, *subImageIr, *subImageDepth);
+    sync->registerCallback(boost::bind(&Recorder::callback, this, _1, _2, _3));
 
     spinner.start();
   }
@@ -156,6 +160,7 @@ private:
     delete sync;
     delete subImageColor;
     delete subImageIr;
+    delete subImageDepth;
   }
 
   void convertIr(const cv::Mat &ir, cv::Mat &grey, const int min, const int max)
@@ -193,10 +198,10 @@ private:
     }
   }
 
-  void callback(const sensor_msgs::Image::ConstPtr imageColor, const sensor_msgs::Image::ConstPtr imageIr)
+  void callback(const sensor_msgs::Image::ConstPtr imageColor, const sensor_msgs::Image::ConstPtr imageIr, const sensor_msgs::Image::ConstPtr imageDepth)
   {
     std::vector<cv::Point2f> pointsColor, pointsIr;
-    cv::Mat color, ir, irGrey, irScaled;
+    cv::Mat color, ir, irGrey, irScaled, depth;
     bool foundColor = false;
     bool foundIr = false;
 
@@ -207,6 +212,7 @@ private:
     if(mode == IR || mode == SYNC)
     {
       readImage(imageIr, ir);
+      readImage(imageDepth, depth);
       cv::resize(ir, irScaled, cv::Size(), 2.0, 2.0, cv::INTER_CUBIC);
       convertIr(irScaled, irGrey, minIr, maxIr);
       //ir.convertTo(irGrey, CV_8U, 255.0 / maxIr);
@@ -269,6 +275,7 @@ private:
     this->color = color;
     this->ir = ir;
     this->irGrey = irGrey;
+    this->depth = depth;
     this->foundColor = foundColor;
     this->foundIr = foundIr;
     this->pointsColor = pointsColor;
@@ -280,7 +287,7 @@ private:
   void display()
   {
     std::vector<cv::Point2f> pointsColor, pointsIr;
-    cv::Mat color, ir, irGrey;
+    cv::Mat color, ir, irGrey, depth;
     cv::Mat colorDisp, irDisp;
     bool foundColor = false;
     bool foundIr = false;
@@ -301,6 +308,7 @@ private:
         color = this->color;
         ir = this->ir;
         irGrey = this->irGrey;
+        depth = this->depth;
         foundColor = this->foundColor;
         foundIr = this->foundIr;
         pointsColor = this->pointsColor;
@@ -353,7 +361,7 @@ private:
 
       if(save && ((mode == COLOR && foundColor) || (mode == IR && foundIr) || (mode == SYNC && foundColor && foundIr)))
       {
-        store(color, ir, irGrey, pointsColor, pointsIr);
+        store(color, ir, irGrey, depth, pointsColor, pointsIr);
         save = false;
       }
     }
@@ -368,7 +376,7 @@ private:
     pCvImage->image.copyTo(image);
   }
 
-  void store(const cv::Mat &color, const cv::Mat &ir, const cv::Mat &irGrey, const std::vector<cv::Point2f> &pointsColor, std::vector<cv::Point2f> &pointsIr)
+  void store(const cv::Mat &color, const cv::Mat &ir, const cv::Mat &irGrey, const cv::Mat &depth, const std::vector<cv::Point2f> &pointsColor, std::vector<cv::Point2f> &pointsIr)
   {
     std::ostringstream oss;
     oss << std::setfill('0') << std::setw(4) << frame++;
@@ -399,6 +407,7 @@ private:
     {
       cv::imwrite(base + CALIB_FILE_IR, ir, params);
       cv::imwrite(base + CALIB_FILE_IR_GREY, irGrey, params);
+      cv::imwrite(base + CALIB_FILE_DEPTH, depth, params);
 
       cv::FileStorage file(base + CALIB_POINTS_IR, cv::FileStorage::WRITE);
       file << "points" << pointsIr;
@@ -767,7 +776,7 @@ void help(const std::string &path)
             << "    'circle<WIDTH>x<HEIGHT>x<SIZE>'  for symmentric cirle grid" << std::endl
             << "    'acircle<WIDTH>x<HEIGHT>x<SIZE>' for asymmentric cirle grid" << std::endl
             << "    'chess<WIDTH>x<HEIGHT>x<SIZE>'   for chessboard pattern" << std::endl
-            << "  topics: '-color <TOPIC>' and/or '-ir <TOPIC>'" << std::endl
+            << "  topics: '-color <TOPIC>', '-ir <TOPIC>', '-depth <TOPIC>'" << std::endl
             << "  output path: '<PATH>'" << std::endl;
 }
 
@@ -782,6 +791,7 @@ int main(int argc, char **argv)
   std::string path = "./";
   std::string topicColor = K2_TOPIC_IMAGE_MONO K2_TOPIC_RAW;
   std::string topicIr = K2_TOPIC_IMAGE_IR K2_TOPIC_RAW;
+  std::string topicDepth = K2_TOPIC_IMAGE_DEPTH K2_TOPIC_RAW;
 
   ros::init(argc, argv, "kinect2_calib");
 
@@ -868,6 +878,10 @@ int main(int argc, char **argv)
     {
       topicIr = std::string(argv[++argI]);
     }
+    else if(arg == "-depth" && argI + 1 < argc)
+    {
+      topicDepth = std::string(argv[++argI]);
+    }
     else
     {
       struct stat fileStat;
@@ -886,14 +900,15 @@ int main(int argc, char **argv)
   }
 
   std::cout << "Start settings:" << std::endl
-            << "Mode: " << (mode == RECORD ? "record" : "calibrate") << std::endl
-            << "Source: " << (source == COLOR ? "color" : (source == IR ? "ir" : "sync")) << std::endl
-            << "Board: " << (circleBoard ? "circles" : "chess") << std::endl
-            << "Dimensions: " << boardDims.width << " x " << boardDims.height << std::endl
-            << "Field size: " << boardSize << std::endl
+            << "       Mode: " << (mode == RECORD ? "record" : "calibrate") << std::endl
+            << "     Source: " << (source == COLOR ? "color" : (source == IR ? "ir" : "sync")) << std::endl
+            << "      Board: " << (circleBoard ? "circles" : "chess") << std::endl
+            << " Dimensions: " << boardDims.width << " x " << boardDims.height << std::endl
+            << " Field size: " << boardSize << std::endl
             << "Topic color: " << topicColor << std::endl
-            << "Topic ir: " << topicIr << std::endl
-            << "Path: " << path << std::endl << std::endl;
+            << "   Topic ir: " << topicIr << std::endl
+            << "Topic depth: " << topicDepth << std::endl
+            << "       Path: " << path << std::endl << std::endl;
 
   if(!ros::master::check())
   {
@@ -902,7 +917,7 @@ int main(int argc, char **argv)
   }
   if(mode == RECORD)
   {
-    Recorder recorder(path, topicColor, topicIr, source, circleBoard, symmetric, boardDims, boardSize);
+    Recorder recorder(path, topicColor, topicIr, topicDepth, source, circleBoard, symmetric, boardDims, boardSize);
 
     std::cout << "starting recorder..." << std::endl;
     recorder.run();
