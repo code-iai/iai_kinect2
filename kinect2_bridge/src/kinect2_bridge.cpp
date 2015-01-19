@@ -369,8 +369,12 @@ public:
     {
       cv::Mat color, depth, ir;
 
+#ifdef LIBFREENECT2_THREADING_STDLIB
       bool newFrames = listener->waitForNewFrame(frames, 1000);
-
+#else
+      bool newFrames = true;
+      listener->waitForNewFrame(frames);
+#endif
       if(!ros::ok())
       {
         if(newFrames)
