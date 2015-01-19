@@ -24,10 +24,9 @@ ELSE()
   MESSAGE(ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
 ENDIF()
 
-find_package(freenect2 CONFIG)
+find_package(freenect2 REQUIRED)
 
 find_package(catkin REQUIRED COMPONENTS roscpp rostime std_msgs sensor_msgs cv_bridge compressed_depth_image_transport depth_registration)
-find_package(cmake_modules QUIET)
 
 ## System dependencies are found with CMake's conventions
 find_package(OpenCV REQUIRED)
