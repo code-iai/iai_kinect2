@@ -140,6 +140,16 @@ public:
 private:
   void startRecord()
   {
+    std::cout << "Controls:" << std::endl
+              << "   [ESC, q] - Exit" << std::endl
+              << " [SPACE, s] - Save current frame" << std::endl
+              << "        [l] - decreas min and max value for IR value rage" << std::endl
+              << "        [h] - increas min and max value for IR value rage" << std::endl
+              << "        [1] - decreas min value for IR value rage" << std::endl
+              << "        [2] - increas min value for IR value rage" << std::endl
+              << "        [3] - decreas max value for IR value rage" << std::endl
+              << "        [4] - increas max value for IR value rage" << std::endl;
+
     image_transport::TransportHints hints("compressed");
     image_transport::TransportHints hintsIr("compressed");
     image_transport::TransportHints hintsDepth("compressedDepth");
@@ -356,6 +366,26 @@ private:
       case 27:
       case 'q':
         running = false;
+        break;
+      case '1':
+        minIr = std::min(0, minIr - 100);
+        break;
+      case '2':
+        minIr = std::max(maxIr - 1, minIr + 100);
+        break;
+      case '3':
+        maxIr = std::min(minIr + 1, maxIr - 100);
+        break;
+      case '4':
+        maxIr = std::max(0xFFFF, maxIr + 100);
+        break;
+      case 'l':
+        minIr = std::min(0, minIr - 100);
+        maxIr = std::min(minIr + 1, maxIr - 100);
+        break;
+      case 'h':
+        maxIr = std::max(0xFFFF, maxIr + 100);
+        minIr = std::max(maxIr - 1, minIr + 100);
         break;
       }
 
