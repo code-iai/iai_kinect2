@@ -20,7 +20,7 @@ ELSE()
 ENDIF()
 
 # additional cmake modules
-LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
+LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 find_package(catkin REQUIRED COMPONENTS roscpp)
 find_package(cmake_modules QUIET)
@@ -79,6 +79,7 @@ catkin_package(
   LIBRARIES depth_registration
 #  CATKIN_DEPENDS other_catkin_pkg
 #  DEPENDS system_lib
+  CFG_EXTRAS depth_registration.cmake
 )
 
 ###########

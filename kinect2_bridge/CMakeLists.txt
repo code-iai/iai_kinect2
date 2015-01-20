@@ -1,11 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(kinect2_bridge)
 
-option(K2_USE_OPENCL_REGISTRATION "Use OpenCL implementation of the depth registration"       ON)
-option(K2_USE_OPENCL_PIPELINE     "Use OpenCL implementation of libfreenect2 packet pipeline" ON)
-option(K2_USE_TIFF_COMRESSION     "Use TIFF for depth/ir compression instead of PNG."         ON)
-set(K2_MIN_WORKER_THREADS 2 CACHE STRING "Minimum number of worker threads")
-
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBT_USE_DOUBLE_PRECISION -Wall")
 # Unused warnings
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wuninitialized -Winit-self -Wunused-function -Wunused-label -Wunused-variable -Wunused-but-set-variable -Wunused-but-set-parameter")
@@ -35,6 +30,11 @@ find_package(OpenMP)
 if(OPENMP_FOUND)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif()
+
+option(K2_USE_OPENCL_REGISTRATION "Use OpenCL implementation of the depth registration"       ${DEPTH_REG_OPENCL})
+option(K2_USE_OPENCL_PIPELINE     "Use OpenCL implementation of libfreenect2 packet pipeline" ON)
+option(K2_USE_TIFF_COMRESSION     "Use TIFF for depth/ir compression instead of PNG."         ON)
+set(K2_MIN_WORKER_THREADS 2 CACHE STRING "Minimum number of worker threads")
 
 ################################################
 ## Declare ROS messages, services and actions ##
@@ -76,7 +76,11 @@ include_directories(include
 )
 
 if(K2_USE_OPENCL_REGISTRATION)
-  add_definitions(-DUSE_OPENCL_REGISTRATION)
+  if(DEPTH_REG_OPENCL)
+    add_definitions(-DUSE_OPENCL_REGISTRATION)
+  else()
+    message(WARNING "Could not use OpenCL depth registration, because depth_registration was build without OpenCL support.")
+  endif()
 endif()
 if(K2_USE_OPENCL_PIPELINE)
   add_definitions(-DUSE_OPENCL_PIPELINE)
