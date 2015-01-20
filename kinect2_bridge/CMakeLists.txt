@@ -31,9 +31,9 @@ if(OPENMP_FOUND)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif()
 
-option(K2_USE_OPENCL_REGISTRATION "Use OpenCL implementation of the depth registration"       ${DEPTH_REG_OPENCL})
-option(K2_USE_OPENCL_PIPELINE     "Use OpenCL implementation of libfreenect2 packet pipeline" ON)
-option(K2_USE_TIFF_COMRESSION     "Use TIFF for depth/ir compression instead of PNG."         ON)
+#option(K2_USE_OPENCL_REGISTRATION "Use OpenCL implementation of the depth registration"       ${DEPTH_REG_OPENCL})
+#option(K2_USE_OPENCL_PIPELINE     "Use OpenCL implementation of libfreenect2 packet pipeline" ON)
+#option(K2_USE_TIFF_COMRESSION     "Use TIFF for depth/ir compression instead of PNG."         ON)
 set(K2_MIN_WORKER_THREADS 2 CACHE STRING "Minimum number of worker threads")
 
 ################################################
@@ -75,18 +75,8 @@ include_directories(include
   ${freenect2_INCLUDE_DIRS}
 )
 
-if(K2_USE_OPENCL_REGISTRATION)
-  if(DEPTH_REG_OPENCL)
-    add_definitions(-DUSE_OPENCL_REGISTRATION)
-  else()
-    message(WARNING "Could not use OpenCL depth registration, because depth_registration was build without OpenCL support.")
-  endif()
-endif()
-if(K2_USE_OPENCL_PIPELINE)
-  add_definitions(-DUSE_OPENCL_PIPELINE)
-endif()
-if(K2_USE_TIFF_COMRESSION)
-  add_definitions(-DUSE_TIFF_COMRESSION)
+if(DEPTH_REG_OPENCL)
+  add_definitions(-DDEPTH_REG_OPENCL)
 endif()
 add_definitions(-DMIN_WORKER_THREADS=${K2_MIN_WORKER_THREADS})
 add_definitions(-DK2_CALIB_PATH="${PROJECT_SOURCE_DIR}/data/")
@@ -96,6 +86,7 @@ target_link_libraries(kinect2_bridge
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${freenect2_LIBRARY}
+  glfw
 )
 
 #############

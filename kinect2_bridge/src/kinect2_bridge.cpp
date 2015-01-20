@@ -43,11 +43,22 @@
 #include <libfreenect2/packet_pipeline.h>
 #include <libfreenect2/config.h>
 
+#include <GLFW/glfw3.h>
+
 #include <kinect2_definitions.h>
 #include <depth_registration.h>
 
 class Kinect2Bridge
 {
+public:
+  enum DepthMethod
+  {
+    DEFAULT = 0,
+    CPU,
+    OPENCL,
+    OPENGL
+  };
+
 private:
   const int32_t jpegQuality;
   const int32_t pngLevel;
@@ -129,7 +140,7 @@ private:
   std::vector<Status> statusPubs;
 
 public:
-  Kinect2Bridge(const double fps, const bool rawDepth, const int compression, const int deviceIdDepth)
+  Kinect2Bridge(const double fps, const bool rawDepth, const int compression, const int deviceIdDepth, const DepthRegistration::Method methodReg, const DepthMethod methodDepth, const bool useTiff)
     : jpegQuality(compression), pngLevel(1), maxDepth(10.0), queueSize(2), rawDepth(rawDepth), sizeColor(1920, 1080), sizeIr(512, 424),
       sizeDepth(rawDepth ? sizeIr : cv::Size(sizeColor.width / 2, sizeColor.height / 2)), newFrame(false), nh(),
       deltaT(1.0 / fps), topics(COUNT)
@@ -160,25 +171,40 @@ public:
     compressionParams[5] = CV_IMWRITE_PNG_STRATEGY_RLE;
     compressionParams[6] = 0;
 
-#ifdef USE_OPENCL_REGISTRATION
-    depthRegLowRes = DepthRegistration::New(DepthRegistration::OPENCL);
-    depthRegHighRes = DepthRegistration::New(DepthRegistration::OPENCL);
-#else
-    depthRegLowRes = DepthRegistration::New(DepthRegistration::CPU);
-    depthRegHighRes = DepthRegistration::New(DepthRegistration::CPU);
+    depthRegLowRes = DepthRegistration::New(methodReg);
+    depthRegHighRes = DepthRegistration::New(methodReg);
+
+    if(methodDepth == CPU)
+    {
+      packetPipeline = new libfreenect2::CpuPacketPipeline();
+    }
+#ifdef LIBFREENECT2_WITH_OPENCL_SUPPORT
+    else if(methodDepth == OPENCL)
+    {
+      packetPipeline = new libfreenect2::OpenCLPacketPipeline(deviceIdDepth);
+    }
 #endif
-#if defined(USE_OPENCL_PIPELINE) && defined(LIBFREENECT2_WITH_OPENCL_SUPPORT)
-    packetPipeline = new libfreenect2::OpenCLPacketPipeline(deviceIdDepth);
-#else
-    packetPipeline = new libfreenect2::DefaultPacketPipeline();
-#endif
-#ifdef USE_TIFF_COMRESSION
-    compression16BitExt = ".tiff";
-    compression16BitString = "; tiff compressed ";
-#else
-    compression16BitExt = ".png";
-    compression16BitString = "; png compressed ";
-#endif
+    else if(methodDepth == OPENGL)
+    {
+      glfwInit();
+      packetPipeline = new libfreenect2::OpenGLPacketPipeline();
+    }
+    else
+    {
+      glfwInit();
+      packetPipeline = new libfreenect2::DefaultPacketPipeline();
+    }
+
+    if(useTiff)
+    {
+      compression16BitExt = ".tiff";
+      compression16BitString = "; tiff compressed ";
+    }
+    else
+    {
+      compression16BitExt = ".png";
+      compression16BitString = "; png compressed ";
+    }
   }
 
   bool init(const std::string &path, const std::string &cam, const int deviceIdReg)
@@ -828,7 +854,10 @@ void help(const std::string &path)
             << "  -fps <num>       limit the frames per second to <num> (float)" << std::endl
             << "  -calib <path>    path to the calibration files" << std::endl
             << "  -raw             output raw depth image as 512x424 instead of 960x540" << std::endl
-            << "  -comp <num>      jpg compression level from 0 to 100 (default 90)." << std::endl
+            << "  -comp <num>      JPEG compression level from 0 to 100 (default 90)." << std::endl
+            << "  -png             Use PNG compression instead of TIFF" << std::endl
+            << "  -depth <method>  Use specific depth processing. Methods: opencl, opengl, cpu" << std::endl
+            << "  -reg <method>    Use specific depth registration. Methods: opencl, cpu" << std::endl
             << "  -oclDev <num>    openCL device to use for depth registration and processing." << std::endl
             << "  -oclReg <num>    openCL device to use for depth registration." << std::endl
             << "  -oclDepth <num>  openCL device to use for depth processing." << std::endl;
@@ -846,9 +875,17 @@ int main(int argc, char **argv)
   std::string cam = "";
   double fps = -1;
   bool rawDepth = false;
+  bool useTiff = true;
   int compression = 90;
   int deviceIdReg = -1;
   int deviceIdDepth = -1;
+
+  Kinect2Bridge::DepthMethod methodDepth = Kinect2Bridge::DEFAULT;
+  DepthRegistration::Method methodReg = DepthRegistration::DEFAULT;
+
+#ifdef LIBFREENECT2_WITH_OPENCL_SUPPORT
+  methodDepth = Kinect2Bridge::OPENCL;
+#endif
 
   for(int argI = 1; argI < argc; ++argI)
   {
@@ -928,9 +965,77 @@ int main(int argc, char **argv)
         return -1;
       }
     }
+    else if(arg == "-reg")
+    {
+      if(++argI < argc)
+      {
+        const std::string method = argv[argI];
+        if(method == "cpu")
+        {
+          methodReg = DepthRegistration::CPU;
+        }
+        else if(method == "opencl")
+        {
+#ifdef DEPTH_REG_OPENCL
+          methodReg = DepthRegistration::OPENCL;
+#else
+          std::cerr << "Method opencl is not available!" << std::endl;
+          return -1;
+#endif
+        }
+        else
+        {
+          std::cerr << "Unknown method: " << method << std::endl;
+          return -1;
+        }
+      }
+      else
+      {
+        std::cerr << "Method not given!" << std::endl;
+        return -1;
+      }
+    }
+    else if(arg == "-depth")
+    {
+      if(++argI < argc)
+      {
+        const std::string method = argv[argI];
+        if(method == "cpu")
+        {
+          methodDepth = Kinect2Bridge::CPU;
+        }
+        else if(method == "opencl")
+        {
+#ifdef LIBFREENECT2_WITH_OPENCL_SUPPORT
+          methodDepth = Kinect2Bridge::OPENCL;
+#else
+          std::cerr << "Method opencl is not available!" << std::endl;
+          return -1;
+#endif
+        }
+        else if(method == "opengl")
+        {
+          methodDepth = Kinect2Bridge::OPENGL;
+        }
+        else
+        {
+          std::cerr << "Unknown method: " << method << std::endl;
+          return -1;
+        }
+      }
+      else
+      {
+        std::cerr << "Method not given!" << std::endl;
+        return -1;
+      }
+    }
     else if(arg == "-raw")
     {
       rawDepth = true;
+    }
+    else if(arg == "-png")
+    {
+      useTiff = false;
     }
   }
 
@@ -947,7 +1052,7 @@ int main(int argc, char **argv)
     return -1;
   }
 
-  Kinect2Bridge kinect2(fps, rawDepth, compression, deviceIdDepth);
+  Kinect2Bridge kinect2(fps, rawDepth, compression, deviceIdDepth, methodReg, methodDepth, useTiff);
 
   if(kinect2.init(path, cam, deviceIdReg))
   {
