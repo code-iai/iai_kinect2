@@ -57,6 +57,7 @@ private:
   const bool rawDepth;
   std::string compression16BitExt;
   std::string compression16BitString;
+  std::string cameraName;
 
   size_t frame;
   const cv::Size sizeColor, sizeIr, sizeDepth;
@@ -129,23 +130,13 @@ private:
   std::vector<Status> statusPubs;
 
 public:
-  Kinect2Bridge(const double fps, const bool rawDepth, const int compression, const int deviceIdDepth)
-    : jpegQuality(compression), pngLevel(1), maxDepth(10.0), queueSize(2), rawDepth(rawDepth), sizeColor(1920, 1080), sizeIr(512, 424),
+
+  Kinect2Bridge(std::string cameraName, const double fps, const bool rawDepth, const int compression, const int deviceIdDepth)
+    : cameraName(cameraName), jpegQuality(compression), pngLevel(1), maxDepth(10.0), queueSize(2), rawDepth(rawDepth), sizeColor(1920, 1080), sizeIr(512, 424),
       sizeDepth(rawDepth ? sizeIr : cv::Size(sizeColor.width / 2, sizeColor.height / 2)), newFrame(false), nh(),
       deltaT(1.0 / fps), topics(COUNT)
   {
-    topics[IR] = K2_TOPIC_IMAGE_IR;
-    topics[IR_RECT] = K2_TOPIC_RECT_IR;
-    topics[DEPTH] = K2_TOPIC_IMAGE_DEPTH;
-    topics[DEPTH_RECT] = K2_TOPIC_RECT_DEPTH;
-    topics[DEPTH_LORES] = K2_TOPIC_LORES_DEPTH;
-    topics[DEPTH_HIRES] = K2_TOPIC_HIRES_DEPTH;
-    topics[COLOR] = K2_TOPIC_IMAGE_COLOR;
-    topics[COLOR_RECT] = K2_TOPIC_RECT_COLOR;
-    topics[COLOR_LORES] = K2_TOPIC_LORES_COLOR;
-    topics[MONO] = K2_TOPIC_IMAGE_MONO;
-    topics[MONO_RECT] = K2_TOPIC_RECT_MONO;
-    topics[MONO_LORES] = K2_TOPIC_LORES_MONO;
+    createTopicNames();
 
     color = cv::Mat::zeros(sizeColor, CV_8UC3);
     ir = cv::Mat::zeros(sizeIr, CV_32F);
@@ -662,7 +653,7 @@ private:
   {
     header.seq = 0;
     header.stamp = ros::Time::now();
-    header.frame_id = K2_TF_RGB_FRAME;
+    header.frame_id = "/" + cameraName + K2_TF_RGB_FRAME;
   }
 
   void publishImages(const std::vector<cv::Mat> &images, const std_msgs::Header &header, const std::vector<Status> &status, const size_t frame)
@@ -676,7 +667,7 @@ private:
     {
       infoMsgs[i] = infos[i];
       infoMsgs[i].header = header;
-      infoMsgs[i].header.frame_id = i < DEPTH_LORES ? K2_TF_IR_FRAME : K2_TF_RGB_FRAME;
+      infoMsgs[i].header.frame_id = i < DEPTH_LORES ? ("/" + cameraName + K2_TF_IR_FRAME) : ("/" + cameraName + K2_TF_RGB_FRAME);
 
       switch(status[i])
       {
@@ -816,6 +807,22 @@ private:
       return;
     }
   }
+
+  void createTopicNames()
+  {
+	  topics[IR] = "/" + cameraName + "/" + K2_TOPIC_IMAGE_IR;
+	  topics[IR_RECT] = "/" + cameraName + "/" + K2_TOPIC_RECT_IR;
+	  topics[DEPTH] = "/" + cameraName + "/" + K2_TOPIC_IMAGE_DEPTH;
+	  topics[DEPTH_RECT] = "/" + cameraName + "/" + K2_TOPIC_RECT_DEPTH;
+	  topics[DEPTH_LORES] = "/" + cameraName + "/" + K2_TOPIC_LORES_DEPTH;
+	  topics[DEPTH_HIRES] = "/" + cameraName + "/" + K2_TOPIC_HIRES_DEPTH;
+	  topics[COLOR] = "/" + cameraName + "/" + K2_TOPIC_IMAGE_COLOR;
+	  topics[COLOR_RECT] = "/" + cameraName + "/" + K2_TOPIC_RECT_COLOR;
+	  topics[COLOR_LORES] = "/" + cameraName + "/" + K2_TOPIC_LORES_COLOR;
+	  topics[MONO] = "/" + cameraName + "/" + K2_TOPIC_IMAGE_MONO;
+	  topics[MONO_RECT] = "/" + cameraName + "/" + K2_TOPIC_RECT_MONO;
+	  topics[MONO_LORES] = "/" + cameraName + "/" + K2_TOPIC_LORES_MONO;
+  }
 };
 
 void help(const std::string &path)
@@ -833,6 +840,7 @@ void help(const std::string &path)
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "kinect2_bridge");
+  ros::NodeHandle nh("~");
 
 #ifdef K2_CALIB_PATH
   std::string path = K2_CALIB_PATH;
@@ -930,6 +938,11 @@ int main(int argc, char **argv)
     }
   }
 
+  // Read ROS parameters:
+  std::string baseTopicName;
+  nh.param("sensor_name", baseTopicName, std::string("kinect2_head"));
+  nh.param("sensor_id", cam, cam);
+
   struct stat fileStat;
   if(stat(path.c_str(), &fileStat) || !S_ISDIR(fileStat.st_mode))
   {
@@ -943,7 +956,7 @@ int main(int argc, char **argv)
     return -1;
   }
 
-  Kinect2Bridge kinect2(fps, rawDepth, compression, deviceIdDepth);
+  Kinect2Bridge kinect2(baseTopicName, fps, rawDepth, compression, deviceIdDepth);
 
   if(kinect2.init(path, cam, deviceIdReg))
   {
