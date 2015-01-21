@@ -77,7 +77,6 @@ private:
   bool update;
   bool foundColor, foundIr;
   cv::Mat color, ir, irGrey, depth;
-  cv::Ptr<cv::CLAHE> clahe;
 
   size_t frame;
   std::vector<int> params;
@@ -120,8 +119,6 @@ public:
         board[i] = cv::Point3f(c * boardSize, r * boardSize, 0);
       }
     }
-
-    clahe = cv::createCLAHE(4.0, cv::Size(8, 8));
   }
 
   ~Recorder()
@@ -193,9 +190,6 @@ private:
 
   void findMinMax(const cv::Mat &ir)
   {
-    minIr = 0xFFFF;
-    maxIr = 0;
-
     for(size_t r = 0; r < (size_t)ir.rows; ++r)
     {
       const uint16_t *it = ir.ptr<uint16_t>(r);
@@ -225,9 +219,6 @@ private:
       readImage(imageDepth, depth);
       cv::resize(ir, irScaled, cv::Size(), 2.0, 2.0, cv::INTER_CUBIC);
       convertIr(irScaled, irGrey, minIr, maxIr);
-      //ir.convertTo(irGrey, CV_8U, 255.0 / maxIr);
-
-      clahe->apply(irGrey, irGrey);
     }
 
     if(circleBoard)
@@ -255,11 +246,11 @@ private:
         foundColor = cv::findChessboardCorners(color, boardDims, pointsColor, cv::CALIB_CB_FAST_CHECK);
         break;
       case IR:
-        foundIr = cv::findChessboardCorners(irGrey, boardDims, pointsIr, cv::CALIB_CB_ADAPTIVE_THRESH + cv::CALIB_CB_NORMALIZE_IMAGE);
+        foundIr = cv::findChessboardCorners(irGrey, boardDims, pointsIr, cv::CALIB_CB_ADAPTIVE_THRESH);
         break;
       case SYNC:
         foundColor = cv::findChessboardCorners(color, boardDims, pointsColor, cv::CALIB_CB_FAST_CHECK);
-        foundIr = cv::findChessboardCorners(irGrey, boardDims, pointsIr, cv::CALIB_CB_ADAPTIVE_THRESH + cv::CALIB_CB_NORMALIZE_IMAGE);
+        foundIr = cv::findChessboardCorners(irGrey, boardDims, pointsIr, cv::CALIB_CB_ADAPTIVE_THRESH);
         break;
       }
       if(foundColor)
@@ -275,10 +266,16 @@ private:
     if(foundIr)
     {
       // Update min and max ir value based on checkerboard values
-      cv::RotatedRect rect = cv::minAreaRect(pointsIr);
-      float dist = sqrt(rect.size.width * rect.size.width + rect.size.height + rect.size.height) * 0.9;
-      cv::Rect roi(rect.center.x - dist / 2, rect.center.y - dist / 2, dist, dist);
-      findMinMax(irScaled(roi));
+      minIr = 0x7FFF;
+      maxIr = 0;
+      for(size_t i = 0; i < pointsIr.size(); ++i)
+      {
+        cv::Point2f &p = pointsIr[i];
+        cv::Rect roi(std::max(0, (int)p.x - 2), std::max(0, (int)p.y - 2), 7, 7);
+        roi.width = std::min(roi.width, irScaled.cols - roi.x);
+        roi.height = std::min(roi.height, irScaled.rows - roi.y);
+        findMinMax(irScaled(roi));
+      }
     }
 
     lock.lock();
@@ -368,24 +365,24 @@ private:
         running = false;
         break;
       case '1':
-        minIr = std::min(0, minIr - 100);
+        minIr = std::max(0, minIr - 100);
         break;
       case '2':
-        minIr = std::max(maxIr - 1, minIr + 100);
+        minIr = std::min(maxIr - 1, minIr + 100);
         break;
       case '3':
-        maxIr = std::min(minIr + 1, maxIr - 100);
+        maxIr = std::max(minIr + 1, maxIr - 100);
         break;
       case '4':
-        maxIr = std::max(0xFFFF, maxIr + 100);
+        maxIr = std::min(0xFFFF, maxIr + 100);
         break;
       case 'l':
-        minIr = std::min(0, minIr - 100);
-        maxIr = std::min(minIr + 1, maxIr - 100);
+        minIr = std::max(0, minIr - 100);
+        maxIr = std::max(minIr + 1, maxIr - 100);
         break;
       case 'h':
-        maxIr = std::max(0xFFFF, maxIr + 100);
-        minIr = std::max(maxIr - 1, minIr + 100);
+        maxIr = std::min(0x7FFF, maxIr + 100);
+        minIr = std::min(maxIr - 1, minIr + 100);
         break;
       }
 
