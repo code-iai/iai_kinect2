@@ -1,5 +1,5 @@
 <launch>
-  <arg name="publish_frame"   />
+  <arg name="publish_frame" default="false" />
   <arg name="camera" default="head_mount_kinect2" />
   <arg name="tf_prefix" default="" />
                     

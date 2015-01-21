@@ -533,14 +533,17 @@ void help(const std::string &path)
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "viewer");
-
+  ros::NodeHandle nh("~");
+  
+  std::string cameraName = "kinect2_head";  
+  
   if(!ros::ok())
   {
     return 0;
   }
 
-  std::string topicColor = K2_TOPIC_LORES_COLOR K2_TOPIC_RAW;
-  std::string topicDepth = K2_TOPIC_LORES_DEPTH K2_TOPIC_RAW;
+  std::string topicColor = "/" + cameraName + "/" + K2_TOPIC_LORES_COLOR K2_TOPIC_RAW;
+  std::string topicDepth = "/" + cameraName + "/" + K2_TOPIC_LORES_DEPTH K2_TOPIC_RAW;
   bool useExact = true;
   bool useCompressed = true;
   Receiver::Mode mode = Receiver::CLOUD;
@@ -555,22 +558,26 @@ int main(int argc, char **argv)
       ros::shutdown();
       return 0;
     }
+    else if(param == "-name")
+    {
+      cameraName = argv[++i];
+	}
     else if(param == "-kinect2")
     {
-      topicColor = K2_TOPIC_LORES_COLOR K2_TOPIC_RAW;
-      topicDepth = K2_TOPIC_LORES_DEPTH K2_TOPIC_RAW;
+      topicColor = "/" + cameraName + "/" + K2_TOPIC_LORES_COLOR K2_TOPIC_RAW;
+      topicDepth = "/" + cameraName + "/" + K2_TOPIC_LORES_DEPTH K2_TOPIC_RAW;
       useExact = true;
     }
     else if(param == "-kinect2hd")
     {
-      topicColor = K2_TOPIC_RECT_COLOR K2_TOPIC_RAW;
-      topicDepth = K2_TOPIC_HIRES_DEPTH K2_TOPIC_RAW;
+      topicColor = "/" + cameraName + "/" + K2_TOPIC_RECT_COLOR K2_TOPIC_RAW;
+      topicDepth = "/" + cameraName + "/" + K2_TOPIC_HIRES_DEPTH K2_TOPIC_RAW;
       useExact = true;
     }
     else if(param == "-kinect2ir")
     {
-      topicColor = K2_TOPIC_RECT_IR K2_TOPIC_RAW;
-      topicDepth = K2_TOPIC_RECT_DEPTH K2_TOPIC_RAW;
+      topicColor = "/" + cameraName + "/" + K2_TOPIC_RECT_IR K2_TOPIC_RAW;
+      topicDepth = "/" + cameraName + "/" + K2_TOPIC_RECT_DEPTH K2_TOPIC_RAW;
       useExact = true;
     }
     else if(param == "-color" && i + 1 < (size_t)argc)
@@ -605,6 +612,8 @@ int main(int argc, char **argv)
       mode = Receiver::BOTH;
     }
   }
+  
+  nh.param("sensor_name", cameraName, cameraName);
 
   std::cout << "topic color: " << topicColor << std::endl;
   std::cout << "topic depth: " << topicDepth << std::endl;
