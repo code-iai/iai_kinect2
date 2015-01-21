@@ -123,6 +123,14 @@ When `kinect2_bridge` is running you can use the `registration_viewer` to displa
 /kinect2_head/rgb_lowres/image/compressed
 ```
 
+### Point cloud Topics
+*Only available if `kinect2_bridge.launch` is launched.*
+
+```
+/kinect2_head/depth_lowres/points
+/kinect2_head/depth_highres/points
+```
+
 ## Notes
 
 - Images from the same frame have the same timestamp. Using the `message_filters::sync_policies::ExactTime` policy is recommended.
@@ -134,7 +142,10 @@ kinect2_bridge [options]
   -fps <num>       limit the frames per second to <num> (float)
   -calib <path>    path to the calibration files
   -raw             output raw depth image as 512x424 instead of 960x540
-  -comp <num>      jpg compression level from 0 to 100 (default 90).
+  -comp <num>      JPEG compression level from 0 to 100 (default 90).
+  -png             Use PNG compression instead of TIFF
+  -depth <method>  Use specific depth processing. Methods: opencl, opengl, cpu
+  -reg <method>    Use specific depth registration. Methods: opencl, cpu
   -oclDev <num>    openCL device to use for depth registration and processing.
   -oclReg <num>    openCL device to use for depth registration.
   -oclDepth <num>  openCL device to use for depth processing.

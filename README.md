@@ -73,8 +73,8 @@ catkin_make -DCMAKE_BUILD_TYPE="Release"
    ```
 rosrun kinect2_bridge kinect2_bridge
 ```
-6. Calibrate your sensor using the `kinect2_calibration`. [Further details](https://github.com/code-iai/iai_kinect2/tree/master/kinect2_calibration#calibrating-the-kinect-one)
-7. Add the calibration files to the `kinect2_bridge/data/<serialnumber>` folder. [Further details](https://github.com/code-iai/iai_kinect2/tree/master/kinect2_bridge#first-steps)
+6. Calibrate your sensor using the `kinect2_calibration`. [Further details](kinect2_calibration#calibrating-the-kinect-one)
+7. Add the calibration files to the `kinect2_bridge/data/<serialnumber>` folder. [Further details](kinect2_bridge#first-steps)
 8. Restart `kinect2_bridge` and view the results using `rosrun registration_viewer viewer -kinect2 -cloud`.
 
 ## Permissions to access the Kinect One

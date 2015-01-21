@@ -34,13 +34,24 @@ kinect2_calibration [options]
 Windows:
 - `ESC`, `q`: Quit
 - `SPACE`, `s`: Save the current image for calibration
+- `l`: decreas min and max value for IR value rage
+- `h`: increas min and max value for IR value rage
+- `1`: decreas min value for IR value rage
+- `2`: increas min value for IR value rage
+- `3`: decreas max value for IR value rage
+- `4`: increas max value for IR value rage
 
 Terminal:
 - `CRTL`+`c`: Quit
 
 ## Calibration patterns
 
-Any chessboard pattern or symmetric or asymmetric circle grid should work. If you need a calibration pattern , you can use the ones provided by OpenCV:
+Any chessboard pattern or symmetric or asymmetric circle grid should work. Three different chessboard patterns are located inside the `kinect2_calibration/patterns` folder:
+- [chess5x7x0.03.pdf](patterns/chess5x7x0.03.pdf)
+- [chess7x9x0.025.pdf](patterns/chess7x9x0.025.pdf)
+- [chess9x11x0.02.pdf](patterns/chess9x11x0.02.pdf)
+
+Other patterns are available at OpenCV:
 - [Chessboard pattern](http://docs.opencv.org/_downloads/pattern.png)
 - [Asymmetric circle grid](http://docs.opencv.org/_downloads/acircles_pattern.png)
 
@@ -56,4 +67,4 @@ The standard board is a 7x6 0.108m chessboard from the PR2. But any other board 
 
 ## Example results
 
-Example calibration results can be found in the directory [kinect2_bridge/data/](https://github.com/code-iai/iai_kinect2/tree/master/kinect2_bridge/data).
+Example calibration results can be found in the directory [kinect2_bridge/data/](../kinect2_bridge/data).
