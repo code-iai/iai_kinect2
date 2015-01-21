@@ -9,10 +9,10 @@
 This is a collection of tools and libraries for a ROS Interface to the Kinect One (Kinect v2).
 
 It contains:
-- [a calibration tool](https://github.com/code-iai/iai_kinect2/tree/master/kinect2_calibration) for calibrating the IR sensor of the Kinect One to the RGB sensor
-- [a library](https://github.com/code-iai/iai_kinect2/tree/master/depth_registration) for depth registration with OpenCL support
-- [the bridge](https://github.com/code-iai/iai_kinect2/tree/master/kinect2_bridge) between [libfreenect2](https://github.com/OpenKinect/libfreenect2) and [ROS](http://www.ros.org/)
-- [a viewer](https://github.com/code-iai/iai_kinect2/tree/master/registration_viewer) for the images / point clouds
+- [a calibration tool](kinect2_calibration) for calibrating the IR sensor of the Kinect One to the RGB sensor
+- [a library](depth_registration) for depth registration with OpenCL support
+- [the bridge](kinect2_bridge) between [libfreenect2](https://github.com/OpenKinect/libfreenect2) and [ROS](http://www.ros.org/)
+- [a viewer](registration_viewer) for the images / point clouds
 
 ## Dependencies from all parts
 
