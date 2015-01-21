@@ -972,14 +972,19 @@ int main(int argc, char **argv)
         const std::string method = argv[argI];
         if(method == "cpu")
         {
+#ifdef DEPTH_REG_CPU
           methodReg = DepthRegistration::CPU;
+#else
+          std::cerr << "Method CPU is not available!" << std::endl;
+          return -1;
+#endif
         }
         else if(method == "opencl")
         {
 #ifdef DEPTH_REG_OPENCL
           methodReg = DepthRegistration::OPENCL;
 #else
-          std::cerr << "Method opencl is not available!" << std::endl;
+          std::cerr << "Method OPENCL is not available!" << std::endl;
           return -1;
 #endif
         }
@@ -1009,7 +1014,7 @@ int main(int argc, char **argv)
 #ifdef LIBFREENECT2_WITH_OPENCL_SUPPORT
           methodDepth = Kinect2Bridge::OPENCL;
 #else
-          std::cerr << "Method opencl is not available!" << std::endl;
+          std::cerr << "Method OPENCL is not available!" << std::endl;
           return -1;
 #endif
         }

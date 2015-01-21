@@ -20,6 +20,7 @@ ELSE()
 ENDIF()
 
 find_package(freenect2 REQUIRED)
+find_package(glfw REQUIRED)
 
 find_package(catkin REQUIRED COMPONENTS roscpp rostime std_msgs sensor_msgs cv_bridge compressed_depth_image_transport depth_registration)
 
@@ -73,10 +74,14 @@ include_directories(include
   ${catkin_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIR}
   ${freenect2_INCLUDE_DIRS}
+  ${GLFW_INCLUDE_DIR}
 )
 
 if(DEPTH_REG_OPENCL)
   add_definitions(-DDEPTH_REG_OPENCL)
+endif()
+if(DEPTH_REG_CPU)
+  add_definitions(-DDEPTH_REG_CPU)
 endif()
 add_definitions(-DMIN_WORKER_THREADS=${K2_MIN_WORKER_THREADS})
 add_definitions(-DK2_CALIB_PATH="${PROJECT_SOURCE_DIR}/data/")
@@ -86,7 +91,7 @@ target_link_libraries(kinect2_bridge
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${freenect2_LIBRARY}
-  glfw
+  ${GLFW_LIBRARY}
 )
 
 #############
