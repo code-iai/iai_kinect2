@@ -92,6 +92,7 @@ private:
   message_filters::Synchronizer<ColorIrDepthSyncPolicy> *sync;
 
   int minIr, maxIr;
+  cv::Ptr<cv::CLAHE> clahe;
 
 public:
   Recorder(const std::string &path, const std::string &topicColor, const std::string &topicIr, const std::string &topicDepth,
@@ -119,6 +120,8 @@ public:
         board[i] = cv::Point3f(c * boardSize, r * boardSize, 0);
       }
     }
+
+    clahe = cv::createCLAHE(1.5, cv::Size(32,32));
   }
 
   ~Recorder()
@@ -170,9 +173,9 @@ private:
     delete subImageDepth;
   }
 
-  void convertIr(const cv::Mat &ir, cv::Mat &grey, const int min, const int max)
+  void convertIr(const cv::Mat &ir, cv::Mat &grey)
   {
-    const float factor = 255.0f / (max - min);
+    const float factor = 255.0f / (maxIr - minIr);
     grey.create(ir.rows, ir.cols, CV_8U);
 
     #pragma omp parallel for
@@ -183,8 +186,24 @@ private:
 
       for(size_t c = 0; c < (size_t)ir.cols; ++c, ++itI, ++itO)
       {
-        *itO = std::min(std::max(*itI - min, 0) * factor, 255.0f);
+        *itO = std::min(std::max(*itI - minIr, 0) * factor, 255.0f);
       }
+    }
+    clahe->apply(grey, grey);
+  }
+
+  void findMinMax(const cv::Mat &ir, const std::vector<cv::Point2f> &pointsIr)
+  {
+    minIr = 0xFFFF;
+    maxIr = 0;
+    for(size_t i = 0; i < pointsIr.size(); ++i)
+    {
+      const cv::Point2f &p = pointsIr[i];
+      cv::Rect roi(std::max(0, (int)p.x - 2), std::max(0, (int)p.y - 2), 9, 9);
+      roi.width = std::min(roi.width, ir.cols - roi.x);
+      roi.height = std::min(roi.height, ir.rows - roi.y);
+
+      findMinMax(ir(roi));
     }
   }
 
@@ -218,7 +237,8 @@ private:
       readImage(imageIr, ir);
       readImage(imageDepth, depth);
       cv::resize(ir, irScaled, cv::Size(), 2.0, 2.0, cv::INTER_CUBIC);
-      convertIr(irScaled, irGrey, minIr, maxIr);
+
+      convertIr(irScaled, irGrey);
     }
 
     if(circleBoard)
@@ -266,16 +286,7 @@ private:
     if(foundIr)
     {
       // Update min and max ir value based on checkerboard values
-      minIr = 0x7FFF;
-      maxIr = 0;
-      for(size_t i = 0; i < pointsIr.size(); ++i)
-      {
-        cv::Point2f &p = pointsIr[i];
-        cv::Rect roi(std::max(0, (int)p.x - 2), std::max(0, (int)p.y - 2), 7, 7);
-        roi.width = std::min(roi.width, irScaled.cols - roi.x);
-        roi.height = std::min(roi.height, irScaled.rows - roi.y);
-        findMinMax(irScaled(roi));
-      }
+      findMinMax(irScaled, pointsIr);
     }
 
     lock.lock();
