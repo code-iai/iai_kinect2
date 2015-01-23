@@ -738,7 +738,7 @@ private:
     std::cout << "calibrating Color and Ir extrinsics..." << std::endl;
     error = cv::stereoCalibrate(pointsBoard, pointsIr, pointsColor, cameraMatrixIr, distortionIr, cameraMatrixColor, distortionColor, sizeColor,
                                 rotation, translation, essential, fundamental, termCriteria,
-                                cv::CALIB_FIX_INTRINSIC + flags);
+                                cv::CALIB_FIX_INTRINSIC);
     std::cout << "error: " << error << std::endl << std::endl;
 
     std::cout << "Rotation:" << std::endl << rotation << std::endl;

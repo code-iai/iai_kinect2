@@ -25,7 +25,8 @@ kinect2_calibration [options]
     'circle<WIDTH>x<HEIGHT>x<SIZE>'  for symmentric cirle grid
     'acircle<WIDTH>x<HEIGHT>x<SIZE>' for asymmentric cirle grid
     'chess<WIDTH>x<HEIGHT>x<SIZE>'   for chessboard pattern
-  topics: '-color <TOPIC>' and/or '-ir <TOPIC>'
+  topics: '-color <TOPIC>', '-ir <TOPIC>', '-depth <TOPIC>'
+  distortion model: 'rational' for using model with 8 instead of 5 coefficients
   output path: '<PATH>'
 ```
 
