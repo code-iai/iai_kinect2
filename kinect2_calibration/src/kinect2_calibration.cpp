@@ -121,7 +121,7 @@ public:
       }
     }
 
-    clahe = cv::createCLAHE(1.5, cv::Size(32,32));
+    clahe = cv::createCLAHE(1.5, cv::Size(32, 32));
   }
 
   ~Recorder()
@@ -459,6 +459,7 @@ private:
   const bool circleBoard;
   const cv::Size boardDims;
   const float boardSize;
+  const int flags;
 
   const Source mode;
   const std::string path;
@@ -477,8 +478,8 @@ private:
   cv::Mat rotation, translation, essential, fundamental, disparity;
 
 public:
-  Calibrator(const std::string &path, const Source mode, const bool circleBoard, const cv::Size &boardDims, const float boardSize)
-    : circleBoard(circleBoard), boardDims(boardDims), boardSize(boardSize), mode(mode), path(path), sizeColor(1920, 1080), sizeIr(512, 424)
+  Calibrator(const std::string &path, const Source mode, const bool circleBoard, const cv::Size &boardDims, const float boardSize, const bool rational)
+    : circleBoard(circleBoard), boardDims(boardDims), boardSize(boardSize), flags(rational ? cv::CALIB_RATIONAL_MODEL : 0), mode(mode), path(path), sizeColor(1920, 1080), sizeIr(512, 424)
   {
     board.resize(boardDims.width * boardDims.height);
     for(size_t r = 0, i = 0; r < (size_t)boardDims.height; ++r)
@@ -572,9 +573,9 @@ public:
       pointsBoard.resize(filesSync.size(), board);
       ret = ret && readFiles(filesSync, CALIB_POINTS_COLOR, pointsColor);
       ret = ret && readFiles(filesSync, CALIB_POINTS_IR, pointsIr);
+      ret = ret && checkSyncPointsOrder();
       break;
     }
-
     loadCalibration();
     return ret;
   }
@@ -679,6 +680,27 @@ private:
     return ret;
   }
 
+  bool checkSyncPointsOrder()
+  {
+    if(pointsColor.size() != pointsIr.size())
+    {
+      return false;
+    }
+
+    for(size_t i = 0; i < pointsColor.size(); ++i)
+    {
+      const std::vector<cv::Point2f> &pColor = pointsColor[i];
+      const std::vector<cv::Point2f> &pIr = pointsIr[i];
+
+      if(pColor.front().y > pColor.back().y || pColor.front().x > pColor.back().x)
+        std::reverse(pointsColor[i].begin(), pointsColor[i].end());
+
+      if(pIr.front().y > pIr.back().y || pIr.front().x > pIr.back().x)
+        std::reverse(pointsIr[i].begin(), pointsIr[i].end());
+    }
+    return true;
+  }
+
   void calibrateIntrinsics(const cv::Size &size, const std::vector<std::vector<cv::Point3f>> &pointsBoard, const  std::vector<std::vector<cv::Point2f>> &points,
                            cv::Mat &cameraMatrix, cv::Mat &distortion, cv::Mat &rotation, cv::Mat &projection)
   {
@@ -687,7 +709,7 @@ private:
     double error;
 
     std::cout << "calibrating intrinsics..." << std::endl;
-    error = cv::calibrateCamera(pointsBoard, points, size, cameraMatrix, distortion, rvecs, tvecs, 0, termCriteria);
+    error = cv::calibrateCamera(pointsBoard, points, size, cameraMatrix, distortion, rvecs, tvecs, flags, termCriteria);
     std::cout << "error: " << error << std::endl << std::endl;
     //projectionError(pointsColor, rvecs, tvecs, cameraMatrix, distortion);
 
@@ -705,7 +727,7 @@ private:
       std::cerr << "not the same size!" << std::endl;
       return;
     }
-    const cv::TermCriteria termCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 50, DBL_EPSILON);
+    const cv::TermCriteria termCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 100, DBL_EPSILON);
     double error;
 
     std::cout << "Camera Matrix Color:" << std::endl << cameraMatrixColor << std::endl;
@@ -716,7 +738,7 @@ private:
     std::cout << "calibrating Color and Ir extrinsics..." << std::endl;
     error = cv::stereoCalibrate(pointsBoard, pointsIr, pointsColor, cameraMatrixIr, distortionIr, cameraMatrixColor, distortionColor, sizeColor,
                                 rotation, translation, essential, fundamental, termCriteria,
-                                cv::CALIB_FIX_INTRINSIC);
+                                cv::CALIB_FIX_INTRINSIC + flags);
     std::cout << "error: " << error << std::endl << std::endl;
 
     std::cout << "Rotation:" << std::endl << rotation << std::endl;
@@ -753,7 +775,7 @@ private:
   {
     cv::FileStorage fs;
 
-    if(fs.open(path + CALIB_POSE, cv::FileStorage::WRITE))
+    if(mode == SYNC && fs.open(path + CALIB_POSE, cv::FileStorage::WRITE))
     {
       fs << CALIB_ROTATION << rotation;
       fs << CALIB_TRANSLATION << translation;
@@ -762,7 +784,7 @@ private:
       fs.release();
     }
 
-    if(fs.open(path + CALIB_COLOR, cv::FileStorage::WRITE))
+    if(mode == COLOR && fs.open(path + CALIB_COLOR, cv::FileStorage::WRITE))
     {
       fs << CALIB_CAMERA_MATRIX << cameraMatrixColor;
       fs << CALIB_DISTORTION << distortionColor;
@@ -771,7 +793,7 @@ private:
       fs.release();
     }
 
-    if(fs.open(path + CALIB_IR, cv::FileStorage::WRITE))
+    if(mode == IR && fs.open(path + CALIB_IR, cv::FileStorage::WRITE))
     {
       fs << CALIB_CAMERA_MATRIX << cameraMatrixIr;
       fs << CALIB_DISTORTION << distortionIr;
@@ -815,6 +837,7 @@ void help(const std::string &path)
             << "    'acircle<WIDTH>x<HEIGHT>x<SIZE>' for asymmentric cirle grid" << std::endl
             << "    'chess<WIDTH>x<HEIGHT>x<SIZE>'   for chessboard pattern" << std::endl
             << "  topics: '-color <TOPIC>', '-ir <TOPIC>', '-depth <TOPIC>'" << std::endl
+            << "  distortion model: 'rational' for using model with 8 instead of 5 coefficients" << std::endl
             << "  output path: '<PATH>'" << std::endl;
 }
 
@@ -824,6 +847,7 @@ int main(int argc, char **argv)
   Source source = SYNC;
   bool circleBoard = false;
   bool symmetric = true;
+  bool rational = false;
   cv::Size boardDims = cv::Size(7, 6);
   float boardSize = 0.108;
   std::string path = "./";
@@ -867,6 +891,10 @@ int main(int argc, char **argv)
     else if(arg == "sync")
     {
       source = SYNC;
+    }
+    else if(arg == "rational")
+    {
+      rational = true;
     }
     else if(arg.find("circle") == 0 && arg.find('x') != arg.rfind('x') && arg.rfind('x') != std::string::npos)
     {
@@ -943,6 +971,7 @@ int main(int argc, char **argv)
             << "      Board: " << (circleBoard ? "circles" : "chess") << std::endl
             << " Dimensions: " << boardDims.width << " x " << boardDims.height << std::endl
             << " Field size: " << boardSize << std::endl
+            << "Dist. model: " << (rational ? '8' : '5') << " coefficients" << std::endl
             << "Topic color: " << topicColor << std::endl
             << "   Topic ir: " << topicIr << std::endl
             << "Topic depth: " << topicDepth << std::endl
@@ -964,7 +993,7 @@ int main(int argc, char **argv)
   }
   else
   {
-    Calibrator calib(path, source, circleBoard, boardDims, boardSize);
+    Calibrator calib(path, source, circleBoard, boardDims, boardSize, rational);
 
     std::cout << "restoring files..." << std::endl;
     calib.restore();
