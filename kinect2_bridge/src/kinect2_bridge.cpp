@@ -143,7 +143,7 @@ public:
   Kinect2Bridge(const double fps, const bool rawDepth, const int compression, const int deviceIdDepth, const DepthRegistration::Method methodReg, const DepthMethod methodDepth, const bool useTiff)
     : jpegQuality(compression), pngLevel(1), maxDepth(10.0), queueSize(2), rawDepth(rawDepth), sizeColor(1920, 1080), sizeIr(512, 424),
       sizeDepth(rawDepth ? sizeIr : cv::Size(sizeColor.width / 2, sizeColor.height / 2)), newFrame(false), nh(),
-      deltaT(1.0 / fps), topics(COUNT)
+      deltaT(fps > 0 ? 1.0 / fps : 0.0), topics(COUNT)
   {
     topics[IR] = K2_TOPIC_IMAGE_IR;
     topics[IR_RECT] = K2_TOPIC_RECT_IR;
@@ -391,6 +391,8 @@ public:
 
     std::cout << "starting main loop" << std::endl;
     double nextFrame = ros::Time::now().toSec() + deltaT;
+    double fpsTime = ros::Time::now().toSec();
+    size_t fpsCount = 0;
     for(;;)
     {
       cv::Mat color, depth, ir;
@@ -414,6 +416,23 @@ public:
         continue;
       }
 
+      double now = ros::Time::now().toSec();
+      ++fpsCount;
+      if(now - fpsTime >= 3.0)
+      {
+        fpsTime = now - fpsTime;
+        std::cout << "[kinect2_bridge] avg. time: " << fpsTime / fpsCount << " -> ~" << fpsCount / fpsTime << " Hz" << std::endl;
+        fpsTime = now;
+        fpsCount = 0;
+      }
+
+      if(now < nextFrame)
+      {
+        listener->release(frames);
+        continue;
+      }
+      nextFrame += deltaT;
+
       libfreenect2::Frame *colorFrame = frames[libfreenect2::Frame::Color];
       libfreenect2::Frame *irFrame = frames[libfreenect2::Frame::Ir];
       libfreenect2::Frame *depthFrame = frames[libfreenect2::Frame::Depth];
@@ -427,13 +446,6 @@ public:
       cv::flip(depthMat, depth, 1);
 
       listener->release(frames);
-
-      double now = ros::Time::now().toSec();
-      if(now < nextFrame)
-      {
-        continue;
-      }
-      nextFrame += deltaT;
 
       lock.lock();
       if(!updateStatus())
