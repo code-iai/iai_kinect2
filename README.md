@@ -4,12 +4,17 @@
 
 - [Thiemo Wiedemeyer](https://ai.uni-bremen.de/team/thiemo_wiedemeyer) <<wiedemeyer@cs.uni-bremen.de>>, [Institute for Artificial Intelligence](http://ai.uni-bremen.de/), University of Bremen
 
+
+## Recent changes
+
+- Added a calibration for the depth measurements to the calibration tool.
+
 ## Description
 
 This is a collection of tools and libraries for a ROS Interface to the Kinect One (Kinect v2).
 
 It contains:
-- [a calibration tool](kinect2_calibration) for calibrating the IR sensor of the Kinect One to the RGB sensor
+- [a calibration tool](kinect2_calibration) for calibrating the IR sensor of the Kinect One to the RGB sensor and the depth measurements
 - [a library](depth_registration) for depth registration with OpenCL support
 - [the bridge](kinect2_bridge) between [libfreenect2](https://github.com/OpenKinect/libfreenect2) and [ROS](http://www.ros.org/)
 - [a viewer](registration_viewer) for the images / point clouds

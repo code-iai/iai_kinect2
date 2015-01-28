@@ -33,16 +33,4 @@
 #define CALIB_SYNC_IR       CALIB_SYNC CALIB_FILE_IR
 #define CALIB_SYNC_IR_GREY  CALIB_SYNC CALIB_FILE_IR_GREY
 
-#define CALIB_COLOR         "calib_color.yaml"
-#define CALIB_IR            "calib_ir.yaml"
-#define CALIB_POSE          "calib_pose.yaml"
-
-#define CALIB_CAMERA_MATRIX "cameraMatrix"
-#define CALIB_DISTORTION    "distortionCoefficients"
-#define CALIB_ROTATION      "rotation"
-#define CALIB_PROJECTION    "projection"
-#define CALIB_TRANSLATION   "translation"
-#define CALIB_ESSENTIAL     "essential"
-#define CALIB_FUNDAMENTAL   "fundamental"
-
 #endif //__KINECT2_CALIBRATION_DEFINITIONS_H__

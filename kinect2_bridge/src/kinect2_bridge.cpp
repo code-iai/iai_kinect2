@@ -100,6 +100,7 @@ private:
   DepthRegistration *depthRegHighRes;
 
   const double deltaT;
+  double depthShift;
 
   enum Image
   {
@@ -143,7 +144,7 @@ public:
   Kinect2Bridge(const double fps, const bool rawDepth, const int compression, const int deviceIdDepth, const DepthRegistration::Method methodReg, const DepthMethod methodDepth, const bool useTiff)
     : jpegQuality(compression), pngLevel(1), maxDepth(10.0), queueSize(2), rawDepth(rawDepth), sizeColor(1920, 1080), sizeIr(512, 424),
       sizeDepth(rawDepth ? sizeIr : cv::Size(sizeColor.width / 2, sizeColor.height / 2)), newFrame(false), nh(),
-      deltaT(fps > 0 ? 1.0 / fps : 0.0), topics(COUNT)
+      deltaT(fps > 0 ? 1.0 / fps : 0.0), depthShift(0), topics(COUNT)
   {
     topics[IR] = K2_TOPIC_IMAGE_IR;
     topics[IR_RECT] = K2_TOPIC_RECT_IR;
@@ -267,32 +268,28 @@ public:
     std::cout << std::endl << "default color camera parameters: " << std::endl;
     std::cout << "fx " << colorParams.fx << ", fy " << colorParams.fy << ", cx " << colorParams.cx << ", cy " << colorParams.cy << std::endl;
 
-    /*std::cout << "unknown color camera parameters: " << std::endl;
-    for(size_t i = 3; i < 25; ++i)
-    {
-      std::cout << i + 1 << ": " << colorParams.all[i] << std::endl;
-    }*/
-
-    std::string calibPath = path + serial;
+    std::string calibPath = path + serial + '/';
 
     struct stat fileStat;
-    if(stat(calibPath.c_str(), &fileStat) != 0 || !S_ISDIR(fileStat.st_mode)
-       || !loadCalibrationFile(calibPath + K2_CALIB_COLOR, cameraMatrixColor, distortionColor)
-       || !loadCalibrationFile(calibPath + K2_CALIB_IR, cameraMatrixIr, distortionIr)
-       || !loadCalibrationPoseFile(calibPath + K2_CALIB_POSE, rotation, translation))
+    bool calibDirNotFound = stat(calibPath.c_str(), &fileStat) != 0 || !S_ISDIR(fileStat.st_mode);
+    if(calibDirNotFound || !loadCalibrationFile(calibPath + K2_CALIB_COLOR, cameraMatrixColor, distortionColor))
     {
-      std::cerr << std::endl << "could not load calibration data from \"" << calibPath << "\". using sensor defaults." << std::endl;
-
+      std::cerr << "using sensor defaults." << std::endl;
       cameraMatrixColor = cv::Mat::eye(3, 3, CV_64F);
       distortionColor = cv::Mat::zeros(1, 5, CV_64F);
-      cameraMatrixIr = cv::Mat::eye(3, 3, CV_64F);
-      distortionIr = cv::Mat::zeros(1, 5, CV_64F);
 
       cameraMatrixColor.at<double>(0, 0) = colorParams.fx;
       cameraMatrixColor.at<double>(1, 1) = colorParams.fy;
       cameraMatrixColor.at<double>(0, 2) = colorParams.cx;
       cameraMatrixColor.at<double>(1, 2) = colorParams.cy;
       cameraMatrixColor.at<double>(2, 2) = 1;
+    }
+
+    if(calibDirNotFound || !loadCalibrationFile(calibPath + K2_CALIB_IR, cameraMatrixIr, distortionIr))
+    {
+      std::cerr << "using sensor defaults." << std::endl;
+      cameraMatrixIr = cv::Mat::eye(3, 3, CV_64F);
+      distortionIr = cv::Mat::zeros(1, 5, CV_64F);
 
       cameraMatrixIr.at<double>(0, 0) = irParams.fx;
       cameraMatrixIr.at<double>(1, 1) = irParams.fy;
@@ -305,9 +302,19 @@ public:
       distortionIr.at<double>(0, 2) = irParams.p1;
       distortionIr.at<double>(0, 3) = irParams.p2;
       distortionIr.at<double>(0, 4) = irParams.k3;
+    }
 
+    if(calibDirNotFound || !loadCalibrationPoseFile(calibPath + K2_CALIB_POSE, rotation, translation))
+    {
+      std::cerr << "using defaults." << std::endl;
       rotation = cv::Mat::eye(3, 3, CV_64F);
       translation = cv::Mat::zeros(3, 1, CV_64F);
+    }
+
+    if(calibDirNotFound || !loadCalibrationDepthFile(calibPath + K2_CALIB_DEPTH, depthShift))
+    {
+      std::cerr << "using defaults." << std::endl;
+      depthShift = 0.0;
     }
 
     if(rawDepth)
@@ -329,7 +336,8 @@ public:
               << "camera matrix ir:" << std::endl << cameraMatrixIr << std::endl
               << "distortion coefficients ir:" << std::endl << distortionIr << std::endl
               << "rotation:" << std::endl << rotation << std::endl
-              << "translation:" << std::endl << translation << std::endl << std::endl;
+              << "translation:" << std::endl << translation << std::endl
+              << "depth shift:" << std::endl << depthShift << std::endl << std::endl;
 
     const int mapType = CV_16SC2;
     cv::initUndistortRectifyMap(cameraMatrixColor, distortionColor, cv::Mat(), cameraMatrixColor, sizeColor, mapType, map1Color, map2Color);
@@ -560,6 +568,22 @@ private:
     return true;
   }
 
+  bool loadCalibrationDepthFile(const std::string &filename, double &depthShift) const
+  {
+    cv::FileStorage fs;
+    if(fs.open(filename, cv::FileStorage::READ))
+    {
+      fs[K2_CALIB_DEPTH_SHIFT] >> depthShift;
+      fs.release();
+    }
+    else
+    {
+      std::cerr << "can't open calibration depth file: " << filename << std::endl;
+      return false;
+    }
+    return true;
+  }
+
   void createCameraInfo()
   {
     cv::Mat projColor = cv::Mat::zeros(3, 4, CV_64F);
@@ -655,7 +679,7 @@ private:
     // DEPTH
     if(status[DEPTH] || status[DEPTH_RECT] || status[DEPTH_LORES] || status[DEPTH_HIRES])
     {
-      depth.convertTo(images[DEPTH], CV_16U);
+      depth.convertTo(images[DEPTH], CV_16U, 1, depthShift);
     }
     if(status[DEPTH_RECT])
     {

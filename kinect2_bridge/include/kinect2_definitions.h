@@ -45,9 +45,10 @@
 #define K2_TOPIC_COMP_DEPTH    "/compressedDepth"
 #define K2_TOPIC_INFO          "camera_info"
 
-#define K2_CALIB_COLOR         "/calib_color.yaml"
-#define K2_CALIB_IR            "/calib_ir.yaml"
-#define K2_CALIB_POSE          "/calib_pose.yaml"
+#define K2_CALIB_COLOR         "calib_color.yaml"
+#define K2_CALIB_IR            "calib_ir.yaml"
+#define K2_CALIB_POSE          "calib_pose.yaml"
+#define K2_CALIB_DEPTH         "calib_depth.yaml"
 
 #define K2_CALIB_CAMERA_MATRIX "cameraMatrix"
 #define K2_CALIB_DISTORTION    "distortionCoefficients"
@@ -56,5 +57,6 @@
 #define K2_CALIB_TRANSLATION   "translation"
 #define K2_CALIB_ESSENTIAL     "essential"
 #define K2_CALIB_FUNDAMENTAL   "fundamental"
+#define K2_CALIB_DEPTH_SHIFT   "depthShift"
 
 #endif //__KINECT2_DEFINITIONS_H__
