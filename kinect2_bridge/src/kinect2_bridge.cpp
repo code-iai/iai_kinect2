@@ -142,7 +142,7 @@ private:
 
 public:
   Kinect2Bridge(const double fps, const bool rawDepth, const int compression, const int deviceIdDepth, const DepthRegistration::Method methodReg, const DepthMethod methodDepth, const bool useTiff)
-    : jpegQuality(compression), pngLevel(1), maxDepth(10.0), queueSize(2), rawDepth(rawDepth), sizeColor(1920, 1080), sizeIr(512, 424),
+    : jpegQuality(compression), pngLevel(1), maxDepth(12.0), queueSize(2), rawDepth(rawDepth), sizeColor(1920, 1080), sizeIr(512, 424),
       sizeDepth(rawDepth ? sizeIr : cv::Size(sizeColor.width / 2, sizeColor.height / 2)), newFrame(false), nh(),
       deltaT(fps > 0 ? 1.0 / fps : 0.0), depthShift(0), topics(COUNT)
   {
@@ -195,6 +195,13 @@ public:
       glfwInit();
       packetPipeline = new libfreenect2::DefaultPacketPipeline();
     }
+
+    libfreenect2::DepthPacketProcessor::Config config;
+    config.EnableBilateralFilter = true;
+    config.EnableEdgeAwareFilter = true;
+    config.MinDepth = 0.1;
+    config.MaxDepth = maxDepth;
+    packetPipeline->getDepthPacketProcessor()->setConfiguration(config);
 
     if(useTiff)
     {
