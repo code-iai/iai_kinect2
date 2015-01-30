@@ -69,7 +69,6 @@ private:
   std::string compression16BitExt;
   std::string compression16BitString;
 
-  size_t frame;
   const cv::Size sizeColor, sizeIr, sizeDepth;
   cv::Mat color, ir, depth;
   cv::Mat cameraMatrixColor, distortionColor, cameraMatrixDepth;
@@ -80,18 +79,17 @@ private:
   cv::Mat map1ColorReg, map2ColorReg;
 
   std::vector<std::thread> threads;
-  std::mutex lock;
-  std::mutex lockProcess;
+  std::mutex lockIrDepth;
+  std::mutex lockColor;
+  std::mutex lockSync;
   std::mutex lockPub;
   std::mutex lockRegLowRes;
   std::mutex lockRegHighRes;
-  size_t pubFrame;
-  bool newFrame;
 
   libfreenect2::Freenect2 freenect2;
   libfreenect2::Freenect2Device *device;
-  libfreenect2::SyncMultiFrameListener *listener;
-  libfreenect2::FrameMap frames;
+  libfreenect2::SyncMultiFrameListener *listenerColor;
+  libfreenect2::SyncMultiFrameListener *listenerIrDepth;
   libfreenect2::PacketPipeline *packetPipeline;
 
   ros::NodeHandle nh;
@@ -99,7 +97,12 @@ private:
   DepthRegistration *depthRegLowRes;
   DepthRegistration *depthRegHighRes;
 
+  size_t frameColor, frameIrDepth;
+  size_t pubFrameColor, pubFrameIrDepth;
+  ros::Time lastColor, lastDepth;
+
   const double deltaT;
+  bool nextColor, nextIrDepth;
   double depthShift;
 
   enum Image
@@ -138,13 +141,12 @@ private:
   std::vector<ros::Publisher> compressedPubs;
   std::vector<ros::Publisher> infoPubs;
   std::vector<sensor_msgs::CameraInfo> infos;
-  std::vector<Status> statusPubs;
 
 public:
   Kinect2Bridge(const double fps, const bool rawDepth, const int compression, const int deviceIdDepth, const DepthRegistration::Method methodReg, const DepthMethod methodDepth, const bool useTiff)
     : jpegQuality(compression), pngLevel(1), maxDepth(12.0), queueSize(2), rawDepth(rawDepth), sizeColor(1920, 1080), sizeIr(512, 424),
-      sizeDepth(rawDepth ? sizeIr : cv::Size(sizeColor.width / 2, sizeColor.height / 2)), newFrame(false), nh(),
-      deltaT(fps > 0 ? 1.0 / fps : 0.0), depthShift(0), topics(COUNT)
+      sizeDepth(rawDepth ? sizeIr : cv::Size(sizeColor.width / 2, sizeColor.height / 2)), nh(), frameColor(0), frameIrDepth(0), pubFrameColor(0), pubFrameIrDepth(0),
+      lastColor(0, 0), lastDepth(0, 0), deltaT(fps > 0 ? 1.0 / fps : 0.0), nextColor(false), nextIrDepth(false), depthShift(0), topics(COUNT)
   {
     topics[IR] = K2_TOPIC_IMAGE_IR;
     topics[IR_RECT] = K2_TOPIC_RECT_IR;
@@ -253,10 +255,11 @@ public:
       std::cout << "no device connected or failure opening the default one!" << std::endl;
       return -1;
     }
-    listener = new libfreenect2::SyncMultiFrameListener(libfreenect2::Frame::Color | libfreenect2::Frame::Ir | libfreenect2::Frame::Depth);
+    listenerColor = new libfreenect2::SyncMultiFrameListener(libfreenect2::Frame::Color);
+    listenerIrDepth = new libfreenect2::SyncMultiFrameListener(libfreenect2::Frame::Ir | libfreenect2::Frame::Depth);
 
-    device->setColorFrameListener(listener);
-    device->setIrAndDepthFrameListener(listener);
+    device->setColorFrameListener(listenerColor);
+    device->setIrAndDepthFrameListener(listenerIrDepth);
 
     std::cout << std::endl << "starting kinect2" << std::endl << std::endl;
     device->start();
@@ -360,14 +363,10 @@ public:
 
   void run()
   {
-    int oldNice = nice(0);
-    int newNice = nice(10 - oldNice);
-
     imagePubs.resize(COUNT);
     compressedPubs.resize(COUNT);
     infoPubs.resize(COUNT);
     infos.resize(COUNT);
-    statusPubs.resize(COUNT);
 
     for(size_t i = 0; i < COUNT; ++i)
     {
@@ -382,118 +381,67 @@ public:
         compressedPubs[i] = nh.advertise<sensor_msgs::CompressedImage>(topics[i] + K2_TOPIC_RAW + K2_TOPIC_COMP_DEPTH, queueSize);
       }
       infoPubs[i] = nh.advertise<sensor_msgs::CameraInfo>(topics[i] + K2_TOPIC_INFO, queueSize);
-      statusPubs[i] = UNSUBCRIBED;
     }
 
-    newNice = nice(oldNice - newNice);
-
     createCameraInfo();
-    frame = 0;
-    pubFrame = 0;
 
-    lockProcess.lock();
     size_t numOfThreads = std::thread::hardware_concurrency();
     if(numOfThreads == 0)
     {
       std::cerr << "std::thread::hardware_concurrency() not returning a valid value. Using " << MIN_WORKER_THREADS << " worker threads." << std::endl;
     }
     numOfThreads = std::max(MIN_WORKER_THREADS, (int)numOfThreads);
+
+    std::cout << std::endl << "starting " << numOfThreads << " worker threads" << std::endl;
     threads.resize(numOfThreads);
     for(size_t i = 0; i < threads.size(); ++i)
     {
-      threads[i] = std::thread(&Kinect2Bridge::run_thread, this);
+      threads[i] = std::thread(&Kinect2Bridge::threadDispatcher, this);
     }
 
-    std::cout << "starting main loop" << std::endl;
+    std::cout << "starting main loop" << std::endl << std::endl;
     double nextFrame = ros::Time::now().toSec() + deltaT;
     double fpsTime = ros::Time::now().toSec();
-    size_t fpsCount = 0;
-    for(;;)
+    size_t oldFrameIrDepth = 0, oldFrameColor = 0;
+    nextColor = true;
+    nextIrDepth = true;
+
+    for(; ros::ok();)
     {
-      cv::Mat color, depth, ir;
-
-#ifdef LIBFREENECT2_THREADING_STDLIB
-      bool newFrames = listener->waitForNewFrame(frames, 1000);
-#else
-      bool newFrames = true;
-      listener->waitForNewFrame(frames);
-#endif
-      if(!ros::ok())
-      {
-        if(newFrames)
-        {
-          listener->release(frames);
-        }
-        break;
-      }
-      if(!newFrames)
-      {
-        continue;
-      }
-
       double now = ros::Time::now().toSec();
-      ++fpsCount;
+
       if(now - fpsTime >= 3.0)
       {
         fpsTime = now - fpsTime;
-        std::cout << "[kinect2_bridge] avg. time: " << fpsTime / fpsCount << " -> ~" << fpsCount / fpsTime << " Hz" << std::endl;
+        size_t framesIrDepth = frameIrDepth - oldFrameIrDepth;
+        size_t framesColor = frameColor - oldFrameColor;
+        oldFrameIrDepth = frameIrDepth;
+        oldFrameColor = frameColor;
+        std::cout << "[kinect2_bridge] depth avg. time: " << fpsTime / framesIrDepth << " -> ~" << framesIrDepth / fpsTime << " Hz" << std::endl
+                  << "[kinect2_bridge] color avg. time: " << fpsTime / framesColor << " -> ~" << framesColor / fpsTime << " Hz" << std::endl << std::flush;
         fpsTime = now;
-        fpsCount = 0;
       }
 
-      if(now < nextFrame)
+      if(now >= nextFrame)
       {
-        listener->release(frames);
-        continue;
+        nextColor = true;
+        nextIrDepth = true;
+        nextFrame += deltaT;
       }
-      nextFrame += deltaT;
 
-      libfreenect2::Frame *colorFrame = frames[libfreenect2::Frame::Color];
-      libfreenect2::Frame *irFrame = frames[libfreenect2::Frame::Ir];
-      libfreenect2::Frame *depthFrame = frames[libfreenect2::Frame::Depth];
-
-      cv::Mat colorMat = cv::Mat(colorFrame->height, colorFrame->width, CV_8UC3, colorFrame->data);
-      cv::Mat irMat = cv::Mat(irFrame->height, irFrame->width, CV_32FC1, irFrame->data);
-      cv::Mat depthMat = cv::Mat(depthFrame->height, depthFrame->width, CV_32FC1, depthFrame->data);
-
-      cv::flip(colorMat, color, 1);
-      cv::flip(irMat, ir, 1);
-      cv::flip(depthMat, depth, 1);
-
-      listener->release(frames);
-
-      lock.lock();
-      if(!updateStatus())
-      {
-        lock.unlock();
-        continue;
-      }
-      if(!newFrame)
-      {
-        newFrame = true;
-        lockProcess.unlock();
-      }
-      createHeader();
-      this->color = color;
-      this->depth = depth;
-      this->ir = ir;
-      lock.unlock();
-    }
-
-    device->stop();
-    device->close();
-    delete listener;
-
-    for(size_t i = 0; i < threads.size(); ++i)
-    {
-      lockProcess.unlock();
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
+
     for(size_t i = 0; i < threads.size(); ++i)
     {
       threads[i].join();
     }
     threads.clear();
+
+    device->stop();
+    device->close();
+    delete listenerIrDepth;
+    delete listenerColor;
 
     for(size_t i = 0; i < COUNT; ++i)
     {
@@ -506,38 +454,376 @@ public:
   }
 
 private:
-  void run_thread()
+  void threadDispatcher()
   {
-    cv::Mat color, ir, depth;
-    std::vector<cv::Mat> images(COUNT);
-    std::vector<Status> status;
-    size_t frame;
-    std_msgs::Header header;
-
     int oldNice = nice(0);
-    int newNice = nice(19 - oldNice);
-    std::cout << "set process thread priority to: " << newNice << std::endl;
+    oldNice = nice(19 - oldNice);
 
     for(; ros::ok();)
     {
-      lockProcess.lock();
-      if(!newFrame)
+      if(nextIrDepth && lockIrDepth.try_lock())
       {
+        nextIrDepth = false;
+        receiveIrDepth();
+      }
+      else if(nextColor && lockColor.try_lock())
+      {
+        nextColor = false;
+        receiveColor();
+      }
+      else
+      {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
         continue;
       }
-      lock.lock();
-      newFrame = false;
-      frame = this->frame;
-      color = this->color;
-      ir = this->ir;
-      depth = this->depth;
-      header = this->header;
-      status = statusPubs;
-      ++(this->frame);
-      lock.unlock();
+    }
+  }
 
-      processImages(color, ir, depth, images, status);
-      publishImages(images, header, status, frame);
+  void receiveIrDepth()
+  {
+    libfreenect2::FrameMap frames;
+    libfreenect2::Frame *irFrame, *depthFrame;
+    cv::Mat depth, ir, irRaw, depthRaw;
+    std_msgs::Header header;
+    std::vector<cv::Mat> images(COUNT);
+    std::vector<Status> status(COUNT, UNSUBCRIBED);
+    size_t frame;
+
+    if(!receiveFrames(listenerIrDepth, frames))
+    {
+      return;
+    }
+
+    header = createHeader(lastDepth, lastColor);
+
+    irFrame = frames[libfreenect2::Frame::Ir];
+    depthFrame = frames[libfreenect2::Frame::Depth];
+
+    irRaw = cv::Mat(irFrame->height, irFrame->width, CV_32FC1, irFrame->data);
+    depthRaw = cv::Mat(depthFrame->height, depthFrame->width, CV_32FC1, depthFrame->data);
+
+    cv::flip(irRaw, ir, 1);
+    cv::flip(depthRaw, depth, 1);
+
+    listenerIrDepth->release(frames);
+    frame = frameIrDepth++;
+
+    lockIrDepth.unlock();
+
+    updateStatus(status);
+    processIrDepth(ir, depth, images, status);
+    publishImages(images, header, status, frame, pubFrameIrDepth, IR, COLOR);
+  }
+
+  void receiveColor()
+  {
+    libfreenect2::FrameMap frames;
+    libfreenect2::Frame *colorFrame;
+    cv::Mat color, colorRaw;
+    std_msgs::Header header;
+    std::vector<cv::Mat> images(COUNT);
+    std::vector<Status> status(COUNT, UNSUBCRIBED);
+    size_t frame;
+
+    if(!receiveFrames(listenerColor, frames))
+    {
+      return;
+    }
+
+    header = createHeader(lastColor, lastDepth);
+
+    colorFrame = frames[libfreenect2::Frame::Color];
+
+    colorRaw = cv::Mat(colorFrame->height, colorFrame->width, CV_8UC3, colorFrame->data);
+
+    cv::flip(colorRaw, color, 1);
+
+    listenerColor->release(frames);
+    frame = frameColor++;
+
+    lockColor.unlock();
+
+    updateStatus(status);
+    processColor(color, images, status);
+    publishImages(images, header, status, frame, pubFrameColor, COLOR, COUNT);
+  }
+
+  bool receiveFrames(libfreenect2::SyncMultiFrameListener *listener, libfreenect2::FrameMap &frames)
+  {
+    bool newFrames = false;
+    for(; !newFrames;)
+    {
+#ifdef LIBFREENECT2_THREADING_STDLIB
+      newFrames = listener->waitForNewFrame(frames, 1000);
+#else
+      newFrames = true;
+      listener->waitForNewFrame(frames);
+#endif
+      if(!ros::ok())
+      {
+        if(newFrames)
+        {
+          listener->release(frames);
+        }
+        return false;
+      }
+    }
+    return true;
+  }
+
+  std_msgs::Header createHeader(ros::Time &last, ros::Time &other)
+  {
+    ros::Time timestamp = ros::Time::now();
+    lockSync.lock();
+    if(other.isZero())
+    {
+      last = timestamp;
+    }
+    else
+    {
+      timestamp = other;
+      other = ros::Time(0, 0);
+    }
+    lockSync.unlock();
+
+    std_msgs::Header header;
+    header.seq = 0;
+    header.stamp = timestamp;
+    header.frame_id = K2_TF_RGB_FRAME;
+    return header;
+  }
+
+  bool updateStatus(std::vector<Status> &status)
+  {
+    bool any = false;
+    for(size_t i = 0; i < COUNT; ++i)
+    {
+      Status s = UNSUBCRIBED;
+      if(imagePubs[i].getNumSubscribers() > 0)
+      {
+        s = RAW;
+      }
+      if(compressedPubs[i].getNumSubscribers() > 0)
+      {
+        s = s == RAW ? BOTH : COMPRESSED;
+      }
+
+      status[i] = s;
+      any = any || s != UNSUBCRIBED || infoPubs[i].getNumSubscribers() > 0;
+    }
+    return any;
+  }
+
+  void processIrDepth(const cv::Mat &ir, const cv::Mat &depth, std::vector<cv::Mat> &images, const std::vector<Status> &status)
+  {
+    // IR
+    if(status[IR] || status[IR_RECT])
+    {
+      ir.convertTo(images[IR], CV_16U);
+    }
+    if(status[IR_RECT])
+    {
+      cv::remap(images[IR], images[IR_RECT], map1Ir, map2Ir, cv::INTER_AREA);
+    }
+
+    // DEPTH
+    if(status[DEPTH] || status[DEPTH_RECT] || status[DEPTH_LORES] || status[DEPTH_HIRES])
+    {
+      depth.convertTo(images[DEPTH], CV_16U, 1, depthShift);
+    }
+    if(status[DEPTH_RECT])
+    {
+      cv::remap(images[DEPTH], images[DEPTH_RECT], map1Ir, map2Ir, cv::INTER_NEAREST);
+    }
+    if(status[DEPTH_LORES])
+    {
+      lockRegLowRes.lock();
+      depthRegLowRes->registerDepth(images[DEPTH], images[DEPTH_LORES]);
+      lockRegLowRes.unlock();
+    }
+    if(status[DEPTH_HIRES])
+    {
+      lockRegHighRes.lock();
+      depthRegHighRes->registerDepth(images[DEPTH], images[DEPTH_HIRES]);
+      lockRegHighRes.unlock();
+    }
+  }
+
+  void processColor(const cv::Mat &color, std::vector<cv::Mat> &images, const std::vector<Status> &status)
+  {
+    // COLOR
+    images[COLOR] = color;
+    if(status[COLOR_RECT] || status[MONO_RECT])
+    {
+      cv::remap(images[COLOR], images[COLOR_RECT], map1Color, map2Color, cv::INTER_AREA);
+    }
+    if(status[COLOR_LORES] || status[MONO_LORES])
+    {
+      cv::remap(images[COLOR], images[COLOR_LORES], map1ColorReg, map2ColorReg, cv::INTER_AREA);
+    }
+
+    // MONO
+    if(status[MONO])
+    {
+      cv::cvtColor(images[COLOR], images[MONO], CV_BGR2GRAY);
+    }
+    if(status[MONO_RECT])
+    {
+      cv::cvtColor(images[COLOR_RECT], images[MONO_RECT], CV_BGR2GRAY);
+    }
+    if(status[MONO_LORES])
+    {
+      cv::cvtColor(images[COLOR_LORES], images[MONO_LORES], CV_BGR2GRAY);
+    }
+  }
+
+  void publishImages(const std::vector<cv::Mat> &images, const std_msgs::Header &header, const std::vector<Status> &status, const size_t frame, size_t &pubFrame, const size_t begin, const size_t end)
+  {
+    std::vector<sensor_msgs::Image> imageMsgs(COUNT);
+    std::vector<sensor_msgs::CompressedImage> compressedMsgs(COUNT);
+    std::vector<sensor_msgs::CameraInfo> infoMsgs(COUNT);
+
+    for(size_t i = begin; i < end; ++i)
+    {
+      infoMsgs[i] = infos[i];
+      infoMsgs[i].header = header;
+      infoMsgs[i].header.frame_id = i < DEPTH_LORES ? K2_TF_IR_FRAME : K2_TF_RGB_FRAME;
+
+      switch(status[i])
+      {
+      case UNSUBCRIBED:
+        break;
+      case RAW:
+        createImage(images[i], header, Image(i), imageMsgs[i]);
+        break;
+      case COMPRESSED:
+        createCompressed(images[i], header, Image(i), compressedMsgs[i]);
+        break;
+      case BOTH:
+        createImage(images[i], header, Image(i), imageMsgs[i]);
+        createCompressed(images[i], header, Image(i), compressedMsgs[i]);
+        break;
+      }
+    }
+
+    while(frame != pubFrame)
+    {
+      std::this_thread::sleep_for(std::chrono::microseconds(100));
+    }
+    lockPub.lock();
+    for(size_t i = begin; i < end; ++i)
+    {
+      switch(status[i])
+      {
+      case UNSUBCRIBED:
+        if(infoPubs[i].getNumSubscribers() > 0)
+        {
+          infoPubs[i].publish(infoMsgs[i]);
+        }
+        break;
+      case RAW:
+        imagePubs[i].publish(imageMsgs[i]);
+        infoPubs[i].publish(infoMsgs[i]);
+        break;
+      case COMPRESSED:
+        compressedPubs[i].publish(compressedMsgs[i]);
+        infoPubs[i].publish(infoMsgs[i]);
+        break;
+      case BOTH:
+        imagePubs[i].publish(imageMsgs[i]);
+        compressedPubs[i].publish(compressedMsgs[i]);
+        infoPubs[i].publish(infoMsgs[i]);
+        break;
+      }
+    }
+    ++pubFrame;
+    lockPub.unlock();
+  }
+
+  void createImage(const cv::Mat &image, const std_msgs::Header &header, const Image type, sensor_msgs::Image &msgImage) const
+  {
+    size_t step, size;
+    step = image.cols * image.elemSize();
+    size = image.rows * step;
+
+    switch(type)
+    {
+    case IR:
+    case IR_RECT:
+      msgImage.encoding = sensor_msgs::image_encodings::TYPE_16UC1;
+      break;
+    case DEPTH:
+    case DEPTH_RECT:
+    case DEPTH_LORES:
+    case DEPTH_HIRES:
+      msgImage.encoding = sensor_msgs::image_encodings::TYPE_16UC1;
+      break;
+    case COLOR:
+    case COLOR_RECT:
+    case COLOR_LORES:
+      msgImage.encoding = sensor_msgs::image_encodings::BGR8;
+      break;
+    case MONO:
+    case MONO_RECT:
+    case MONO_LORES:
+      msgImage.encoding = sensor_msgs::image_encodings::MONO8;
+      break;
+    case COUNT:
+      return;
+    }
+
+    msgImage.header = header;
+    msgImage.height = image.rows;
+    msgImage.width = image.cols;
+    msgImage.is_bigendian = false;
+    msgImage.step = step;
+    msgImage.data.resize(size);
+    memcpy(msgImage.data.data(), image.data, size);
+  }
+
+  void createCompressed(const cv::Mat &image, const std_msgs::Header &header, const Image type, sensor_msgs::CompressedImage &msgImage) const
+  {
+    msgImage.header = header;
+
+    switch(type)
+    {
+    case IR:
+    case IR_RECT:
+      msgImage.format = sensor_msgs::image_encodings::TYPE_16UC1 + compression16BitString;
+      cv::imencode(compression16BitExt, image, msgImage.data, compressionParams);
+      break;
+    case DEPTH:
+    case DEPTH_RECT:
+    case DEPTH_LORES:
+    case DEPTH_HIRES:
+      {
+        compressed_depth_image_transport::ConfigHeader compressionConfig;
+        const size_t headerSize = sizeof(compressed_depth_image_transport::ConfigHeader);
+        compressionConfig.format = compressed_depth_image_transport::INV_DEPTH;
+
+        std::vector<uint8_t> data;
+        msgImage.format = sensor_msgs::image_encodings::TYPE_16UC1 + "; compressedDepth";
+        cv::imencode(compression16BitExt, image, data, compressionParams);
+
+        msgImage.data.resize(headerSize + data.size());
+        memcpy(&msgImage.data[0], &compressionConfig, headerSize);
+        memcpy(&msgImage.data[headerSize], &data[0], data.size());
+        break;
+      }
+    case COLOR:
+    case COLOR_RECT:
+    case COLOR_LORES:
+      msgImage.format = sensor_msgs::image_encodings::BGR8 + "; jpeg compressed bgr8";
+      cv::imencode(".jpg", image, msgImage.data, compressionParams);
+      break;
+    case MONO:
+    case MONO_RECT:
+    case MONO_LORES:
+      msgImage.format = sensor_msgs::image_encodings::MONO8 + "; png compressed ";
+      cv::imencode(".png", image, msgImage.data, compressionParams);
+      break;
+    case COUNT:
+      return;
     }
   }
 
@@ -647,246 +933,6 @@ private:
     for(size_t i = 0; i < (size_t)distortion.cols; ++i, ++itD)
     {
       cameraInfo.D[i] = *itD;
-    }
-  }
-
-  bool updateStatus()
-  {
-    bool any = false;
-    for(size_t i = 0; i < COUNT; ++i)
-    {
-      Status s = UNSUBCRIBED;
-      if(imagePubs[i].getNumSubscribers() > 0)
-      {
-        s = RAW;
-      }
-      if(compressedPubs[i].getNumSubscribers() > 0)
-      {
-        s = s == RAW ? BOTH : COMPRESSED;
-      }
-
-      statusPubs[i] = s;
-      any = any || s != UNSUBCRIBED || infoPubs[i].getNumSubscribers() > 0;
-    }
-    return any;
-  }
-
-  void processImages(const cv::Mat &color, const cv::Mat &ir, const cv::Mat &depth, std::vector<cv::Mat> &images, const std::vector<Status> &status)
-  {
-    // IR
-    if(status[IR] || status[IR_RECT])
-    {
-      ir.convertTo(images[IR], CV_16U);
-    }
-    if(status[IR_RECT])
-    {
-      cv::remap(images[IR], images[IR_RECT], map1Ir, map2Ir, cv::INTER_AREA);
-    }
-
-    // DEPTH
-    if(status[DEPTH] || status[DEPTH_RECT] || status[DEPTH_LORES] || status[DEPTH_HIRES])
-    {
-      depth.convertTo(images[DEPTH], CV_16U, 1, depthShift);
-    }
-    if(status[DEPTH_RECT])
-    {
-      cv::remap(images[DEPTH], images[DEPTH_RECT], map1Ir, map2Ir, cv::INTER_NEAREST);
-    }
-    if(status[DEPTH_LORES])
-    {
-      lockRegLowRes.lock();
-      depthRegLowRes->registerDepth(images[DEPTH], images[DEPTH_LORES]);
-      lockRegLowRes.unlock();
-    }
-    if(status[DEPTH_HIRES])
-    {
-      lockRegHighRes.lock();
-      depthRegHighRes->registerDepth(images[DEPTH], images[DEPTH_HIRES]);
-      lockRegHighRes.unlock();
-    }
-
-    // COLOR
-    images[COLOR] = color;
-    if(status[COLOR_RECT] || status[MONO_RECT])
-    {
-      cv::remap(images[COLOR], images[COLOR_RECT], map1Color, map2Color, cv::INTER_AREA);
-    }
-    if(status[COLOR_LORES] || status[MONO_LORES])
-    {
-      cv::remap(images[COLOR], images[COLOR_LORES], map1ColorReg, map2ColorReg, cv::INTER_AREA);
-    }
-
-    // MONO
-    if(status[MONO])
-    {
-      cv::cvtColor(images[COLOR], images[MONO], CV_BGR2GRAY);
-    }
-    if(status[MONO_RECT])
-    {
-      cv::cvtColor(images[COLOR_RECT], images[MONO_RECT], CV_BGR2GRAY);
-    }
-    if(status[MONO_LORES])
-    {
-      cv::cvtColor(images[COLOR_LORES], images[MONO_LORES], CV_BGR2GRAY);
-    }
-  }
-
-  void createHeader()
-  {
-    header.seq = 0;
-    header.stamp = ros::Time::now();
-    header.frame_id = K2_TF_RGB_FRAME;
-  }
-
-  void publishImages(const std::vector<cv::Mat> &images, const std_msgs::Header &header, const std::vector<Status> &status, const size_t frame)
-  {
-    std::vector<sensor_msgs::Image> imageMsgs(COUNT);
-    std::vector<sensor_msgs::CompressedImage> compressedMsgs(COUNT);
-    std::vector<sensor_msgs::CameraInfo> infoMsgs(COUNT);
-
-    //#pragma omp parallel for schedule(dynamic)
-    for(size_t i = 0; i < COUNT; ++i)
-    {
-      infoMsgs[i] = infos[i];
-      infoMsgs[i].header = header;
-      infoMsgs[i].header.frame_id = i < DEPTH_LORES ? K2_TF_IR_FRAME : K2_TF_RGB_FRAME;
-
-      switch(status[i])
-      {
-      case UNSUBCRIBED:
-        break;
-      case RAW:
-        createImage(images[i], header, Image(i), imageMsgs[i]);
-        break;
-      case COMPRESSED:
-        createCompressed(images[i], header, Image(i), compressedMsgs[i]);
-        break;
-      case BOTH:
-        createImage(images[i], header, Image(i), imageMsgs[i]);
-        createCompressed(images[i], header, Image(i), compressedMsgs[i]);
-        break;
-      }
-    }
-
-    while(frame != pubFrame)
-    {
-      std::this_thread::sleep_for(std::chrono::microseconds(100));
-    }
-    lockPub.lock();
-    for(size_t i = 0; i < COUNT; ++i)
-    {
-      switch(status[i])
-      {
-      case UNSUBCRIBED:
-        if(infoPubs[i].getNumSubscribers() > 0)
-        {
-          infoPubs[i].publish(infoMsgs[i]);
-        }
-        break;
-      case RAW:
-        imagePubs[i].publish(imageMsgs[i]);
-        infoPubs[i].publish(infoMsgs[i]);
-        break;
-      case COMPRESSED:
-        compressedPubs[i].publish(compressedMsgs[i]);
-        infoPubs[i].publish(infoMsgs[i]);
-        break;
-      case BOTH:
-        imagePubs[i].publish(imageMsgs[i]);
-        compressedPubs[i].publish(compressedMsgs[i]);
-        infoPubs[i].publish(infoMsgs[i]);
-        break;
-      }
-    }
-    //std::cout << "published frame: " << pubFrame << " delay: " << (ros::Time::now().toSec() - header.stamp.toSec()) * 1000.0 << " ms." << std::endl;
-    ++pubFrame;
-    lockPub.unlock();
-  }
-
-  void createImage(const cv::Mat &image, const std_msgs::Header &header, const Image type, sensor_msgs::Image &msgImage) const
-  {
-    size_t step, size;
-    step = image.cols * image.elemSize();
-    size = image.rows * step;
-
-    switch(type)
-    {
-    case IR:
-    case IR_RECT:
-      msgImage.encoding = sensor_msgs::image_encodings::TYPE_16UC1;
-      break;
-    case DEPTH:
-    case DEPTH_RECT:
-    case DEPTH_LORES:
-    case DEPTH_HIRES:
-      msgImage.encoding = sensor_msgs::image_encodings::TYPE_16UC1;
-      break;
-    case COLOR:
-    case COLOR_RECT:
-    case COLOR_LORES:
-      msgImage.encoding = sensor_msgs::image_encodings::BGR8;
-      break;
-    case MONO:
-    case MONO_RECT:
-    case MONO_LORES:
-      msgImage.encoding = sensor_msgs::image_encodings::MONO8;
-      break;
-    case COUNT:
-      return;
-    }
-
-    msgImage.header = header;
-    msgImage.height = image.rows;
-    msgImage.width = image.cols;
-    msgImage.is_bigendian = false;
-    msgImage.step = step;
-    msgImage.data.resize(size);
-    memcpy(msgImage.data.data(), image.data, size);
-  }
-
-  void createCompressed(const cv::Mat &image, const std_msgs::Header &header, const Image type, sensor_msgs::CompressedImage &msgImage) const
-  {
-    msgImage.header = header;
-
-    switch(type)
-    {
-    case IR:
-    case IR_RECT:
-      msgImage.format = sensor_msgs::image_encodings::TYPE_16UC1 + compression16BitString;
-      cv::imencode(compression16BitExt, image, msgImage.data, compressionParams);
-      break;
-    case DEPTH:
-    case DEPTH_RECT:
-    case DEPTH_LORES:
-    case DEPTH_HIRES:
-      {
-        compressed_depth_image_transport::ConfigHeader compressionConfig;
-        const size_t headerSize = sizeof(compressed_depth_image_transport::ConfigHeader);
-        compressionConfig.format = compressed_depth_image_transport::INV_DEPTH;
-
-        std::vector<uint8_t> data;
-        msgImage.format = sensor_msgs::image_encodings::TYPE_16UC1 + "; compressedDepth";
-        cv::imencode(compression16BitExt, image, data, compressionParams);
-
-        msgImage.data.resize(headerSize + data.size());
-        memcpy(&msgImage.data[0], &compressionConfig, headerSize);
-        memcpy(&msgImage.data[headerSize], &data[0], data.size());
-        break;
-      }
-    case COLOR:
-    case COLOR_RECT:
-    case COLOR_LORES:
-      msgImage.format = sensor_msgs::image_encodings::BGR8 + "; jpeg compressed bgr8";
-      cv::imencode(".jpg", image, msgImage.data, compressionParams);
-      break;
-    case MONO:
-    case MONO_RECT:
-    case MONO_LORES:
-      msgImage.format = sensor_msgs::image_encodings::MONO8 + "; png compressed ";
-      cv::imencode(".png", image, msgImage.data, compressionParams);
-      break;
-    case COUNT:
-      return;
     }
   }
 };
