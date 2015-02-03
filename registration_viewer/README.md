@@ -22,22 +22,15 @@ It just listens to two ROS topics and displays a the color with the overlayed co
 
 ```
 viewer [options]
-Image topics:
-  -depth      ROS topic of depth image
-  -color      ROS topic of color image
-  -approx     use approximate time synchronization
-  -raw        use raw instead of compressed topics
-Visualization:
-  -image      displays the depth image overlayed to the color image
-  -cloud      displays the point cloud in a PCL visualizer
-  -both       displays both of the above
-Predefined topics for color and depth:
-  -kinect2    topics for the low res depth and color
-  -kinect2hd  topics for the high res depth and color
-  -kinect2ir  topics for the depth and ir
+  name: 'any string' equals to the kinect2_bridge topic base name
+  mode: 'sd', 'hd', or 'ir'
+  visualization: 'image', 'cloud' or 'both'
+  options:
+    'raw' use raw instead of compressed topics
+    'approx' use approximate time synchronization
 ```
 
-Example: `rosrun registration_viewer viewer -kinect2 -cloud`
+Example: `rosrun registration_viewer viewer kinect2 sd cloud`
 
 ## Key bindings
 

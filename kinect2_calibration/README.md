@@ -19,15 +19,15 @@ This tool uses OpenCV to calibrate two cameras to each other. It is specially de
 
 ```
 kinect2_calibration [options]
+  name: 'any string' equals to the kinect2_bridge topic base name
   mode: 'record' or 'calibrate'
   source: 'color', 'ir', 'sync', 'depth'
   board:
     'circle<WIDTH>x<HEIGHT>x<SIZE>'  for symmentric cirle grid
     'acircle<WIDTH>x<HEIGHT>x<SIZE>' for asymmentric cirle grid
     'chess<WIDTH>x<HEIGHT>x<SIZE>'   for chessboard pattern
-  topics: '-color <TOPIC>', '-ir <TOPIC>', '-depth <TOPIC>'
   distortion model: 'rational' for using model with 8 instead of 5 coefficients
-  output path: '<PATH>'
+  output path: '-path <PATH>'
 ```
 
 ## Key bindings

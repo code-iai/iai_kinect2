@@ -533,6 +533,8 @@ public:
         {
           std::string frameName = filename.substr(0, posColor);
           filesSync.push_back(frameName);
+          filesColor.push_back(frameName);
+          filesIr.push_back(frameName);
         }
         continue;
       }
@@ -1061,15 +1063,15 @@ private:
 void help(const std::string &path)
 {
   std::cout << path << " [options]" << std::endl
+            << "  name: 'any string' equals to the kinect2_bridge topic base name" << std::endl
             << "  mode: 'record' or 'calibrate'" << std::endl
             << "  source: 'color', 'ir', 'sync', 'depth'" << std::endl
             << "  board:" << std::endl
             << "    'circle<WIDTH>x<HEIGHT>x<SIZE>'  for symmentric cirle grid" << std::endl
             << "    'acircle<WIDTH>x<HEIGHT>x<SIZE>' for asymmentric cirle grid" << std::endl
             << "    'chess<WIDTH>x<HEIGHT>x<SIZE>'   for chessboard pattern" << std::endl
-            << "  topics: '-color <TOPIC>', '-ir <TOPIC>', '-depth <TOPIC>'" << std::endl
             << "  distortion model: 'rational' for using model with 8 instead of 5 coefficients" << std::endl
-            << "  output path: '<PATH>'" << std::endl;
+            << "  output path: '-path <PATH>'" << std::endl;
 }
 
 int main(int argc, char **argv)
@@ -1082,6 +1084,7 @@ int main(int argc, char **argv)
   bool calibDepth = false;
   cv::Size boardDims = cv::Size(7, 6);
   float boardSize = 0.108;
+  std::string ns = K2_DEFAULT_NS;
   std::string path = "./";
   std::string topicColor = K2_TOPIC_IMAGE_MONO K2_TOPIC_RAW;
   std::string topicIr = K2_TOPIC_IMAGE_IR K2_TOPIC_RAW;
@@ -1172,20 +1175,9 @@ int main(int argc, char **argv)
       boardSize = atof(arg.substr(rightX + 1, end - rightX + 1).c_str());
       boardDims = cv::Size(width, height);
     }
-    else if(arg == "-color" && argI + 1 < argc)
+    else if(arg == "-path" && argI + 1 < argc)
     {
-      topicColor = std::string(argv[++argI]);
-    }
-    else if(arg == "-ir" && argI + 1 < argc)
-    {
-      topicIr = std::string(argv[++argI]);
-    }
-    else if(arg == "-depth" && argI + 1 < argc)
-    {
-      topicDepth = std::string(argv[++argI]);
-    }
-    else
-    {
+      arg = argv[argI];
       struct stat fileStat;
       if(stat(arg.c_str(), &fileStat) == 0 && S_ISDIR(fileStat.st_mode))
       {
@@ -1193,14 +1185,21 @@ int main(int argc, char **argv)
       }
       else
       {
-        std::cerr << "Unknown argument: " << arg << std::endl;
+        std::cerr << "Unknown path: " << arg << std::endl;
         help(argv[0]);
         ros::shutdown();
         return 0;
       }
     }
+    else
+    {
+      ns = arg;
+    }
   }
 
+  topicColor = "/" + ns + topicColor;
+  topicIr = "/" + ns + topicIr;
+  topicDepth = "/" + ns + topicDepth;
   std::cout << "Start settings:" << std::endl
             << "       Mode: " << (mode == RECORD ? "record" : "calibrate") << std::endl
             << "     Source: " << (calibDepth ? "depth" : (source == COLOR ? "color" : (source == IR ? "ir" : "sync"))) << std::endl

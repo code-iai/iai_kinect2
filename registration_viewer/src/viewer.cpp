@@ -515,19 +515,12 @@ private:
 void help(const std::string &path)
 {
   std::cout << path << " [options]" << std::endl
-            << "Image topics:" << std::endl
-            << "  -depth      ROS topic of depth image" << std::endl
-            << "  -color      ROS topic of color image" << std::endl
-            << "  -approx     use approximate time synchronization" << std::endl
-            << "  -raw        use raw instead of compressed topics" << std::endl
-            << "Visualization:" << std::endl
-            << "  -image      displays the depth image overlayed to the color image" << std::endl
-            << "  -cloud      displays the point cloud in a PCL visualizer" << std::endl
-            << "  -both       displays both of the above" << std::endl
-            << "Predefined topics for color and depth:" << std::endl
-            << "  -kinect2    topics for the low res depth and color" << std::endl
-            << "  -kinect2hd  topics for the high res depth and color" << std::endl
-            << "  -kinect2ir  topics for the depth and ir" << std::endl;
+            << "  name: 'any string' equals to the kinect2_bridge topic base name" << std::endl
+            << "  mode: 'sd', 'hd', or 'ir'" << std::endl
+            << "  visualization: 'image', 'cloud' or 'both'" << std::endl
+            << "  options:" << std::endl
+            << "    'raw' use raw instead of compressed topics" << std::endl
+            << "    'approx' use approximate time synchronization" << std::endl;
 }
 
 int main(int argc, char **argv)
@@ -539,6 +532,7 @@ int main(int argc, char **argv)
     return 0;
   }
 
+  std::string ns = K2_DEFAULT_NS;
   std::string topicColor = K2_TOPIC_LORES_COLOR K2_TOPIC_RAW;
   std::string topicDepth = K2_TOPIC_LORES_DEPTH K2_TOPIC_RAW;
   bool useExact = true;
@@ -555,57 +549,49 @@ int main(int argc, char **argv)
       ros::shutdown();
       return 0;
     }
-    else if(param == "-kinect2")
+    else if(param == "sd")
     {
       topicColor = K2_TOPIC_LORES_COLOR K2_TOPIC_RAW;
       topicDepth = K2_TOPIC_LORES_DEPTH K2_TOPIC_RAW;
-      useExact = true;
     }
-    else if(param == "-kinect2hd")
+    else if(param == "hd")
     {
       topicColor = K2_TOPIC_RECT_COLOR K2_TOPIC_RAW;
       topicDepth = K2_TOPIC_HIRES_DEPTH K2_TOPIC_RAW;
-      useExact = true;
     }
-    else if(param == "-kinect2ir")
+    else if(param == "ir")
     {
       topicColor = K2_TOPIC_RECT_IR K2_TOPIC_RAW;
       topicDepth = K2_TOPIC_RECT_DEPTH K2_TOPIC_RAW;
-      useExact = true;
     }
-    else if(param == "-color" && i + 1 < (size_t)argc)
-    {
-      ++i;
-      topicColor = argv[i];
-      useExact = false;
-    }
-    else if(param == "-depth" && i + 1 < (size_t)argc)
-    {
-      ++i;
-      topicDepth = argv[i];
-    }
-    else if(param == "-approx")
+    else if(param == "approx")
     {
       useExact = false;
     }
-    else if(param == "-raw")
+    else if(param == "raw")
     {
       useCompressed = false;
     }
-    else if(param == "-image")
+    else if(param == "image")
     {
       mode = Receiver::IMAGE;
     }
-    else if(param == "-cloud")
+    else if(param == "cloud")
     {
       mode = Receiver::CLOUD;
     }
-    else if(param == "-both")
+    else if(param == "both")
     {
       mode = Receiver::BOTH;
     }
+    else
+    {
+      ns = param;
+    }
   }
 
+  topicColor = "/" + ns + topicColor;
+  topicDepth = "/" + ns + topicDepth;
   std::cout << "topic color: " << topicColor << std::endl;
   std::cout << "topic depth: " << topicDepth << std::endl;
 
