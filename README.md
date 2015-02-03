@@ -8,6 +8,8 @@
 ## Recent changes
 
 - Added a calibration for the depth measurements to the calibration tool.
+- Support for multiple sensors by different base names for all topics.
+- Integrated static transform publisher that uses calibration results.
 
 ## Description
 

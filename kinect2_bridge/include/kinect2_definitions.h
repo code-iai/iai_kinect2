@@ -19,31 +19,35 @@
 #ifndef __KINECT2_DEFINITIONS_H__
 #define __KINECT2_DEFINITIONS_H__
 
-#define K2_TOPIC_BASE          "/kinect2_head/"
-#define K2_TF_RGB_FRAME        "/head_mount_kinect2_rgb_optical_frame"
-#define K2_TF_IR_FRAME         "/head_mount_kinect2_ir_optical_frame"
+#define K2_DEFAULT_NS          "kinect2"
 
-#define K2_TOPIC_IMAGE_IR      K2_TOPIC_BASE "ir/"
-#define K2_TOPIC_RECT_IR       K2_TOPIC_BASE "ir_rect/"
+#define K2_TF_LINK             "_link"
+#define K2_TF_RGB_FRAME        "_rgb_frame"
+#define K2_TF_IR_FRAME         "_ir_frame"
+#define K2_TF_RGB_OPT_FRAME    "_rgb_optical_frame"
+#define K2_TF_IR_OPT_FRAME     "_ir_optical_frame"
 
-#define K2_TOPIC_IMAGE_COLOR   K2_TOPIC_BASE "rgb/"
-#define K2_TOPIC_RECT_COLOR    K2_TOPIC_BASE "rgb_rect/"
-#define K2_TOPIC_LORES_COLOR   K2_TOPIC_BASE "rgb_lowres/"
+#define K2_TOPIC_IMAGE_IR      "/ir"
+#define K2_TOPIC_RECT_IR       "/ir_rect"
 
-#define K2_TOPIC_IMAGE_MONO    K2_TOPIC_BASE "mono/"
-#define K2_TOPIC_RECT_MONO     K2_TOPIC_BASE "mono_rect/"
-#define K2_TOPIC_LORES_MONO    K2_TOPIC_BASE "mono_lowres/"
+#define K2_TOPIC_IMAGE_COLOR   "/rgb"
+#define K2_TOPIC_RECT_COLOR    "/rgb_rect"
+#define K2_TOPIC_LORES_COLOR   "/rgb_lowres"
 
-#define K2_TOPIC_IMAGE_DEPTH   K2_TOPIC_BASE "depth/"
-#define K2_TOPIC_RECT_DEPTH    K2_TOPIC_BASE "depth_rect/"
-#define K2_TOPIC_LORES_DEPTH   K2_TOPIC_BASE "depth_lowres/"
-#define K2_TOPIC_HIRES_DEPTH   K2_TOPIC_BASE "depth_highres/"
+#define K2_TOPIC_IMAGE_MONO    "/mono"
+#define K2_TOPIC_RECT_MONO     "/mono_rect"
+#define K2_TOPIC_LORES_MONO    "/mono_lowres"
 
-#define K2_TOPIC_RAW           "image"
-#define K2_TOPIC_IMAGE         "image"
+#define K2_TOPIC_IMAGE_DEPTH   "/depth"
+#define K2_TOPIC_RECT_DEPTH    "/depth_rect"
+#define K2_TOPIC_LORES_DEPTH   "/depth_lowres"
+#define K2_TOPIC_HIRES_DEPTH   "/depth_highres"
+
+#define K2_TOPIC_RAW           "/image"
+#define K2_TOPIC_IMAGE         "/image"
 #define K2_TOPIC_COMPRESSED    "/compressed"
 #define K2_TOPIC_COMP_DEPTH    "/compressedDepth"
-#define K2_TOPIC_INFO          "camera_info"
+#define K2_TOPIC_INFO          "/camera_info"
 
 #define K2_CALIB_COLOR         "calib_color.yaml"
 #define K2_CALIB_IR            "calib_ir.yaml"

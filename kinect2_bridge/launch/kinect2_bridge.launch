@@ -1,33 +1,47 @@
 <launch>
-  <arg name="publish_frame" default="false" />
+  <arg name="base_name" default="kinect2"/>
+  <arg name="sensor" default="" />
+  <arg name="publish_tf" default="false" />
+  <arg name="base_name_tf" default="$(arg base_name)" />
 
-  <include file="$(find kinect2_bridge)/launch/include/kinect2_frames.launch">
-    <arg name="publish_frame" value="$(arg publish_frame)" />
-  </include>
-
-  <node name="kinect2_bridge" pkg="kinect2_bridge" type="kinect2_bridge"
-        respawn="true"
-        output="screen"/>
+  <node name="kinect2_bridge" pkg="kinect2_bridge" type="kinect2_bridge" respawn="true" output="screen">
+    <param name="base_name"         type="str"    value="$(arg base_name)"/>
+    <param name="sensor"            type="str"    value="$(arg sensor)"/>
+    <param name="publish_tf"        type="bool"   value="$(arg publish_tf)"/>
+    <param name="base_name_tf"      type="str"    value="$(arg base_name_tf)"/>
+    <!-- Other possible parameter
+    <param name="fps_limit"         type="double" value="-1.0"/>
+    <param name="calib_path"        type="str"    value=""/>
+    <param name="use_png"           type="bool"   value="false"/>
+    <param name="jpeg_quality"      type="int"    value="90"/>
+    <param name="png_level"         type="int"    value="1"/>
+    <param name="depth_method"      type="str"    value="opencl"/>
+    <param name="depth_device"      type="int"    value="-1"/>
+    <param name="reg_method"        type="str"    value="opencl"/>
+    <param name="reg_devive"        type="int"    value="-1"/>
+    <param name="max_depth"         type="double" value="12.0"/>
+    <param name="min_depth"         type="double" value="0.1"/>
+    <param name="queue_size"        type="int"    value="2"/>
+    <param name="bilateral_filter"  type="bool"   value="true"/>
+    <param name="edge_aware_filter" type="bool"   value="true"/>
+    -->
+  </node>
 
   <!-- low resolution point cloud (960 x 540) -->
-  <node pkg="nodelet" type="nodelet" name="points_xyzrgb_lowres"
-        args="standalone depth_image_proc/point_cloud_xyzrgb"
-        respawn="false">
-    <remap from="rgb/camera_info"             to="/kinect2_head/rgb_lowres/camera_info" />
-    <remap from="rgb/image_rect_color"        to="/kinect2_head/rgb_lowres/image" />
-    <remap from="depth_registered/image_rect" to="/kinect2_head/depth_lowres/image" />
-    <remap from="depth_registered/points"     to="/kinect2_head/depth_lowres/points" />
+  <node pkg="nodelet" type="nodelet" name="$(arg base_name)_points_xyzrgb_lowres" args="standalone depth_image_proc/point_cloud_xyzrgb" respawn="true">
+    <remap from="rgb/camera_info"             to="/$(arg base_name)/rgb_lowres/camera_info" />
+    <remap from="rgb/image_rect_color"        to="/$(arg base_name)/rgb_lowres/image" />
+    <remap from="depth_registered/image_rect" to="/$(arg base_name)/depth_lowres/image" />
+    <remap from="depth_registered/points"     to="/$(arg base_name)/depth_lowres/points" />
     <param name="queue_size" type="int" value="2" />
   </node>
 
   <!-- high resolution point cloud (1920 x 1080) -->
-  <node pkg="nodelet" type="nodelet" name="points_xyzrgb_highres"
-        args="standalone depth_image_proc/point_cloud_xyzrgb"
-        respawn="false">
-    <remap from="rgb/camera_info"             to="/kinect2_head/rgb_rect/camera_info" />
-    <remap from="rgb/image_rect_color"        to="/kinect2_head/rgb_rect/image" />
-    <remap from="depth_registered/image_rect" to="/kinect2_head/depth_highres/image" />
-    <remap from="depth_registered/points"     to="/kinect2_head/depth_highres/points" />
+  <node pkg="nodelet" type="nodelet" name="$(arg base_name)_points_xyzrgb_highres" args="standalone depth_image_proc/point_cloud_xyzrgb" respawn="true">
+    <remap from="rgb/camera_info"             to="/$(arg base_name)/rgb_rect/camera_info" />
+    <remap from="rgb/image_rect_color"        to="/$(arg base_name)/rgb_rect/image" />
+    <remap from="depth_registered/image_rect" to="/$(arg base_name)/depth_highres/image" />
+    <remap from="depth_registered/points"     to="/$(arg base_name)/depth_highres/points" />
     <param name="queue_size" type="int" value="2" />
   </node>
 </launch>

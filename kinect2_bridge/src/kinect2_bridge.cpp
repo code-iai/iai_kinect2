@@ -36,6 +36,8 @@
 #include <sensor_msgs/CompressedImage.h>
 #include <sensor_msgs/image_encodings.h>
 
+#include <tf/transform_broadcaster.h>
+
 #include <compressed_depth_image_transport/compression_common.h>
 
 #include <libfreenect2/libfreenect2.hpp>
@@ -50,60 +52,38 @@
 
 class Kinect2Bridge
 {
-public:
-  enum DepthMethod
-  {
-    DEFAULT = 0,
-    CPU,
-    OPENCL,
-    OPENGL
-  };
-
 private:
-  const int32_t jpegQuality;
-  const int32_t pngLevel;
-  const double maxDepth;
-  const size_t queueSize;
   std::vector<int> compressionParams;
-  const bool rawDepth;
-  std::string compression16BitExt;
-  std::string compression16BitString;
+  std::string compression16BitExt, compression16BitString, ns, baseNameTF;
 
-  const cv::Size sizeColor, sizeIr, sizeDepth;
+  cv::Size sizeColor, sizeIr, sizeLowRes;
   cv::Mat color, ir, depth;
-  cv::Mat cameraMatrixColor, distortionColor, cameraMatrixDepth;
-  cv::Mat cameraMatrixIr, distortionIr;
+  cv::Mat cameraMatrixColor, distortionColor, cameraMatrixLowRes, cameraMatrixIr, distortionIr;
   cv::Mat rotation, translation;
-  cv::Mat map1Color, map2Color;
-  cv::Mat map1Ir, map2Ir;
-  cv::Mat map1ColorReg, map2ColorReg;
+  cv::Mat map1Color, map2Color, map1Ir, map2Ir, map1LowRes, map2LowRes;
 
   std::vector<std::thread> threads;
-  std::mutex lockIrDepth;
-  std::mutex lockColor;
-  std::mutex lockSync;
-  std::mutex lockPub;
-  std::mutex lockRegLowRes;
-  std::mutex lockRegHighRes;
+  std::mutex lockIrDepth, lockColor;
+  std::mutex lockSync, lockPub;
+  std::mutex lockRegLowRes, lockRegHighRes;
+
+  bool publishTF;
+  std::thread tfPublisher;
 
   libfreenect2::Freenect2 freenect2;
   libfreenect2::Freenect2Device *device;
-  libfreenect2::SyncMultiFrameListener *listenerColor;
-  libfreenect2::SyncMultiFrameListener *listenerIrDepth;
+  libfreenect2::SyncMultiFrameListener *listenerColor, *listenerIrDepth;
   libfreenect2::PacketPipeline *packetPipeline;
 
   ros::NodeHandle nh;
 
-  DepthRegistration *depthRegLowRes;
-  DepthRegistration *depthRegHighRes;
+  DepthRegistration *depthRegLowRes, *depthRegHighRes;
 
-  size_t frameColor, frameIrDepth;
-  size_t pubFrameColor, pubFrameIrDepth;
+  size_t frameColor, frameIrDepth, pubFrameColor, pubFrameIrDepth;
   ros::Time lastColor, lastDepth;
 
-  const double deltaT;
   bool nextColor, nextIrDepth;
-  double depthShift;
+  double deltaT, depthShift;
 
   enum Image
   {
@@ -134,256 +114,30 @@ private:
     BOTH
   };
 
-  std::vector<std::string> topics;
-
-  std_msgs::Header header;
-  std::vector<ros::Publisher> imagePubs;
-  std::vector<ros::Publisher> compressedPubs;
-  std::vector<ros::Publisher> infoPubs;
+  std::vector<ros::Publisher> imagePubs, compressedPubs, infoPubs;
   std::vector<sensor_msgs::CameraInfo> infos;
 
 public:
-  Kinect2Bridge(const double fps, const bool rawDepth, const int compression, const int deviceIdDepth, const DepthRegistration::Method methodReg, const DepthMethod methodDepth, const bool useTiff)
-    : jpegQuality(compression), pngLevel(1), maxDepth(12.0), queueSize(2), rawDepth(rawDepth), sizeColor(1920, 1080), sizeIr(512, 424),
-      sizeDepth(rawDepth ? sizeIr : cv::Size(sizeColor.width / 2, sizeColor.height / 2)), nh(), frameColor(0), frameIrDepth(0), pubFrameColor(0), pubFrameIrDepth(0),
-      lastColor(0, 0), lastDepth(0, 0), deltaT(fps > 0 ? 1.0 / fps : 0.0), nextColor(false), nextIrDepth(false), depthShift(0), topics(COUNT)
+  Kinect2Bridge()
+    : sizeColor(1920, 1080), sizeIr(512, 424), sizeLowRes(sizeColor.width / 2, sizeColor.height / 2), nh("~"),
+      frameColor(0), frameIrDepth(0), pubFrameColor(0), pubFrameIrDepth(0), lastColor(0, 0), lastDepth(0, 0), nextColor(false), nextIrDepth(false), depthShift(0)
   {
-    topics[IR] = K2_TOPIC_IMAGE_IR;
-    topics[IR_RECT] = K2_TOPIC_RECT_IR;
-    topics[DEPTH] = K2_TOPIC_IMAGE_DEPTH;
-    topics[DEPTH_RECT] = K2_TOPIC_RECT_DEPTH;
-    topics[DEPTH_LORES] = K2_TOPIC_LORES_DEPTH;
-    topics[DEPTH_HIRES] = K2_TOPIC_HIRES_DEPTH;
-    topics[COLOR] = K2_TOPIC_IMAGE_COLOR;
-    topics[COLOR_RECT] = K2_TOPIC_RECT_COLOR;
-    topics[COLOR_LORES] = K2_TOPIC_LORES_COLOR;
-    topics[MONO] = K2_TOPIC_IMAGE_MONO;
-    topics[MONO_RECT] = K2_TOPIC_RECT_MONO;
-    topics[MONO_LORES] = K2_TOPIC_LORES_MONO;
-
     color = cv::Mat::zeros(sizeColor, CV_8UC3);
     ir = cv::Mat::zeros(sizeIr, CV_32F);
     depth = cv::Mat::zeros(sizeIr, CV_32F);
-
-    compressionParams.resize(7, 0);
-    compressionParams[0] = CV_IMWRITE_JPEG_QUALITY;
-    compressionParams[1] = jpegQuality;
-    compressionParams[2] = CV_IMWRITE_PNG_COMPRESSION;
-    compressionParams[3] = pngLevel;
-    compressionParams[4] = CV_IMWRITE_PNG_STRATEGY;
-    compressionParams[5] = CV_IMWRITE_PNG_STRATEGY_RLE;
-    compressionParams[6] = 0;
-
-    depthRegLowRes = DepthRegistration::New(methodReg);
-    depthRegHighRes = DepthRegistration::New(methodReg);
-
-    if(methodDepth == CPU)
-    {
-      packetPipeline = new libfreenect2::CpuPacketPipeline();
-    }
-#ifdef LIBFREENECT2_WITH_OPENCL_SUPPORT
-    else if(methodDepth == OPENCL)
-    {
-      packetPipeline = new libfreenect2::OpenCLPacketPipeline(deviceIdDepth);
-    }
-#endif
-    else if(methodDepth == OPENGL)
-    {
-      glfwInit();
-      packetPipeline = new libfreenect2::OpenGLPacketPipeline();
-    }
-    else
-    {
-      glfwInit();
-      packetPipeline = new libfreenect2::DefaultPacketPipeline();
-    }
-
-    libfreenect2::DepthPacketProcessor::Config config;
-    config.EnableBilateralFilter = true;
-    config.EnableEdgeAwareFilter = true;
-    config.MinDepth = 0.1;
-    config.MaxDepth = maxDepth;
-    packetPipeline->getDepthPacketProcessor()->setConfiguration(config);
-
-    if(useTiff)
-    {
-      compression16BitExt = ".tiff";
-      compression16BitString = "; tiff compressed ";
-    }
-    else
-    {
-      compression16BitExt = ".png";
-      compression16BitString = "; png compressed ";
-    }
-  }
-
-  bool init(const std::string &path, const std::string &cam, const int deviceIdReg)
-  {
-    std::string camSerial = cam;
-    bool deviceFound = false;
-    const int numOfDevs = freenect2.enumerateDevices();
-
-    if(numOfDevs <= 0)
-    {
-      std::cerr << "Error: no Kinect2 devices found!" << std::endl;
-      return false;
-    }
-
-    if(camSerial.empty())
-    {
-      camSerial = freenect2.getDefaultDeviceSerialNumber();
-    }
-
-    std::cout << "Kinect2 devices found: " << std::endl;
-    for(int i = 0; i < numOfDevs; ++i)
-    {
-      const std::string &s = freenect2.getDeviceSerialNumber(i);
-      deviceFound = deviceFound || s == camSerial;
-      std::cout << "  " << i << ": " << s << (s == camSerial ? " (selected)" : "") << std::endl;
-    }
-
-    if(!deviceFound)
-    {
-      std::cerr << "Error: Device with serial '" << camSerial << "' not found!" << std::endl;
-      return false;
-    }
-
-    device = freenect2.openDevice(camSerial, packetPipeline);
-
-    if(device == 0)
-    {
-      std::cout << "no device connected or failure opening the default one!" << std::endl;
-      return -1;
-    }
-    listenerColor = new libfreenect2::SyncMultiFrameListener(libfreenect2::Frame::Color);
-    listenerIrDepth = new libfreenect2::SyncMultiFrameListener(libfreenect2::Frame::Ir | libfreenect2::Frame::Depth);
-
-    device->setColorFrameListener(listenerColor);
-    device->setIrAndDepthFrameListener(listenerIrDepth);
-
-    std::cout << std::endl << "starting kinect2" << std::endl << std::endl;
-    device->start();
-
-    std::string serial = device->getSerialNumber();
-    std::cout << std::endl << "device serial: " << serial << std::endl;
-    std::cout << "device firmware: " << device->getFirmwareVersion() << std::endl;
-
-    libfreenect2::Freenect2Device::ColorCameraParams colorParams = device->getColorCameraParams();
-    libfreenect2::Freenect2Device::IrCameraParams irParams = device->getIrCameraParams();
-
-    std::cout << std::endl << "default ir camera parameters: " << std::endl;
-    std::cout << "fx " << irParams.fx << ", fy " << irParams.fy << ", cx " << irParams.cx << ", cy " << irParams.cy << std::endl;
-    std::cout << "k1 " << irParams.k1 << ", k2 " << irParams.k2 << ", p1 " << irParams.p1 << ", p2 " << irParams.p2 << ", k3 " << irParams.k3 << std::endl;
-
-    std::cout << std::endl << "default color camera parameters: " << std::endl;
-    std::cout << "fx " << colorParams.fx << ", fy " << colorParams.fy << ", cx " << colorParams.cx << ", cy " << colorParams.cy << std::endl;
-
-    std::string calibPath = path + serial + '/';
-
-    struct stat fileStat;
-    bool calibDirNotFound = stat(calibPath.c_str(), &fileStat) != 0 || !S_ISDIR(fileStat.st_mode);
-    if(calibDirNotFound || !loadCalibrationFile(calibPath + K2_CALIB_COLOR, cameraMatrixColor, distortionColor))
-    {
-      std::cerr << "using sensor defaults." << std::endl;
-      cameraMatrixColor = cv::Mat::eye(3, 3, CV_64F);
-      distortionColor = cv::Mat::zeros(1, 5, CV_64F);
-
-      cameraMatrixColor.at<double>(0, 0) = colorParams.fx;
-      cameraMatrixColor.at<double>(1, 1) = colorParams.fy;
-      cameraMatrixColor.at<double>(0, 2) = colorParams.cx;
-      cameraMatrixColor.at<double>(1, 2) = colorParams.cy;
-      cameraMatrixColor.at<double>(2, 2) = 1;
-    }
-
-    if(calibDirNotFound || !loadCalibrationFile(calibPath + K2_CALIB_IR, cameraMatrixIr, distortionIr))
-    {
-      std::cerr << "using sensor defaults." << std::endl;
-      cameraMatrixIr = cv::Mat::eye(3, 3, CV_64F);
-      distortionIr = cv::Mat::zeros(1, 5, CV_64F);
-
-      cameraMatrixIr.at<double>(0, 0) = irParams.fx;
-      cameraMatrixIr.at<double>(1, 1) = irParams.fy;
-      cameraMatrixIr.at<double>(0, 2) = irParams.cx;
-      cameraMatrixIr.at<double>(1, 2) = irParams.cy;
-      cameraMatrixIr.at<double>(2, 2) = 1;
-
-      distortionIr.at<double>(0, 0) = irParams.k1;
-      distortionIr.at<double>(0, 1) = irParams.k2;
-      distortionIr.at<double>(0, 2) = irParams.p1;
-      distortionIr.at<double>(0, 3) = irParams.p2;
-      distortionIr.at<double>(0, 4) = irParams.k3;
-    }
-
-    if(calibDirNotFound || !loadCalibrationPoseFile(calibPath + K2_CALIB_POSE, rotation, translation))
-    {
-      std::cerr << "using defaults." << std::endl;
-      rotation = cv::Mat::eye(3, 3, CV_64F);
-      translation = cv::Mat::zeros(3, 1, CV_64F);
-    }
-
-    if(calibDirNotFound || !loadCalibrationDepthFile(calibPath + K2_CALIB_DEPTH, depthShift))
-    {
-      std::cerr << "using defaults." << std::endl;
-      depthShift = 0.0;
-    }
-
-    if(rawDepth)
-    {
-      cameraMatrixDepth = cameraMatrixIr;
-    }
-    else
-    {
-      cameraMatrixDepth = cameraMatrixColor.clone();
-      cameraMatrixDepth.at<double>(0, 0) /= 2;
-      cameraMatrixDepth.at<double>(1, 1) /= 2;
-      cameraMatrixDepth.at<double>(0, 2) /= 2;
-      cameraMatrixDepth.at<double>(1, 2) /= 2;
-    }
-
-    std::cout << std::endl << "camera parameters used:" << std::endl
-              << "camera matrix color:" << std::endl << cameraMatrixColor << std::endl
-              << "distortion coefficients color:" << std::endl << distortionColor << std::endl
-              << "camera matrix ir:" << std::endl << cameraMatrixIr << std::endl
-              << "distortion coefficients ir:" << std::endl << distortionIr << std::endl
-              << "rotation:" << std::endl << rotation << std::endl
-              << "translation:" << std::endl << translation << std::endl
-              << "depth shift:" << std::endl << depthShift << std::endl << std::endl;
-
-    const int mapType = CV_16SC2;
-    cv::initUndistortRectifyMap(cameraMatrixColor, distortionColor, cv::Mat(), cameraMatrixColor, sizeColor, mapType, map1Color, map2Color);
-    cv::initUndistortRectifyMap(cameraMatrixIr, distortionIr, cv::Mat(), cameraMatrixIr, sizeIr, mapType, map1Ir, map2Ir);
-    cv::initUndistortRectifyMap(cameraMatrixColor, distortionColor, cv::Mat(), cameraMatrixDepth, sizeDepth, mapType, map1ColorReg, map2ColorReg);
-
-    bool ret = true;
-    ret = ret && depthRegLowRes->init(cameraMatrixDepth, sizeDepth, cameraMatrixIr, sizeIr, distortionIr, rotation, translation, 0.5f, maxDepth, deviceIdReg);
-    ret = ret && depthRegHighRes->init(cameraMatrixColor, sizeColor, cameraMatrixIr, sizeIr, distortionIr, rotation, translation, 0.5f, maxDepth, deviceIdReg);
-
-    return ret;
   }
 
   void run()
   {
-    imagePubs.resize(COUNT);
-    compressedPubs.resize(COUNT);
-    infoPubs.resize(COUNT);
-    infos.resize(COUNT);
-
-    for(size_t i = 0; i < COUNT; ++i)
+    if(!initialize())
     {
-      if(i < DEPTH || i > DEPTH_HIRES)
-      {
-        imagePubs[i] = nh.advertise<sensor_msgs::Image>(topics[i] + K2_TOPIC_IMAGE, queueSize);
-        compressedPubs[i] = nh.advertise<sensor_msgs::CompressedImage>(topics[i] + K2_TOPIC_RAW + K2_TOPIC_COMPRESSED, queueSize);
-      }
-      else
-      {
-        imagePubs[i] = nh.advertise<sensor_msgs::Image>(topics[i] + K2_TOPIC_RAW, queueSize);
-        compressedPubs[i] = nh.advertise<sensor_msgs::CompressedImage>(topics[i] + K2_TOPIC_RAW + K2_TOPIC_COMP_DEPTH, queueSize);
-      }
-      infoPubs[i] = nh.advertise<sensor_msgs::CameraInfo>(topics[i] + K2_TOPIC_INFO, queueSize);
+      return;
     }
 
-    createCameraInfo();
+    if(publishTF)
+    {
+      tfPublisher = std::thread(&Kinect2Bridge::publishStaticTF, this);
+    }
 
     size_t numOfThreads = std::thread::hardware_concurrency();
     if(numOfThreads == 0)
@@ -438,6 +192,11 @@ public:
     }
     threads.clear();
 
+    if(publishTF)
+    {
+      tfPublisher.join();
+    }
+
     device->stop();
     device->close();
     delete listenerIrDepth;
@@ -454,6 +213,461 @@ public:
   }
 
 private:
+  bool initialize()
+  {
+    double fps_limit, maxDepth, minDepth;
+    bool use_png, bilateral_filter, edge_aware_filter;
+    int32_t jpeg_quality, png_level, queueSize, reg_dev, depth_dev;
+    std::string depth_method, reg_method, calib_path, sensor;
+
+    nh.param("base_name", ns, std::string(K2_DEFAULT_NS));
+    nh.param("sensor", sensor, std::string(""));
+    nh.param("fps_limit", fps_limit, -1.0);
+    nh.param("calib_path", calib_path, std::string(K2_CALIB_PATH));
+    nh.param("use_png", use_png, false);
+    nh.param("jpeg_quality", jpeg_quality, 90);
+    nh.param("png_level", png_level, 1);
+    nh.param("depth_device", depth_dev, -1);
+    nh.param("reg_devive", reg_dev, -1);
+    nh.param("max_depth", maxDepth, 12.0);
+    nh.param("min_depth", minDepth, 0.1);
+    nh.param("queue_size", queueSize, 2);
+    nh.param("bilateral_filter", bilateral_filter, false);
+    nh.param("edge_aware_filter", edge_aware_filter, false);
+    nh.param("publish_tf", publishTF, false);
+    nh.param("base_name_tf", baseNameTF, ns);
+    std::cout << baseNameTF << std::endl;
+
+#ifdef LIBFREENECT2_WITH_OPENCL_SUPPORT
+    nh.param("depth_method", depth_method, std::string("opencl"));
+#else
+    nh.param("depth_method", depth_method, std::string("default"));
+#endif
+
+#ifdef DEPTH_REG_OPENCL
+    nh.param("reg_method", reg_method, std::string("opencl"));
+#else
+    nh.param("reg_method", reg_method, std::string("default"));
+#endif
+
+    deltaT = fps_limit > 0 ? 1.0 / fps_limit : 0.0;
+
+    if(calib_path.empty() || calib_path.back() != '/')
+    {
+      calib_path += '/';
+    }
+
+    initCompression(jpeg_quality, png_level, use_png);
+    initTopics(queueSize);
+
+    bool ret = true;
+    ret = ret && initPipeline(depth_method, depth_dev, bilateral_filter, edge_aware_filter, minDepth, maxDepth);
+    ret = ret && initDevice(sensor);
+
+    if(ret)
+    {
+      initCalibration(calib_path, sensor);
+    }
+
+    ret = ret && initRegistration(reg_method, reg_dev, maxDepth);
+
+    if(ret)
+    {
+      createCameraInfo();
+    }
+
+    return ret;
+  }
+
+  bool initRegistration(const std::string &method, const int32_t device, const double maxDepth)
+  {
+    DepthRegistration::Method reg;
+
+    if(method == "default")
+    {
+      reg = DepthRegistration::DEFAULT;
+    }
+    else if(method == "cpu")
+    {
+#ifdef DEPTH_REG_CPU
+      reg = DepthRegistration::CPU;
+#else
+      std::cerr << "CPU registration is not available!" << std::endl;
+      return -1;
+#endif
+    }
+    else if(method == "opencl")
+    {
+#ifdef DEPTH_REG_OPENCL
+      reg = DepthRegistration::OPENCL;
+#else
+      std::cerr << "OPENCL registration is not available!" << std::endl;
+      return -1;
+#endif
+    }
+    else
+    {
+      std::cerr << "Unknown registration method: " << method << std::endl;
+      return false;
+    }
+
+    depthRegLowRes = DepthRegistration::New(reg);
+    depthRegHighRes = DepthRegistration::New(reg);
+
+    bool ret = true;
+    ret = ret && depthRegLowRes->init(cameraMatrixLowRes, sizeLowRes, cameraMatrixIr, sizeIr, distortionIr, rotation, translation, 0.5f, maxDepth, device);
+    ret = ret && depthRegHighRes->init(cameraMatrixColor, sizeColor, cameraMatrixIr, sizeIr, distortionIr, rotation, translation, 0.5f, maxDepth, device);
+
+    return ret;
+  }
+
+  bool initPipeline(const std::string &method, const int32_t device, const bool bilateral_filter, const bool edge_aware_filter, const double minDepth, const double maxDepth)
+  {
+    if(method == "default")
+    {
+      glfwInit();
+      packetPipeline = new libfreenect2::DefaultPacketPipeline();
+    }
+    else if(method == "cpu")
+    {
+      packetPipeline = new libfreenect2::CpuPacketPipeline();
+    }
+    else if(method == "opencl")
+    {
+#ifdef LIBFREENECT2_WITH_OPENCL_SUPPORT
+      packetPipeline = new libfreenect2::OpenCLPacketPipeline(device);
+#else
+      std::cerr << "OPENCL depth processing is not available!" << std::endl;
+      return false;
+#endif
+    }
+    else if(method == "opengl")
+    {
+      glfwInit();
+      packetPipeline = new libfreenect2::OpenGLPacketPipeline();
+    }
+    else
+    {
+      std::cerr << "Unknown depth processing method: " << method << std::endl;
+      return false;
+    }
+
+    libfreenect2::DepthPacketProcessor::Config config;
+    config.EnableBilateralFilter = bilateral_filter;
+    config.EnableEdgeAwareFilter = edge_aware_filter;
+    config.MinDepth = minDepth;
+    config.MaxDepth = maxDepth;
+    packetPipeline->getDepthPacketProcessor()->setConfiguration(config);
+    return true;
+  }
+
+  void initCompression(const int32_t jpegQuality, const int32_t pngLevel, const bool use_png)
+  {
+    compressionParams.resize(7, 0);
+    compressionParams[0] = CV_IMWRITE_JPEG_QUALITY;
+    compressionParams[1] = jpegQuality;
+    compressionParams[2] = CV_IMWRITE_PNG_COMPRESSION;
+    compressionParams[3] = pngLevel;
+    compressionParams[4] = CV_IMWRITE_PNG_STRATEGY;
+    compressionParams[5] = CV_IMWRITE_PNG_STRATEGY_RLE;
+    compressionParams[6] = 0;
+
+    if(use_png)
+    {
+      compression16BitExt = ".png";
+      compression16BitString = "; png compressed ";
+    }
+    else
+    {
+      compression16BitExt = ".tiff";
+      compression16BitString = "; tiff compressed ";
+    }
+  }
+
+  void initTopics(const int32_t queueSize)
+  {
+    std::vector<std::string> topics(COUNT);
+    topics[IR] = K2_TOPIC_IMAGE_IR;
+    topics[IR_RECT] = K2_TOPIC_RECT_IR;
+    topics[DEPTH] = K2_TOPIC_IMAGE_DEPTH;
+    topics[DEPTH_RECT] = K2_TOPIC_RECT_DEPTH;
+    topics[DEPTH_LORES] = K2_TOPIC_LORES_DEPTH;
+    topics[DEPTH_HIRES] = K2_TOPIC_HIRES_DEPTH;
+    topics[COLOR] = K2_TOPIC_IMAGE_COLOR;
+    topics[COLOR_RECT] = K2_TOPIC_RECT_COLOR;
+    topics[COLOR_LORES] = K2_TOPIC_LORES_COLOR;
+    topics[MONO] = K2_TOPIC_IMAGE_MONO;
+    topics[MONO_RECT] = K2_TOPIC_RECT_MONO;
+    topics[MONO_LORES] = K2_TOPIC_LORES_MONO;
+
+    imagePubs.resize(COUNT);
+    compressedPubs.resize(COUNT);
+    infoPubs.resize(COUNT);
+    infos.resize(COUNT);
+
+    const std::string base = "/" + ns;
+    for(size_t i = 0; i < COUNT; ++i)
+    {
+      if(i < DEPTH || i > DEPTH_HIRES)
+      {
+        imagePubs[i] = nh.advertise<sensor_msgs::Image>(base + topics[i] + K2_TOPIC_IMAGE, queueSize);
+        compressedPubs[i] = nh.advertise<sensor_msgs::CompressedImage>(base + topics[i] + K2_TOPIC_RAW + K2_TOPIC_COMPRESSED, queueSize);
+      }
+      else
+      {
+        imagePubs[i] = nh.advertise<sensor_msgs::Image>(base + topics[i] + K2_TOPIC_RAW, queueSize);
+        compressedPubs[i] = nh.advertise<sensor_msgs::CompressedImage>(base + topics[i] + K2_TOPIC_RAW + K2_TOPIC_COMP_DEPTH, queueSize);
+      }
+      infoPubs[i] = nh.advertise<sensor_msgs::CameraInfo>(base + topics[i] + K2_TOPIC_INFO, queueSize);
+    }
+  }
+
+  bool initDevice(std::string &sensor)
+  {
+    bool deviceFound = false;
+    const int numOfDevs = freenect2.enumerateDevices();
+
+    if(numOfDevs <= 0)
+    {
+      std::cerr << "Error: no Kinect2 devices found!" << std::endl;
+      return false;
+    }
+
+    if(sensor.empty())
+    {
+      sensor = freenect2.getDefaultDeviceSerialNumber();
+    }
+
+    std::cout << "Kinect2 devices found: " << std::endl;
+    for(int i = 0; i < numOfDevs; ++i)
+    {
+      const std::string &s = freenect2.getDeviceSerialNumber(i);
+      deviceFound = deviceFound || s == sensor;
+      std::cout << "  " << i << ": " << s << (s == sensor ? " (selected)" : "") << std::endl;
+    }
+
+    if(!deviceFound)
+    {
+      std::cerr << "Error: Device with serial '" << sensor << "' not found!" << std::endl;
+      return false;
+    }
+
+    device = freenect2.openDevice(sensor, packetPipeline);
+
+    if(device == 0)
+    {
+      std::cout << "no device connected or failure opening the default one!" << std::endl;
+      return -1;
+    }
+
+    listenerColor = new libfreenect2::SyncMultiFrameListener(libfreenect2::Frame::Color);
+    listenerIrDepth = new libfreenect2::SyncMultiFrameListener(libfreenect2::Frame::Ir | libfreenect2::Frame::Depth);
+
+    device->setColorFrameListener(listenerColor);
+    device->setIrAndDepthFrameListener(listenerIrDepth);
+
+    std::cout << std::endl << "starting kinect2" << std::endl << std::endl;
+    device->start();
+
+    std::cout << std::endl << "device serial: " << sensor << std::endl;
+    std::cout << "device firmware: " << device->getFirmwareVersion() << std::endl;
+
+    libfreenect2::Freenect2Device::ColorCameraParams colorParams = device->getColorCameraParams();
+    libfreenect2::Freenect2Device::IrCameraParams irParams = device->getIrCameraParams();
+
+    std::cout << std::endl << "default ir camera parameters: " << std::endl;
+    std::cout << "fx " << irParams.fx << ", fy " << irParams.fy << ", cx " << irParams.cx << ", cy " << irParams.cy << std::endl;
+    std::cout << "k1 " << irParams.k1 << ", k2 " << irParams.k2 << ", p1 " << irParams.p1 << ", p2 " << irParams.p2 << ", k3 " << irParams.k3 << std::endl;
+
+    std::cout << std::endl << "default color camera parameters: " << std::endl;
+    std::cout << "fx " << colorParams.fx << ", fy " << colorParams.fy << ", cx " << colorParams.cx << ", cy " << colorParams.cy << std::endl;
+
+    cameraMatrixColor = cv::Mat::eye(3, 3, CV_64F);
+    distortionColor = cv::Mat::zeros(1, 5, CV_64F);
+
+    cameraMatrixColor.at<double>(0, 0) = colorParams.fx;
+    cameraMatrixColor.at<double>(1, 1) = colorParams.fy;
+    cameraMatrixColor.at<double>(0, 2) = colorParams.cx;
+    cameraMatrixColor.at<double>(1, 2) = colorParams.cy;
+    cameraMatrixColor.at<double>(2, 2) = 1;
+
+    cameraMatrixIr = cv::Mat::eye(3, 3, CV_64F);
+    distortionIr = cv::Mat::zeros(1, 5, CV_64F);
+
+    cameraMatrixIr.at<double>(0, 0) = irParams.fx;
+    cameraMatrixIr.at<double>(1, 1) = irParams.fy;
+    cameraMatrixIr.at<double>(0, 2) = irParams.cx;
+    cameraMatrixIr.at<double>(1, 2) = irParams.cy;
+    cameraMatrixIr.at<double>(2, 2) = 1;
+
+    distortionIr.at<double>(0, 0) = irParams.k1;
+    distortionIr.at<double>(0, 1) = irParams.k2;
+    distortionIr.at<double>(0, 2) = irParams.p1;
+    distortionIr.at<double>(0, 3) = irParams.p2;
+    distortionIr.at<double>(0, 4) = irParams.k3;
+
+    rotation = cv::Mat::eye(3, 3, CV_64F);
+    translation = cv::Mat::zeros(3, 1, CV_64F);
+    return true;
+  }
+
+  void initCalibration(const std::string &calib_path, const std::string &sensor)
+  {
+    std::string calibPath = calib_path + sensor + '/';
+
+    struct stat fileStat;
+    bool calibDirNotFound = stat(calibPath.c_str(), &fileStat) != 0 || !S_ISDIR(fileStat.st_mode);
+    if(calibDirNotFound || !loadCalibrationFile(calibPath + K2_CALIB_COLOR, cameraMatrixColor, distortionColor))
+    {
+      std::cerr << "using sensor defaults." << std::endl;
+    }
+
+    if(calibDirNotFound || !loadCalibrationFile(calibPath + K2_CALIB_IR, cameraMatrixIr, distortionIr))
+    {
+      std::cerr << "using sensor defaults." << std::endl;
+    }
+
+    if(calibDirNotFound || !loadCalibrationPoseFile(calibPath + K2_CALIB_POSE, rotation, translation))
+    {
+      std::cerr << "using defaults." << std::endl;
+    }
+
+    if(calibDirNotFound || !loadCalibrationDepthFile(calibPath + K2_CALIB_DEPTH, depthShift))
+    {
+      std::cerr << "using defaults." << std::endl;
+      depthShift = 0.0;
+    }
+
+    cameraMatrixLowRes = cameraMatrixColor.clone();
+    cameraMatrixLowRes.at<double>(0, 0) /= 2;
+    cameraMatrixLowRes.at<double>(1, 1) /= 2;
+    cameraMatrixLowRes.at<double>(0, 2) /= 2;
+    cameraMatrixLowRes.at<double>(1, 2) /= 2;
+
+    const int mapType = CV_16SC2;
+    cv::initUndistortRectifyMap(cameraMatrixColor, distortionColor, cv::Mat(), cameraMatrixColor, sizeColor, mapType, map1Color, map2Color);
+    cv::initUndistortRectifyMap(cameraMatrixIr, distortionIr, cv::Mat(), cameraMatrixIr, sizeIr, mapType, map1Ir, map2Ir);
+    cv::initUndistortRectifyMap(cameraMatrixColor, distortionColor, cv::Mat(), cameraMatrixLowRes, sizeLowRes, mapType, map1LowRes, map2LowRes);
+
+    std::cout << std::endl << "camera parameters used:" << std::endl
+              << "camera matrix color:" << std::endl << cameraMatrixColor << std::endl
+              << "distortion coefficients color:" << std::endl << distortionColor << std::endl
+              << "camera matrix ir:" << std::endl << cameraMatrixIr << std::endl
+              << "distortion coefficients ir:" << std::endl << distortionIr << std::endl
+              << "rotation:" << std::endl << rotation << std::endl
+              << "translation:" << std::endl << translation << std::endl
+              << "depth shift:" << std::endl << depthShift << std::endl << std::endl;
+  }
+
+  bool loadCalibrationFile(const std::string &filename, cv::Mat &cameraMatrix, cv::Mat &distortion) const
+  {
+    cv::FileStorage fs;
+    if(fs.open(filename, cv::FileStorage::READ))
+    {
+      fs[K2_CALIB_CAMERA_MATRIX] >> cameraMatrix;
+      fs[K2_CALIB_DISTORTION] >> distortion;
+      fs.release();
+    }
+    else
+    {
+      std::cerr << "can't open calibration file: " << filename << std::endl;
+      return false;
+    }
+    return true;
+  }
+
+  bool loadCalibrationPoseFile(const std::string &filename, cv::Mat &rotation, cv::Mat &translation) const
+  {
+    cv::FileStorage fs;
+    if(fs.open(filename, cv::FileStorage::READ))
+    {
+      fs[K2_CALIB_ROTATION] >> rotation;
+      fs[K2_CALIB_TRANSLATION] >> translation;
+      fs.release();
+    }
+    else
+    {
+      std::cerr << "can't open calibration pose file: " << filename << std::endl;
+      return false;
+    }
+    return true;
+  }
+
+  bool loadCalibrationDepthFile(const std::string &filename, double &depthShift) const
+  {
+    cv::FileStorage fs;
+    if(fs.open(filename, cv::FileStorage::READ))
+    {
+      fs[K2_CALIB_DEPTH_SHIFT] >> depthShift;
+      fs.release();
+    }
+    else
+    {
+      std::cerr << "can't open calibration depth file: " << filename << std::endl;
+      return false;
+    }
+    return true;
+  }
+
+  void createCameraInfo()
+  {
+    cv::Mat projColor = cv::Mat::zeros(3, 4, CV_64F);
+    cv::Mat projIr = cv::Mat::zeros(3, 4, CV_64F);
+    cv::Mat projLowRes = cv::Mat::zeros(3, 4, CV_64F);
+
+    cameraMatrixColor.copyTo(projColor(cv::Rect(0, 0, 3, 3)));
+    cameraMatrixIr.copyTo(projIr(cv::Rect(0, 0, 3, 3)));
+    cameraMatrixLowRes.copyTo(projLowRes(cv::Rect(0, 0, 3, 3)));
+
+    createCameraInfo(sizeColor, cameraMatrixColor, distortionColor, cv::Mat::eye(3, 3, CV_64F), projColor, infos[COLOR]);
+    createCameraInfo(sizeColor, cameraMatrixColor, distortionColor, cv::Mat::eye(3, 3, CV_64F), projColor, infos[MONO]);
+    createCameraInfo(sizeIr, cameraMatrixIr, distortionIr, cv::Mat::eye(3, 3, CV_64F), projIr, infos[IR]);
+    infos[DEPTH] = infos[IR];
+
+    createCameraInfo(sizeColor, cameraMatrixColor, cv::Mat::zeros(1, 5, CV_64F), cv::Mat::eye(3, 3, CV_64F), projColor, infos[COLOR_RECT]);
+    createCameraInfo(sizeColor, cameraMatrixColor, cv::Mat::zeros(1, 5, CV_64F), cv::Mat::eye(3, 3, CV_64F), projColor, infos[MONO_RECT]);
+    createCameraInfo(sizeIr, cameraMatrixIr, cv::Mat::zeros(1, 5, CV_64F), cv::Mat::eye(3, 3, CV_64F), projIr, infos[IR_RECT]);
+
+    createCameraInfo(sizeIr, cameraMatrixIr, cv::Mat::zeros(1, 5, CV_64F), cv::Mat::eye(3, 3, CV_64F), projIr, infos[DEPTH_RECT]);
+    createCameraInfo(sizeLowRes, cameraMatrixLowRes, cv::Mat::zeros(1, 5, CV_64F), cv::Mat::eye(3, 3, CV_64F), projLowRes, infos[COLOR_LORES]);
+    createCameraInfo(sizeLowRes, cameraMatrixLowRes, cv::Mat::zeros(1, 5, CV_64F), cv::Mat::eye(3, 3, CV_64F), projLowRes, infos[MONO_LORES]);
+    createCameraInfo(sizeLowRes, cameraMatrixLowRes, cv::Mat::zeros(1, 5, CV_64F), cv::Mat::eye(3, 3, CV_64F), projLowRes, infos[DEPTH_LORES]);
+
+    createCameraInfo(sizeColor, cameraMatrixColor, cv::Mat::zeros(1, 5, CV_64F), cv::Mat::eye(3, 3, CV_64F), projColor, infos[DEPTH_HIRES]);
+  }
+
+  void createCameraInfo(const cv::Size &size, const cv::Mat &cameraMatrix, const cv::Mat &distortion, const cv::Mat &rotation, const cv::Mat &projection, sensor_msgs::CameraInfo &cameraInfo) const
+  {
+    cameraInfo.height = size.height;
+    cameraInfo.width = size.width;
+
+    const double *itC = cameraMatrix.ptr<double>(0, 0);
+    for(size_t i = 0; i < 9; ++i, ++itC)
+    {
+      cameraInfo.K[i] = *itC;
+    }
+
+    const double *itR = rotation.ptr<double>(0, 0);
+    for(size_t i = 0; i < 9; ++i, ++itR)
+    {
+      cameraInfo.R[i] = *itR;
+    }
+
+    const double *itP = projection.ptr<double>(0, 0);
+    for(size_t i = 0; i < 12; ++i, ++itP)
+    {
+      cameraInfo.P[i] = *itP;
+    }
+
+    cameraInfo.distortion_model = "plumb_bob";
+    cameraInfo.D.resize(distortion.cols);
+    const double *itD = distortion.ptr<double>(0, 0);
+    for(size_t i = 0; i < (size_t)distortion.cols; ++i, ++itD)
+    {
+      cameraInfo.D[i] = *itD;
+    }
+  }
+
   void threadDispatcher()
   {
     int oldNice = nice(0);
@@ -589,7 +803,7 @@ private:
     std_msgs::Header header;
     header.seq = 0;
     header.stamp = timestamp;
-    header.frame_id = K2_TF_RGB_FRAME;
+    header.frame_id = K2_TF_RGB_OPT_FRAME;
     return header;
   }
 
@@ -627,24 +841,29 @@ private:
     }
 
     // DEPTH
-    if(status[DEPTH] || status[DEPTH_RECT] || status[DEPTH_LORES] || status[DEPTH_HIRES])
+    cv::Mat depthShifted;
+    if(status[DEPTH])
     {
-      depth.convertTo(images[DEPTH], CV_16U, 1, depthShift);
+      depth.convertTo(images[DEPTH], CV_16U, 1);
+    }
+    if(status[DEPTH_RECT] || status[DEPTH_LORES] || status[DEPTH_HIRES])
+    {
+      depth.convertTo(depthShifted, CV_16U, 1, depthShift);
     }
     if(status[DEPTH_RECT])
     {
-      cv::remap(images[DEPTH], images[DEPTH_RECT], map1Ir, map2Ir, cv::INTER_NEAREST);
+      cv::remap(depthShifted, images[DEPTH_RECT], map1Ir, map2Ir, cv::INTER_NEAREST);
     }
     if(status[DEPTH_LORES])
     {
       lockRegLowRes.lock();
-      depthRegLowRes->registerDepth(images[DEPTH], images[DEPTH_LORES]);
+      depthRegLowRes->registerDepth(depthShifted, images[DEPTH_LORES]);
       lockRegLowRes.unlock();
     }
     if(status[DEPTH_HIRES])
     {
       lockRegHighRes.lock();
-      depthRegHighRes->registerDepth(images[DEPTH], images[DEPTH_HIRES]);
+      depthRegHighRes->registerDepth(depthShifted, images[DEPTH_HIRES]);
       lockRegHighRes.unlock();
     }
   }
@@ -659,7 +878,7 @@ private:
     }
     if(status[COLOR_LORES] || status[MONO_LORES])
     {
-      cv::remap(images[COLOR], images[COLOR_LORES], map1ColorReg, map2ColorReg, cv::INTER_AREA);
+      cv::remap(images[COLOR], images[COLOR_LORES], map1LowRes, map2LowRes, cv::INTER_AREA);
     }
 
     // MONO
@@ -687,21 +906,21 @@ private:
     {
       infoMsgs[i] = infos[i];
       infoMsgs[i].header = header;
-      infoMsgs[i].header.frame_id = i < DEPTH_LORES ? K2_TF_IR_FRAME : K2_TF_RGB_FRAME;
+      infoMsgs[i].header.frame_id = baseNameTF + (i < DEPTH_LORES ? K2_TF_IR_OPT_FRAME : K2_TF_RGB_OPT_FRAME);
 
       switch(status[i])
       {
       case UNSUBCRIBED:
         break;
       case RAW:
-        createImage(images[i], header, Image(i), imageMsgs[i]);
+        createImage(images[i], infoMsgs[i].header, Image(i), imageMsgs[i]);
         break;
       case COMPRESSED:
-        createCompressed(images[i], header, Image(i), compressedMsgs[i]);
+        createCompressed(images[i], infoMsgs[i].header, Image(i), compressedMsgs[i]);
         break;
       case BOTH:
-        createImage(images[i], header, Image(i), imageMsgs[i]);
-        createCompressed(images[i], header, Image(i), compressedMsgs[i]);
+        createImage(images[i], infoMsgs[i].header, Image(i), imageMsgs[i]);
+        createCompressed(images[i], infoMsgs[i].header, Image(i), compressedMsgs[i]);
         break;
       }
     }
@@ -827,317 +1046,113 @@ private:
     }
   }
 
-  bool loadCalibrationFile(const std::string &filename, cv::Mat &cameraMatrix, cv::Mat &distortion) const
+  void publishStaticTF()
   {
-    cv::FileStorage fs;
-    if(fs.open(filename, cv::FileStorage::READ))
+    tf::TransformBroadcaster broadcaster;
+    tf::StampedTransform stColor, stColorOpt, stIr, stIrOpt;
+    ros::Time now = ros::Time::now();
+
+    tf::Matrix3x3 rot(rotation.at<double>(0, 0), rotation.at<double>(0, 1), rotation.at<double>(0, 2),
+                      rotation.at<double>(1, 0), rotation.at<double>(1, 1), rotation.at<double>(1, 2),
+                      rotation.at<double>(2, 0), rotation.at<double>(2, 1), rotation.at<double>(2, 2));
+    rot = rot.inverse();
+
+    tf::Quaternion qZero, qOpt;
+    qZero.setRPY(0, 0, 0);
+    qOpt.setRPY(-M_PI_2, 0, -M_PI_2);
+    tf::Vector3 trans(translation.at<double>(2), -translation.at<double>(0), -translation.at<double>(1));
+    tf::Vector3 vZero(0, 0, 0);
+    tf::Transform tIr(rot, trans), tOpt(qOpt, vZero), tZero(qZero, vZero);
+
+    stColor = tf::StampedTransform(tZero, now, baseNameTF + K2_TF_LINK, baseNameTF + K2_TF_RGB_FRAME);
+    stIr = tf::StampedTransform(tIr, now, baseNameTF + K2_TF_LINK, baseNameTF + K2_TF_IR_FRAME);
+    stColorOpt = tf::StampedTransform(tOpt, now, baseNameTF + K2_TF_RGB_FRAME, baseNameTF + K2_TF_RGB_OPT_FRAME);
+    stIrOpt = tf::StampedTransform(tOpt, now, baseNameTF + K2_TF_IR_FRAME, baseNameTF + K2_TF_IR_OPT_FRAME);
+
+    for(; ros::ok();)
     {
-      fs[K2_CALIB_CAMERA_MATRIX] >> cameraMatrix;
-      fs[K2_CALIB_DISTORTION] >> distortion;
-      fs.release();
-    }
-    else
-    {
-      std::cerr << "can't open calibration file: " << filename << std::endl;
-      return false;
-    }
-    return true;
-  }
+      now = ros::Time::now();
+      stColor.stamp_ = now;
+      stColorOpt.stamp_ = now;
+      stIr.stamp_ = now;
+      stIrOpt.stamp_ = now;
 
-  bool loadCalibrationPoseFile(const std::string &filename, cv::Mat &rotation, cv::Mat &translation) const
-  {
-    cv::FileStorage fs;
-    if(fs.open(filename, cv::FileStorage::READ))
-    {
-      fs[K2_CALIB_ROTATION] >> rotation;
-      fs[K2_CALIB_TRANSLATION] >> translation;
-      fs.release();
-    }
-    else
-    {
-      std::cerr << "can't open calibration pose file: " << filename << std::endl;
-      return false;
-    }
-    return true;
-  }
+      broadcaster.sendTransform(stColor);
+      broadcaster.sendTransform(stColorOpt);
+      broadcaster.sendTransform(stIr);
+      broadcaster.sendTransform(stIrOpt);
 
-  bool loadCalibrationDepthFile(const std::string &filename, double &depthShift) const
-  {
-    cv::FileStorage fs;
-    if(fs.open(filename, cv::FileStorage::READ))
-    {
-      fs[K2_CALIB_DEPTH_SHIFT] >> depthShift;
-      fs.release();
-    }
-    else
-    {
-      std::cerr << "can't open calibration depth file: " << filename << std::endl;
-      return false;
-    }
-    return true;
-  }
-
-  void createCameraInfo()
-  {
-    cv::Mat projColor = cv::Mat::zeros(3, 4, CV_64F);
-    cv::Mat projIr = cv::Mat::zeros(3, 4, CV_64F);
-    cv::Mat projDepth = cv::Mat::zeros(3, 4, CV_64F);
-
-    cameraMatrixColor.copyTo(projColor(cv::Rect(0, 0, 3, 3)));
-    cameraMatrixIr.copyTo(projIr(cv::Rect(0, 0, 3, 3)));
-    cameraMatrixDepth.copyTo(projDepth(cv::Rect(0, 0, 3, 3)));
-
-    createCameraInfo(sizeColor, cameraMatrixColor, distortionColor, cv::Mat::eye(3, 3, CV_64F), projColor, infos[COLOR]);
-    createCameraInfo(sizeColor, cameraMatrixColor, distortionColor, cv::Mat::eye(3, 3, CV_64F), projColor, infos[MONO]);
-    createCameraInfo(sizeIr, cameraMatrixIr, distortionIr, cv::Mat::eye(3, 3, CV_64F), projIr, infos[IR]);
-    infos[DEPTH] = infos[IR];
-
-    createCameraInfo(sizeColor, cameraMatrixColor, cv::Mat::zeros(1, 5, CV_64F), cv::Mat::eye(3, 3, CV_64F), projColor, infos[COLOR_RECT]);
-    createCameraInfo(sizeColor, cameraMatrixColor, cv::Mat::zeros(1, 5, CV_64F), cv::Mat::eye(3, 3, CV_64F), projColor, infos[MONO_RECT]);
-    createCameraInfo(sizeIr, cameraMatrixIr, cv::Mat::zeros(1, 5, CV_64F), cv::Mat::eye(3, 3, CV_64F), projIr, infos[IR_RECT]);
-
-    createCameraInfo(sizeDepth, cameraMatrixDepth, cv::Mat::zeros(1, 5, CV_64F), cv::Mat::eye(3, 3, CV_64F), projDepth, infos[DEPTH_RECT]);
-    createCameraInfo(sizeDepth, cameraMatrixDepth, cv::Mat::zeros(1, 5, CV_64F), cv::Mat::eye(3, 3, CV_64F), projDepth, infos[COLOR_LORES]);
-    createCameraInfo(sizeDepth, cameraMatrixDepth, cv::Mat::zeros(1, 5, CV_64F), cv::Mat::eye(3, 3, CV_64F), projDepth, infos[MONO_LORES]);
-    createCameraInfo(sizeDepth, cameraMatrixDepth, cv::Mat::zeros(1, 5, CV_64F), cv::Mat::eye(3, 3, CV_64F), projDepth, infos[DEPTH_LORES]);
-
-    createCameraInfo(sizeColor, cameraMatrixColor, cv::Mat::zeros(1, 5, CV_64F), cv::Mat::eye(3, 3, CV_64F), projColor, infos[DEPTH_HIRES]);
-  }
-
-  void createCameraInfo(const cv::Size &size, const cv::Mat &cameraMatrix, const cv::Mat &distortion, const cv::Mat &rotation, const cv::Mat &projection, sensor_msgs::CameraInfo &cameraInfo) const
-  {
-    cameraInfo.height = size.height;
-    cameraInfo.width = size.width;
-
-    const double *itC = cameraMatrix.ptr<double>(0, 0);
-    for(size_t i = 0; i < 9; ++i, ++itC)
-    {
-      cameraInfo.K[i] = *itC;
-    }
-
-    const double *itR = rotation.ptr<double>(0, 0);
-    for(size_t i = 0; i < 9; ++i, ++itR)
-    {
-      cameraInfo.R[i] = *itR;
-    }
-
-    const double *itP = projection.ptr<double>(0, 0);
-    for(size_t i = 0; i < 12; ++i, ++itP)
-    {
-      cameraInfo.P[i] = *itP;
-    }
-
-    cameraInfo.distortion_model = "plumb_bob";
-    cameraInfo.D.resize(distortion.cols);
-    const double *itD = distortion.ptr<double>(0, 0);
-    for(size_t i = 0; i < (size_t)distortion.cols; ++i, ++itD)
-    {
-      cameraInfo.D[i] = *itD;
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
   }
 };
 
+void helpOption(const std::string &name, const std::string &stype, const std::string &value, const std::string &desc)
+{
+  std::cout  << '_' << name << ":=<" << stype << '>' << std::endl
+             << "    default: " << value << std::endl
+             << "    info:    " << desc << std::endl;
+}
+
 void help(const std::string &path)
 {
-  std::cout << path << " [options]" << std::endl
-            << "  -fps <num>       limit the frames per second to <num> (float)" << std::endl
-            << "  -calib <path>    path to the calibration files" << std::endl
-            << "  -raw             output raw depth image as 512x424 instead of 960x540" << std::endl
-            << "  -comp <num>      JPEG compression level from 0 to 100 (default 90)." << std::endl
-            << "  -png             Use PNG compression instead of TIFF" << std::endl
-            << "  -depth <method>  Use specific depth processing. Methods: opencl, opengl, cpu" << std::endl
-            << "  -reg <method>    Use specific depth registration. Methods: opencl, cpu" << std::endl
-            << "  -oclDev <num>    openCL device to use for depth registration and processing." << std::endl
-            << "  -oclReg <num>    openCL device to use for depth registration." << std::endl
-            << "  -oclDepth <num>  openCL device to use for depth processing." << std::endl;
+  std::string depthMethods = "default, cpu, opengl";
+  std::string depthDefault = "default";
+  std::string regMethods = "default";
+  std::string regDefault = "default";
+
+#ifdef LIBFREENECT2_WITH_OPENCL_SUPPORT
+  depthMethods += ", opencl";
+  depthDefault = "opencl";
+#endif
+#ifdef DEPTH_REG_CPU
+  regMethods += ", cpu";
+#endif
+#ifdef DEPTH_REG_OPENCL
+  regMethods += ", opencl";
+  regDefault = "opencl";
+#endif
+
+  std::cout << path << " [_options:=value]" << std::endl;
+  helpOption("base_name",         "string", K2_DEFAULT_NS,  "set base name for all topics");
+  helpOption("sensor",            "string", "",             "serial of the sensor to use");
+  helpOption("fps_limit",         "double", "-1.0",         "limit the frames per second");
+  helpOption("calib_path",        "string", K2_CALIB_PATH,  "path to the calibration files");
+  helpOption("use_png",           "bool",   "false",        "Use PNG compression instead of TIFF");
+  helpOption("jpeg_quality",      "int",    "90",           "JPEG quality level from 0 to 100");
+  helpOption("png_level",         "int",    "1",            "PNG compression level from 0 to 9");
+  helpOption("depth_method",      "string", depthDefault,   "Use specific depth processing: " + depthMethods);
+  helpOption("depth_device",      "int",    "-1",           "openCL device to use for depth processing");
+  helpOption("reg_method",        "string", regDefault,     "Use specific depth registration: " + regMethods);
+  helpOption("reg_devive",        "int",    "-1",           "openCL device to use for depth registration");
+  helpOption("max_depth",         "double", "12.0",         "max depth value");
+  helpOption("min_depth",         "double", "0.1",          "min depth value");
+  helpOption("queue_size",        "int",    "2",            "queue size of publisher");
+  helpOption("bilateral_filter",  "bool",   "true",         "enable bilateral filtering of depth images");
+  helpOption("edge_aware_filter", "bool",   "true",         "enable edge aware filtering of depth images");
+  helpOption("publish_tf",        "bool",   "false",        "publish static tf transforms for camera");
+  helpOption("base_name_tf",      "string", "as base_name", "base name for the tf frames");
 }
 
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "kinect2_bridge");
+  ros::init(argc, argv, "kinect2_bridge", ros::init_options::AnonymousName);
 
-#ifdef K2_CALIB_PATH
-  std::string path = K2_CALIB_PATH;
-#else
-  std::string path = "";
-#endif
-  std::string cam = "";
-  double fps = -1;
-  bool rawDepth = false;
-  bool useTiff = true;
-  int compression = 90;
-  int deviceIdReg = -1;
-  int deviceIdDepth = -1;
-
-  Kinect2Bridge::DepthMethod methodDepth = Kinect2Bridge::DEFAULT;
-  DepthRegistration::Method methodReg = DepthRegistration::DEFAULT;
-
-#ifdef LIBFREENECT2_WITH_OPENCL_SUPPORT
-  methodDepth = Kinect2Bridge::OPENCL;
-#endif
-
-  for(int argI = 1; argI < argc; ++argI)
+  for(int argI = 1; argI < argc; ++ argI)
   {
-    const std::string arg = argv[argI];
+    std::string arg(argv[argI]);
 
-    if(arg == "-h" || arg == "--help" || arg == "-?" || arg == "--?")
+    if(arg == "--help" || arg == "--h" || arg == "-h" || arg == "-?" || arg == "--?")
     {
       help(argv[0]);
+      ros::shutdown();
       return 0;
     }
-    else if(arg == "-cam")
+    else
     {
-      if(++argI < argc)
-      {
-        cam = argv[argI];
-      }
-      else
-      {
-        std::cerr << "Camera serial number not given!" << std::endl;
-        return -1;
-      }
+      std::cerr << "Unknown argument: " << arg << std::endl;
+      return -1;
     }
-    else if(arg == "-fps" && argI + 1 < argc)
-    {
-      fps = atof(argv[++argI]);
-    }
-    else if(arg == "-comp" && argI + 1 < argc)
-    {
-      compression = std::max(0, std::min(100, atoi(argv[++argI])));
-    }
-    else if(arg == "-calib")
-    {
-      if(++argI < argc)
-      {
-        path = argv[argI];
-      }
-      else
-      {
-        std::cerr << "Calibration data path not given!" << std::endl;
-        return -1;
-      }
-    }
-    else if(arg == "-oclReg")
-    {
-      if(++argI < argc)
-      {
-        deviceIdReg = atoi(argv[argI]);
-      }
-      else
-      {
-        std::cerr << "Device ID not given!" << std::endl;
-        return -1;
-      }
-    }
-    else if(arg == "-oclDepth")
-    {
-      if(++argI < argc)
-      {
-        deviceIdDepth = atoi(argv[argI]);
-      }
-      else
-      {
-        std::cerr << "Device ID not given!" << std::endl;
-        return -1;
-      }
-    }
-    else if(arg == "-oclDev")
-    {
-      if(++argI < argc)
-      {
-        deviceIdReg = atoi(argv[argI]);
-        deviceIdDepth = deviceIdReg;
-      }
-      else
-      {
-        std::cerr << "Device ID not given!" << std::endl;
-        return -1;
-      }
-    }
-    else if(arg == "-reg")
-    {
-      if(++argI < argc)
-      {
-        const std::string method = argv[argI];
-        if(method == "cpu")
-        {
-#ifdef DEPTH_REG_CPU
-          methodReg = DepthRegistration::CPU;
-#else
-          std::cerr << "Method CPU is not available!" << std::endl;
-          return -1;
-#endif
-        }
-        else if(method == "opencl")
-        {
-#ifdef DEPTH_REG_OPENCL
-          methodReg = DepthRegistration::OPENCL;
-#else
-          std::cerr << "Method OPENCL is not available!" << std::endl;
-          return -1;
-#endif
-        }
-        else
-        {
-          std::cerr << "Unknown method: " << method << std::endl;
-          return -1;
-        }
-      }
-      else
-      {
-        std::cerr << "Method not given!" << std::endl;
-        return -1;
-      }
-    }
-    else if(arg == "-depth")
-    {
-      if(++argI < argc)
-      {
-        const std::string method = argv[argI];
-        if(method == "cpu")
-        {
-          methodDepth = Kinect2Bridge::CPU;
-        }
-        else if(method == "opencl")
-        {
-#ifdef LIBFREENECT2_WITH_OPENCL_SUPPORT
-          methodDepth = Kinect2Bridge::OPENCL;
-#else
-          std::cerr << "Method OPENCL is not available!" << std::endl;
-          return -1;
-#endif
-        }
-        else if(method == "opengl")
-        {
-          methodDepth = Kinect2Bridge::OPENGL;
-        }
-        else
-        {
-          std::cerr << "Unknown method: " << method << std::endl;
-          return -1;
-        }
-      }
-      else
-      {
-        std::cerr << "Method not given!" << std::endl;
-        return -1;
-      }
-    }
-    else if(arg == "-raw")
-    {
-      rawDepth = true;
-    }
-    else if(arg == "-png")
-    {
-      useTiff = false;
-    }
-  }
-
-  struct stat fileStat;
-  if(stat(path.c_str(), &fileStat) || !S_ISDIR(fileStat.st_mode))
-  {
-    std::cerr << "Calibration data path \"" << path << "\" does not exist." << std::endl;
-    return -1;
   }
 
   if(!ros::ok())
@@ -1146,16 +1161,9 @@ int main(int argc, char **argv)
     return -1;
   }
 
-  Kinect2Bridge kinect2(fps, rawDepth, compression, deviceIdDepth, methodReg, methodDepth, useTiff);
+  Kinect2Bridge kinect2;
 
-  if(kinect2.init(path, cam, deviceIdReg))
-  {
-    kinect2.run();
-  }
-  else
-  {
-    std::cerr << "Initialization failed!" << std::endl;
-  }
+  kinect2.run();
 
   ros::shutdown();
   return 0;

@@ -35,100 +35,100 @@ When `kinect2_bridge` is running you can use the `registration_viewer` to displa
 
 ###### Raw depth image
 ```
-/kinect2_head/depth/camera_info
-/kinect2_head/depth/image
-/kinect2_head/depth/image/compressedDepth
+/kinect2/depth/camera_info
+/kinect2/depth/image
+/kinect2/depth/image/compressedDepth
 ```
 
 ###### Rectified depth image
 ```
-/kinect2_head/depth_rect/camera_info
-/kinect2_head/depth_rect/image
-/kinect2_head/depth_rect/image/compressedDepth
+/kinect2/depth_rect/camera_info
+/kinect2/depth_rect/image
+/kinect2/depth_rect/image/compressedDepth
 ```
 
 ###### Depth image registered to low resolution image (960x540)
 ```
-/kinect2_head/depth_lowres/camera_info
-/kinect2_head/depth_lowres/image
-/kinect2_head/depth_lowres/image/compressedDepth
+/kinect2/depth_lowres/camera_info
+/kinect2/depth_lowres/image
+/kinect2/depth_lowres/image/compressedDepth
 ```
 
 ###### Depth image registered to high resolution image
 ```
-/kinect2_head/depth_highres/camera_info
-/kinect2_head/depth_highres/image
-/kinect2_head/depth_highres/image/compressedDepth
+/kinect2/depth_highres/camera_info
+/kinect2/depth_highres/image
+/kinect2/depth_highres/image/compressedDepth
 ```
 
 ### Infrared Topics
 
 ###### Raw ir image
 ```
-/kinect2_head/ir/camera_info
-/kinect2_head/ir/image
-/kinect2_head/ir/image/compressed
+/kinect2/ir/camera_info
+/kinect2/ir/image
+/kinect2/ir/image/compressed
 ```
 
 ###### Rectified ir image
 ```
-/kinect2_head/ir_rect/camera_info
-/kinect2_head/ir_rect/image
-/kinect2_head/ir_rect/image/compressed
+/kinect2/ir_rect/camera_info
+/kinect2/ir_rect/image
+/kinect2/ir_rect/image/compressed
 ```
 
 ### Mono Topics
 
 ###### Raw mono image
 ```
-/kinect2_head/mono/camera_info
-/kinect2_head/mono/image
-/kinect2_head/mono/image/compressed
+/kinect2/mono/camera_info
+/kinect2/mono/image
+/kinect2/mono/image/compressed
 ```
 
 ###### Rectified mono image
 ```
-/kinect2_head/mono_rect/camera_info
-/kinect2_head/mono_rect/image
-/kinect2_head/mono_rect/image/compressed
+/kinect2/mono_rect/camera_info
+/kinect2/mono_rect/image
+/kinect2/mono_rect/image/compressed
 ```
 
 ###### Mono image in low resolution (960x540)
 ```
-/kinect2_head/mono_lowres/camera_info
-/kinect2_head/mono_lowres/image
-/kinect2_head/mono_lowres/image/compressed
+/kinect2/mono_lowres/camera_info
+/kinect2/mono_lowres/image
+/kinect2/mono_lowres/image/compressed
 ```
 
 ### Color Topics
 
 ###### Raw color image
 ```
-/kinect2_head/rgb/camera_info
-/kinect2_head/rgb/image
-/kinect2_head/rgb/image/compressed
+/kinect2/rgb/camera_info
+/kinect2/rgb/image
+/kinect2/rgb/image/compressed
 ```
 
 ###### Rectified color image
 ```
-/kinect2_head/rgb_rect/camera_info
-/kinect2_head/rgb_rect/image
-/kinect2_head/rgb_rect/image/compressed
+/kinect2/rgb_rect/camera_info
+/kinect2/rgb_rect/image
+/kinect2/rgb_rect/image/compressed
 ```
 
 ###### Color image in low resolution (960x540)
 ```
-/kinect2_head/rgb_lowres/camera_info
-/kinect2_head/rgb_lowres/image
-/kinect2_head/rgb_lowres/image/compressed
+/kinect2/rgb_lowres/camera_info
+/kinect2/rgb_lowres/image
+/kinect2/rgb_lowres/image/compressed
 ```
 
 ### Point cloud Topics
 *Only available if `kinect2_bridge.launch` is launched.*
 
 ```
-/kinect2_head/depth_lowres/points
-/kinect2_head/depth_highres/points
+/kinect2/depth_lowres/points
+/kinect2/depth_highres/points
 ```
 
 ## Notes
@@ -138,17 +138,61 @@ When `kinect2_bridge` is running you can use the `registration_viewer` to displa
 ## Usage
 
 ```
-kinect2_bridge [options]
-  -fps <num>       limit the frames per second to <num> (float)
-  -calib <path>    path to the calibration files
-  -raw             output raw depth image as 512x424 instead of 960x540
-  -comp <num>      JPEG compression level from 0 to 100 (default 90).
-  -png             Use PNG compression instead of TIFF
-  -depth <method>  Use specific depth processing. Methods: opencl, opengl, cpu
-  -reg <method>    Use specific depth registration. Methods: opencl, cpu
-  -oclDev <num>    openCL device to use for depth registration and processing.
-  -oclReg <num>    openCL device to use for depth registration.
-  -oclDepth <num>  openCL device to use for depth processing.
+kinect2_bridge [_options:=value]
+_base_name:=<string>
+    default: kinect2
+    info:    set base name for all topics
+_sensor:=<string>
+    default:
+    info:    serial of the sensor to use
+_fps_limit:=<double>
+    default: -1.0
+    info:    limit the frames per second
+_calib_path:=<string>
+    default: /home/wiedemeyer/work/src/iai_kinect2/kinect2_bridge/data/
+    info:    path to the calibration files
+_use_png:=<bool>
+    default: false
+    info:    Use PNG compression instead of TIFF
+_jpeg_quality:=<int>
+    default: 90
+    info:    JPEG quality level from 0 to 100
+_png_level:=<int>
+    default: 1
+    info:    PNG compression level from 0 to 9
+_depth_method:=<string>
+    default: opencl
+    info:    Use specific depth processing: default, cpu, opengl, opencl
+_depth_device:=<int>
+    default: -1
+    info:    openCL device to use for depth processing
+_reg_method:=<string>
+    default: opencl
+    info:    Use specific depth registration: default, cpu, opencl
+_reg_devive:=<int>
+    default: -1
+    info:    openCL device to use for depth registration
+_max_depth:=<double>
+    default: 12.0
+    info:    max depth value
+_min_depth:=<double>
+    default: 0.1
+    info:    min depth value
+_queue_size:=<int>
+    default: 2
+    info:    queue size of publisher
+_bilateral_filter:=<bool>
+    default: true
+    info:    enable bilateral filtering of depth images
+_edge_aware_filter:=<bool>
+    default: true
+    info:    enable edge aware filtering of depth images
+_publish_tf:=<bool>
+    default: false
+    info:    publish static tf transforms for camera
+_base_name_tf:=<string>
+    default: as base_name
+    info:    base name for the tf frames
 ```
 
 ## Key bindings
