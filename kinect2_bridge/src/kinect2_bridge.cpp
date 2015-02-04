@@ -45,8 +45,6 @@
 #include <libfreenect2/packet_pipeline.h>
 #include <libfreenect2/config.h>
 
-#include <GLFW/glfw3.h>
-
 #include <kinect2_definitions.h>
 #include <depth_registration.h>
 
@@ -220,6 +218,19 @@ private:
     int32_t jpeg_quality, png_level, queueSize, reg_dev, depth_dev;
     std::string depth_method, reg_method, calib_path, sensor;
 
+    std::string depthDefault = "cpu";
+    std::string regDefault = "default";
+
+#ifdef LIBFREENECT2_WITH_OPENGL_SUPPORT
+    depthDefault = "opengl";
+#endif
+#ifdef LIBFREENECT2_WITH_OPENCL_SUPPORT
+    depthDefault = "opencl";
+#endif
+#ifdef DEPTH_REG_OPENCL
+    regDefault = "opencl";
+#endif
+
     nh.param("base_name", ns, std::string(K2_DEFAULT_NS));
     nh.param("sensor", sensor, std::string(""));
     nh.param("fps_limit", fps_limit, -1.0);
@@ -227,7 +238,9 @@ private:
     nh.param("use_png", use_png, false);
     nh.param("jpeg_quality", jpeg_quality, 90);
     nh.param("png_level", png_level, 1);
+    nh.param("depth_method", depth_method, depthDefault);
     nh.param("depth_device", depth_dev, -1);
+    nh.param("reg_method", reg_method, regDefault);
     nh.param("reg_devive", reg_dev, -1);
     nh.param("max_depth", maxDepth, 12.0);
     nh.param("min_depth", minDepth, 0.1);
@@ -236,19 +249,6 @@ private:
     nh.param("edge_aware_filter", edge_aware_filter, false);
     nh.param("publish_tf", publishTF, false);
     nh.param("base_name_tf", baseNameTF, ns);
-    std::cout << baseNameTF << std::endl;
-
-#ifdef LIBFREENECT2_WITH_OPENCL_SUPPORT
-    nh.param("depth_method", depth_method, std::string("opencl"));
-#else
-    nh.param("depth_method", depth_method, std::string("default"));
-#endif
-
-#ifdef DEPTH_REG_OPENCL
-    nh.param("reg_method", reg_method, std::string("opencl"));
-#else
-    nh.param("reg_method", reg_method, std::string("default"));
-#endif
 
     deltaT = fps_limit > 0 ? 1.0 / fps_limit : 0.0;
 
@@ -301,7 +301,7 @@ private:
 #ifdef DEPTH_REG_OPENCL
       reg = DepthRegistration::OPENCL;
 #else
-      std::cerr << "OPENCL registration is not available!" << std::endl;
+      std::cerr << "OpenCL registration is not available!" << std::endl;
       return -1;
 #endif
     }
@@ -323,12 +323,7 @@ private:
 
   bool initPipeline(const std::string &method, const int32_t device, const bool bilateral_filter, const bool edge_aware_filter, const double minDepth, const double maxDepth)
   {
-    if(method == "default")
-    {
-      glfwInit();
-      packetPipeline = new libfreenect2::DefaultPacketPipeline();
-    }
-    else if(method == "cpu")
+    if(method == "cpu")
     {
       packetPipeline = new libfreenect2::CpuPacketPipeline();
     }
@@ -337,14 +332,18 @@ private:
 #ifdef LIBFREENECT2_WITH_OPENCL_SUPPORT
       packetPipeline = new libfreenect2::OpenCLPacketPipeline(device);
 #else
-      std::cerr << "OPENCL depth processing is not available!" << std::endl;
+      std::cerr << "OpenCL depth processing is not available!" << std::endl;
       return false;
 #endif
     }
     else if(method == "opengl")
     {
-      glfwInit();
+#ifdef LIBFREENECT2_WITH_OPENGL_SUPPORT
       packetPipeline = new libfreenect2::OpenGLPacketPipeline();
+#else
+      std::cerr << "OpenGL depth processing is not available!" << std::endl;
+      return false;
+#endif
     }
     else
     {
@@ -1096,11 +1095,15 @@ void helpOption(const std::string &name, const std::string &stype, const std::st
 
 void help(const std::string &path)
 {
-  std::string depthMethods = "default, cpu, opengl";
-  std::string depthDefault = "default";
+  std::string depthMethods = "cpu";
+  std::string depthDefault = "cpu";
   std::string regMethods = "default";
   std::string regDefault = "default";
 
+#ifdef LIBFREENECT2_WITH_OPENGL_SUPPORT
+  depthMethods += ", opengl";
+  depthDefault = "opengl";
+#endif
 #ifdef LIBFREENECT2_WITH_OPENCL_SUPPORT
   depthMethods += ", opencl";
   depthDefault = "opencl";

@@ -28,41 +28,43 @@ It contains:
 - PCL
 - Eigen (optional)
 - OpenCL (optional)
-- [libfreenect2](https://github.com/OpenKinect/libfreenect2) or the iai_kinect2 branch of [my fork](https://github.com/wiedemeyer/libfreenect2/tree/iai_kinect2) which already includes the modifications
+- [libfreenect2](https://github.com/OpenKinect/libfreenect2)
 
 ## Modifications to Upstream libfreenect2
 
-[install_deps.sh](https://github.com/OpenKinect/libfreenect2/blob/master/depends/install_deps.sh):
-- Replace [line 17](https://github.com/OpenKinect/libfreenect2/blob/master/depends/install_deps.sh#L17) with `./configure --prefix=$LIBUSB_INSTALL_DIR CFLAGS="$CFLAGS -fPIC"`
-
 [CMakeLists.txt](https://github.com/OpenKinect/libfreenect2/blob/master/examples/protonect/CMakeLists.txt):
-- Enable C++11 in [line 8](https://github.com/OpenKinect/libfreenect2/blob/master/examples/protonect/CMakeLists.txt#L8)
-- Change [line 102](https://github.com/OpenKinect/libfreenect2/blob/master/examples/protonect/CMakeLists.txt#L102) from 'usb-1.0' to 'usb-1.0.a'
-- Replace [line 51 to 57](https://github.com/OpenKinect/libfreenect2/blob/master/examples/protonect/CMakeLists.txt#L51-57) with
+- Replace [line 48 to 50](https://github.com/OpenKinect/libfreenect2/blob/master/examples/protonect/CMakeLists.txt#L48-50) with
 
-  ```
-# GLEW
-FIND_PACKAGE(GLEW REQUIRED)
-INCLUDE_DIRECTORIES(${GLEW_INCLUDE_DIR})
+   ```
+# LibUSB
+GET_FILENAME_COMPONENT(LIBUSB_DIR "${MY_DIR}/../../depends/libusb/" REALPATH)
+
+INCLUDE_DIRECTORIES("${LIBUSB_DIR}/include/libusb-1.0/")
+LINK_DIRECTORIES("${LIBUSB_DIR}/lib/")
+SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 ```
 
 ## Install
 
 1. Install the ROS. [Instructions for Ubuntu 14.04](http://wiki.ros.org/indigo/Installation/Ubuntu)
 2. [Setup your ROS environment](http://wiki.ros.org/ROS/Tutorials/InstallingandConfiguringROSEnvironment)
-3. Install [libfreenect2](https://github.com/OpenKinect/libfreenect2) with the described modifications or use [my fork](https://github.com/wiedemeyer/libfreenect2/tree/iai_kinect2) which includes the modifications:
+3. Install [libfreenect2](https://github.com/OpenKinect/libfreenect2) with the described modifications:
 
    ```
 cd ~
 sudo apt-get install -y build-essential libturbojpeg libtool autoconf libudev-dev cmake mesa-common-dev freeglut3-dev libxrandr-dev doxygen libxi-dev libopencv-dev
 sudo ln -s /usr/lib/x86_64-linux-gnu/libturbojpeg.so.0 /usr/lib/x86_64-linux-gnu/libturbojpeg.so
-git clone https://github.com/wiedemeyer/libfreenect2.git
+git clone https://github.com/OpenKinect/libfreenect2
+```
+   Apply the modifications and then
+
+   ```
 cd libfreenect2/depends
 ./install_ubuntu.sh
 cd ../build
 mkdir linux
 cd linux
-cmake ../../examples/protonect/
+cmake ../../examples/protonect/ -DENABLE_CXX11=ON
 make && sudo make install
 ```
 4. Clone this repository into your catkin workspace, install the dependencies and build it:
