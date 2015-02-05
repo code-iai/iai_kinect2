@@ -193,6 +193,9 @@ _publish_tf:=<bool>
 _base_name_tf:=<string>
     default: as base_name
     info:    base name for the tf frames
+_worker_threads:=<int>
+    default: 4
+    info:    number of threads used for processing the images
 ```
 
 ## Key bindings

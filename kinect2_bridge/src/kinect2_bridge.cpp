@@ -137,15 +137,6 @@ public:
       tfPublisher = std::thread(&Kinect2Bridge::publishStaticTF, this);
     }
 
-    size_t numOfThreads = std::thread::hardware_concurrency();
-    if(numOfThreads == 0)
-    {
-      std::cerr << "std::thread::hardware_concurrency() not returning a valid value. Using " << MIN_WORKER_THREADS << " worker threads." << std::endl;
-    }
-    numOfThreads = std::max(MIN_WORKER_THREADS, (int)numOfThreads);
-
-    std::cout << std::endl << "starting " << numOfThreads << " worker threads" << std::endl;
-    threads.resize(numOfThreads);
     for(size_t i = 0; i < threads.size(); ++i)
     {
       threads[i] = std::thread(&Kinect2Bridge::threadDispatcher, this);
@@ -215,7 +206,7 @@ private:
   {
     double fps_limit, maxDepth, minDepth;
     bool use_png, bilateral_filter, edge_aware_filter;
-    int32_t jpeg_quality, png_level, queueSize, reg_dev, depth_dev;
+    int32_t jpeg_quality, png_level, queueSize, reg_dev, depth_dev, worker_threads;
     double tmp;
     std::string depth_method, reg_method, calib_path, sensor;
 
@@ -250,11 +241,15 @@ private:
     nh.param("edge_aware_filter", edge_aware_filter, false);
     nh.param("publish_tf", publishTF, false);
     nh.param("base_name_tf", baseNameTF, ns);
+    nh.param("worker_threads", worker_threads, 4);
 
     if(tmp > 0)
     {
       sensor = std::to_string((uint64_t)tmp);
     }
+
+    worker_threads = std::max(1, worker_threads);
+    threads.resize(worker_threads);
 
     std::cout << "parameter:" << std::endl
               << "        base_name: " << ns << std::endl
@@ -274,7 +269,8 @@ private:
               << " bilateral_filter: " << (bilateral_filter ? "true" : "false") << std::endl
               << "edge_aware_filter: " << (edge_aware_filter ? "true" : "false") << std::endl
               << "       publish_tf: " << (publishTF ? "true" : "false") << std::endl
-              << "     base_name_tf: " << baseNameTF << std::endl << std::endl;
+              << "     base_name_tf: " << baseNameTF << std::endl
+              << "   worker_threads: " << worker_threads << std::endl << std::endl;
 
     deltaT = fps_limit > 0 ? 1.0 / fps_limit : 0.0;
 
@@ -1161,6 +1157,7 @@ void help(const std::string &path)
   helpOption("edge_aware_filter", "bool",   "true",         "enable edge aware filtering of depth images");
   helpOption("publish_tf",        "bool",   "false",        "publish static tf transforms for camera");
   helpOption("base_name_tf",      "string", "as base_name", "base name for the tf frames");
+  helpOption("worker_threads",    "int",    "4",            "number of threads used for processing the images");
 }
 
 int main(int argc, char **argv)

@@ -20,7 +20,6 @@ ELSE()
 ENDIF()
 
 find_package(freenect2 REQUIRED)
-find_package(glfw REQUIRED)
 
 find_package(catkin REQUIRED COMPONENTS roscpp rostime std_msgs sensor_msgs cv_bridge compressed_depth_image_transport depth_registration)
 
@@ -31,11 +30,6 @@ find_package(OpenMP)
 if(OPENMP_FOUND)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif()
-
-#option(K2_USE_OPENCL_REGISTRATION "Use OpenCL implementation of the depth registration"       ${DEPTH_REG_OPENCL})
-#option(K2_USE_OPENCL_PIPELINE     "Use OpenCL implementation of libfreenect2 packet pipeline" ON)
-#option(K2_USE_TIFF_COMRESSION     "Use TIFF for depth/ir compression instead of PNG."         ON)
-set(K2_MIN_WORKER_THREADS 2 CACHE STRING "Minimum number of worker threads")
 
 ################################################
 ## Declare ROS messages, services and actions ##
@@ -83,7 +77,6 @@ endif()
 if(DEPTH_REG_CPU)
   add_definitions(-DDEPTH_REG_CPU)
 endif()
-add_definitions(-DMIN_WORKER_THREADS=${K2_MIN_WORKER_THREADS})
 add_definitions(-DK2_CALIB_PATH="${PROJECT_SOURCE_DIR}/data/")
 
 add_executable(kinect2_bridge src/kinect2_bridge.cpp)

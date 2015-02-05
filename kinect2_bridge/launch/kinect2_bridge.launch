@@ -28,6 +28,7 @@
     <param name="queue_size"        type="int"    value="2"/>
     <param name="bilateral_filter"  type="bool"   value="true"/>
     <param name="edge_aware_filter" type="bool"   value="true"/>
+    <param name="worker_threads"    type="int"    value="4"/>
     -->
   </node>
 
