@@ -1,12 +1,12 @@
 <launch>
   <arg name="base_name" default="kinect2"/>
-  <arg name="sensor" default="" />
+  <arg name="sensor" default="-1" />
   <arg name="publish_tf" default="false" />
   <arg name="base_name_tf" default="$(arg base_name)" />
 
-  <node name="kinect2_bridge" pkg="kinect2_bridge" type="kinect2_bridge" respawn="true" output="screen">
+  <node name="$(arg base_name)" pkg="kinect2_bridge" type="kinect2_bridge" respawn="true" output="screen">
     <param name="base_name"         type="str"    value="$(arg base_name)"/>
-    <param name="sensor"            type="str"    value="$(arg sensor)"/>
+    <param name="sensor"            type="double" value="$(arg sensor)"/>
     <param name="publish_tf"        type="bool"   value="$(arg publish_tf)"/>
     <param name="base_name_tf"      type="str"    value="$(arg base_name_tf)"/>
     <!-- Other possible parameter

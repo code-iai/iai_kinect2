@@ -216,6 +216,7 @@ private:
     double fps_limit, maxDepth, minDepth;
     bool use_png, bilateral_filter, edge_aware_filter;
     int32_t jpeg_quality, png_level, queueSize, reg_dev, depth_dev;
+    double tmp;
     std::string depth_method, reg_method, calib_path, sensor;
 
     std::string depthDefault = "cpu";
@@ -232,7 +233,7 @@ private:
 #endif
 
     nh.param("base_name", ns, std::string(K2_DEFAULT_NS));
-    nh.param("sensor", sensor, std::string(""));
+    nh.param("sensor", tmp, -1.0);
     nh.param("fps_limit", fps_limit, -1.0);
     nh.param("calib_path", calib_path, std::string(K2_CALIB_PATH));
     nh.param("use_png", use_png, false);
@@ -249,6 +250,31 @@ private:
     nh.param("edge_aware_filter", edge_aware_filter, false);
     nh.param("publish_tf", publishTF, false);
     nh.param("base_name_tf", baseNameTF, ns);
+
+    if(tmp > 0)
+    {
+      sensor = std::to_string((uint64_t)tmp);
+    }
+
+    std::cout << "parameter:" << std::endl
+              << "        base_name: " << ns << std::endl
+              << "           sensor: " << sensor << std::endl
+              << "        fps_limit: " << fps_limit << std::endl
+              << "       calib_path: " << calib_path << std::endl
+              << "          use_png: " << (use_png ? "true" : "false") << std::endl
+              << "     jpeg_quality: " << jpeg_quality << std::endl
+              << "        png_level: " << png_level << std::endl
+              << "     depth_method: " << depth_method << std::endl
+              << "     depth_device: " << depth_dev << std::endl
+              << "       reg_method: " << reg_method << std::endl
+              << "       reg_devive: " << reg_dev << std::endl
+              << "        max_depth: " << maxDepth << std::endl
+              << "        min_depth: " << minDepth << std::endl
+              << "       queue_size: " << queueSize << std::endl
+              << " bilateral_filter: " << (bilateral_filter ? "true" : "false") << std::endl
+              << "edge_aware_filter: " << (edge_aware_filter ? "true" : "false") << std::endl
+              << "       publish_tf: " << (publishTF ? "true" : "false") << std::endl
+              << "     base_name_tf: " << baseNameTF << std::endl << std::endl;
 
     deltaT = fps_limit > 0 ? 1.0 / fps_limit : 0.0;
 
@@ -1118,7 +1144,7 @@ void help(const std::string &path)
 
   std::cout << path << " [_options:=value]" << std::endl;
   helpOption("base_name",         "string", K2_DEFAULT_NS,  "set base name for all topics");
-  helpOption("sensor",            "string", "",             "serial of the sensor to use");
+  helpOption("sensor",            "double", "-1.0",         "serial of the sensor to use");
   helpOption("fps_limit",         "double", "-1.0",         "limit the frames per second");
   helpOption("calib_path",        "string", K2_CALIB_PATH,  "path to the calibration files");
   helpOption("use_png",           "bool",   "false",        "Use PNG compression instead of TIFF");
