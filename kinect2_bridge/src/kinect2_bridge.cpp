@@ -62,7 +62,7 @@ private:
 
   std::vector<std::thread> threads;
   std::mutex lockIrDepth, lockColor;
-  std::mutex lockSync, lockPub;
+  std::mutex lockSync, lockPub, lockTime;
   std::mutex lockRegLowRes, lockRegHighRes;
 
   bool publishTF;
@@ -81,7 +81,7 @@ private:
   ros::Time lastColor, lastDepth;
 
   bool nextColor, nextIrDepth;
-  double deltaT, depthShift;
+  double deltaT, depthShift, elapsedTimeColor, elapsedTimeIrDepth;
 
   enum Image
   {
@@ -160,8 +160,16 @@ public:
         size_t framesColor = frameColor - oldFrameColor;
         oldFrameIrDepth = frameIrDepth;
         oldFrameColor = frameColor;
-        std::cout << "[kinect2_bridge] depth avg. time: " << fpsTime / framesIrDepth << " -> ~" << framesIrDepth / fpsTime << " Hz" << std::endl
-                  << "[kinect2_bridge] color avg. time: " << fpsTime / framesColor << " -> ~" << framesColor / fpsTime << " Hz" << std::endl << std::flush;
+
+        lockTime.lock();
+        double tColor = elapsedTimeColor;
+        double tDepth = elapsedTimeIrDepth;
+        elapsedTimeColor = 0;
+        elapsedTimeIrDepth = 0;
+        lockTime.unlock();
+
+        std::cout << "[kinect2_bridge] depth processing: ~" << framesIrDepth / tDepth << "Hz (" << (tDepth / framesIrDepth) * 1000 << "ms) publishing rate: ~" << framesIrDepth / fpsTime << "Hz" << std::endl
+                  << "[kinect2_bridge] color processing: ~" << framesColor / tColor << "Hz (" << (tColor / framesColor) * 1000 << "ms) publishing rate: ~" << framesColor / fpsTime << "Hz" << std::endl << std::flush;
         fpsTime = now;
       }
 
@@ -237,8 +245,8 @@ private:
     nh.param("max_depth", maxDepth, 12.0);
     nh.param("min_depth", minDepth, 0.1);
     nh.param("queue_size", queueSize, 2);
-    nh.param("bilateral_filter", bilateral_filter, false);
-    nh.param("edge_aware_filter", edge_aware_filter, false);
+    nh.param("bilateral_filter", bilateral_filter, true);
+    nh.param("edge_aware_filter", edge_aware_filter, true);
     nh.param("publish_tf", publishTF, false);
     nh.param("base_name_tf", baseNameTF, ns);
     nh.param("worker_threads", worker_threads, 4);
@@ -728,6 +736,7 @@ private:
     {
       return;
     }
+    double now = ros::Time::now().toSec();
 
     header = createHeader(lastDepth, lastColor);
 
@@ -748,6 +757,11 @@ private:
     updateStatus(status);
     processIrDepth(ir, depth, images, status);
     publishImages(images, header, status, frame, pubFrameIrDepth, IR, COLOR);
+
+    double elapsed = ros::Time::now().toSec() - now;
+    lockTime.lock();
+    elapsedTimeIrDepth += elapsed;
+    lockTime.unlock();
   }
 
   void receiveColor()
@@ -764,6 +778,7 @@ private:
     {
       return;
     }
+    double now = ros::Time::now().toSec();
 
     header = createHeader(lastColor, lastDepth);
 
@@ -781,6 +796,11 @@ private:
     updateStatus(status);
     processColor(color, images, status);
     publishImages(images, header, status, frame, pubFrameColor, COLOR, COUNT);
+
+    double elapsed = ros::Time::now().toSec() - now;
+    lockTime.lock();
+    elapsedTimeColor += elapsed;
+    lockTime.unlock();
   }
 
   bool receiveFrames(libfreenect2::SyncMultiFrameListener *listener, libfreenect2::FrameMap &frames)
