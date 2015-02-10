@@ -29,6 +29,7 @@
 #include <opencv2/opencv.hpp>
 
 #include <ros/ros.h>
+#include <nodelet/nodelet.h>
 #include <std_msgs/Header.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/SetCameraInfo.h>
@@ -82,6 +83,7 @@ private:
 
   bool nextColor, nextIrDepth;
   double deltaT, depthShift, elapsedTimeColor, elapsedTimeIrDepth;
+  bool running;
 
   enum Image
   {
@@ -116,9 +118,9 @@ private:
   std::vector<sensor_msgs::CameraInfo> infos;
 
 public:
-  Kinect2Bridge()
-    : sizeColor(1920, 1080), sizeIr(512, 424), sizeLowRes(sizeColor.width / 2, sizeColor.height / 2), nh("~"),
-      frameColor(0), frameIrDepth(0), pubFrameColor(0), pubFrameIrDepth(0), lastColor(0, 0), lastDepth(0, 0), nextColor(false), nextIrDepth(false), depthShift(0)
+  Kinect2Bridge(const ros::NodeHandle &nh = ros::NodeHandle("~"))
+    : sizeColor(1920, 1080), sizeIr(512, 424), sizeLowRes(sizeColor.width / 2, sizeColor.height / 2), nh(nh), frameColor(0), frameIrDepth(0),
+      pubFrameColor(0), pubFrameIrDepth(0), lastColor(0, 0), lastDepth(0, 0), nextColor(false), nextIrDepth(false), depthShift(0), running(false)
   {
     color = cv::Mat::zeros(sizeColor, CV_8UC3);
     ir = cv::Mat::zeros(sizeIr, CV_32F);
@@ -131,6 +133,7 @@ public:
     {
       return;
     }
+    running = true;
 
     if(publishTF)
     {
@@ -149,7 +152,7 @@ public:
     nextColor = true;
     nextIrDepth = true;
 
-    for(; ros::ok();)
+    for(; running && ros::ok();)
     {
       double now = ros::Time::now().toSec();
 
@@ -207,6 +210,11 @@ public:
     }
 
     nh.shutdown();
+  }
+
+  void stop()
+  {
+    running = false;
   }
 
 private:
@@ -353,7 +361,17 @@ private:
 
   bool initPipeline(const std::string &method, const int32_t device, const bool bilateral_filter, const bool edge_aware_filter, const double minDepth, const double maxDepth)
   {
-    if(method == "cpu")
+    if(method == "default")
+    {
+#ifdef LIBFREENECT2_WITH_OPENCL_SUPPORT
+      packetPipeline = new libfreenect2::OpenCLPacketPipeline(device);
+#elif defined(LIBFREENECT2_WITH_OPENGL_SUPPORT)
+      packetPipeline = new libfreenect2::OpenGLPacketPipeline();
+#else
+      packetPipeline = new libfreenect2::CpuPacketPipeline();
+#endif
+    }
+    else if(method == "cpu")
     {
       packetPipeline = new libfreenect2::CpuPacketPipeline();
     }
@@ -702,7 +720,7 @@ private:
     int oldNice = nice(0);
     oldNice = nice(19 - oldNice);
 
-    for(; ros::ok();)
+    for(; running && ros::ok();)
     {
       if(nextIrDepth && lockIrDepth.try_lock())
       {
@@ -814,7 +832,7 @@ private:
       newFrames = true;
       listener->waitForNewFrame(frames);
 #endif
-      if(!ros::ok())
+      if(!running || !ros::ok())
       {
         if(newFrames)
         {
@@ -1110,7 +1128,7 @@ private:
     stColorOpt = tf::StampedTransform(tOpt, now, baseNameTF + K2_TF_RGB_FRAME, baseNameTF + K2_TF_RGB_OPT_FRAME);
     stIrOpt = tf::StampedTransform(tOpt, now, baseNameTF + K2_TF_IR_FRAME, baseNameTF + K2_TF_IR_OPT_FRAME);
 
-    for(; ros::ok();)
+    for(; running && ros::ok();)
     {
       now = ros::Time::now();
       stColor.stamp_ = now;
@@ -1127,6 +1145,43 @@ private:
     }
   }
 };
+
+class Kinect2BridgeNodelet : public nodelet::Nodelet
+{
+private:
+  std::thread kinect2BridgeThread;
+  Kinect2Bridge *pKinect2Bridge;
+
+public:
+  Kinect2BridgeNodelet() : Nodelet(), pKinect2Bridge(NULL)
+  {
+  }
+
+  ~Kinect2BridgeNodelet()
+  {
+    if(pKinect2Bridge)
+    {
+      pKinect2Bridge->stop();
+      kinect2BridgeThread.join();
+      delete pKinect2Bridge;
+    }
+  }
+
+  virtual void onInit()
+  {
+    kinect2BridgeThread = std::thread(&Kinect2BridgeNodelet::runKinect2Brigde, this);
+  }
+
+private:
+  void runKinect2Brigde()
+  {
+    pKinect2Bridge = new Kinect2Bridge(getPrivateNodeHandle());
+    pKinect2Bridge->run();
+  }
+};
+
+#include <pluginlib/class_list_macros.h>
+PLUGINLIB_EXPORT_CLASS(Kinect2BridgeNodelet, nodelet::Nodelet)
 
 void helpOption(const std::string &name, const std::string &stype, const std::string &value, const std::string &desc)
 {

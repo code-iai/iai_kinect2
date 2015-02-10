@@ -21,7 +21,7 @@ ENDIF()
 
 find_package(freenect2 REQUIRED)
 
-find_package(catkin REQUIRED COMPONENTS roscpp rostime std_msgs sensor_msgs cv_bridge compressed_depth_image_transport depth_registration)
+find_package(catkin REQUIRED COMPONENTS roscpp rostime std_msgs sensor_msgs nodelet cv_bridge compressed_depth_image_transport depth_registration)
 
 ## System dependencies are found with CMake's conventions
 find_package(OpenCV REQUIRED)
@@ -68,7 +68,6 @@ include_directories(include
   ${catkin_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIR}
   ${freenect2_INCLUDE_DIRS}
-  ${GLFW_INCLUDE_DIR}
 )
 
 if(DEPTH_REG_OPENCL)
@@ -79,12 +78,18 @@ if(DEPTH_REG_CPU)
 endif()
 add_definitions(-DK2_CALIB_PATH="${PROJECT_SOURCE_DIR}/data/")
 
+add_library(kinect2_bridge_nodelet SHARED src/kinect2_bridge.cpp)
+target_link_libraries(kinect2_bridge_nodelet
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+  ${freenect2_LIBRARY}
+)
+
 add_executable(kinect2_bridge src/kinect2_bridge.cpp)
 target_link_libraries(kinect2_bridge
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${freenect2_LIBRARY}
-  ${GLFW_LIBRARY}
 )
 
 #############
