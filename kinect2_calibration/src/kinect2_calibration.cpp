@@ -99,7 +99,7 @@ public:
   Recorder(const std::string &path, const std::string &topicColor, const std::string &topicIr, const std::string &topicDepth,
            const Source mode, const bool circleBoard, const bool symmetric, const cv::Size &boardDims, const float boardSize)
     : circleBoard(circleBoard), boardDims(boardDims), boardSize(boardSize), mode(mode), path(path), topicColor(topicColor), topicIr(topicIr),
-      topicDepth(topicDepth), update(false), foundColor(false), foundIr(false), frame(0), nh(), spinner(0), it(nh), minIr(0), maxIr(0x7FFF)
+      topicDepth(topicDepth), update(false), foundColor(false), foundIr(false), frame(0), nh("~"), spinner(0), it(nh), minIr(0), maxIr(0x7FFF)
   {
     if(symmetric)
     {
@@ -1090,7 +1090,7 @@ int main(int argc, char **argv)
   std::string topicIr = K2_TOPIC_IMAGE_IR K2_TOPIC_RAW;
   std::string topicDepth = K2_TOPIC_IMAGE_DEPTH K2_TOPIC_RAW;
 
-  ros::init(argc, argv, "kinect2_calib");
+  ros::init(argc, argv, "kinect2_calib", ros::init_options::AnonymousName);
 
   if(!ros::ok())
   {
