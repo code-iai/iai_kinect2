@@ -744,7 +744,7 @@ private:
   {
     libfreenect2::FrameMap frames;
     libfreenect2::Frame *irFrame, *depthFrame;
-    cv::Mat depth, ir, irRaw, depthRaw;
+    cv::Mat depth, ir;
     std_msgs::Header header;
     std::vector<cv::Mat> images(COUNT);
     std::vector<Status> status(COUNT, UNSUBCRIBED);
@@ -761,19 +761,16 @@ private:
     irFrame = frames[libfreenect2::Frame::Ir];
     depthFrame = frames[libfreenect2::Frame::Depth];
 
-    irRaw = cv::Mat(irFrame->height, irFrame->width, CV_32FC1, irFrame->data);
-    depthRaw = cv::Mat(depthFrame->height, depthFrame->width, CV_32FC1, depthFrame->data);
+    ir = cv::Mat(irFrame->height, irFrame->width, CV_32FC1, irFrame->data);
+    depth = cv::Mat(depthFrame->height, depthFrame->width, CV_32FC1, depthFrame->data);
 
-    cv::flip(irRaw, ir, 1);
-    cv::flip(depthRaw, depth, 1);
-
-    listenerIrDepth->release(frames);
     frame = frameIrDepth++;
-
     lockIrDepth.unlock();
 
     updateStatus(status);
     processIrDepth(ir, depth, images, status);
+    listenerIrDepth->release(frames);
+
     publishImages(images, header, status, frame, pubFrameIrDepth, IR, COLOR);
 
     double elapsed = ros::Time::now().toSec() - now;
@@ -786,7 +783,7 @@ private:
   {
     libfreenect2::FrameMap frames;
     libfreenect2::Frame *colorFrame;
-    cv::Mat color, colorRaw;
+    cv::Mat color;
     std_msgs::Header header;
     std::vector<cv::Mat> images(COUNT);
     std::vector<Status> status(COUNT, UNSUBCRIBED);
@@ -801,18 +798,15 @@ private:
     header = createHeader(lastColor, lastDepth);
 
     colorFrame = frames[libfreenect2::Frame::Color];
+    color = cv::Mat(colorFrame->height, colorFrame->width, CV_8UC3, colorFrame->data);
 
-    colorRaw = cv::Mat(colorFrame->height, colorFrame->width, CV_8UC3, colorFrame->data);
-
-    cv::flip(colorRaw, color, 1);
-
-    listenerColor->release(frames);
     frame = frameColor++;
-
     lockColor.unlock();
 
     updateStatus(status);
     processColor(color, images, status);
+    listenerColor->release(frames);
+
     publishImages(images, header, status, frame, pubFrameColor, COLOR, COUNT);
 
     double elapsed = ros::Time::now().toSec() - now;
@@ -889,10 +883,12 @@ private:
 
   void processIrDepth(const cv::Mat &ir, const cv::Mat &depth, std::vector<cv::Mat> &images, const std::vector<Status> &status)
   {
+
     // IR
     if(status[IR] || status[IR_RECT])
     {
       ir.convertTo(images[IR], CV_16U);
+      cv::flip(images[IR], images[IR], 1);
     }
     if(status[IR_RECT])
     {
@@ -904,10 +900,12 @@ private:
     if(status[DEPTH])
     {
       depth.convertTo(images[DEPTH], CV_16U, 1);
+      cv::flip(images[DEPTH], images[DEPTH], 1);
     }
     if(status[DEPTH_RECT] || status[DEPTH_LORES] || status[DEPTH_HIRES])
     {
       depth.convertTo(depthShifted, CV_16U, 1, depthShift);
+      cv::flip(depthShifted, depthShifted, 1);
     }
     if(status[DEPTH_RECT])
     {
@@ -930,7 +928,10 @@ private:
   void processColor(const cv::Mat &color, std::vector<cv::Mat> &images, const std::vector<Status> &status)
   {
     // COLOR
-    images[COLOR] = color;
+    if(status[COLOR] || status[COLOR_RECT] || status[COLOR_LORES] || status[MONO] || status[MONO_RECT] || status[MONO_LORES])
+    {
+      cv::flip(color, images[COLOR], 1);
+    }
     if(status[COLOR_RECT] || status[MONO_RECT])
     {
       cv::remap(images[COLOR], images[COLOR_RECT], map1Color, map2Color, cv::INTER_AREA);
