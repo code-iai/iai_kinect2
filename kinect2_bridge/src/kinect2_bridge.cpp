@@ -142,7 +142,7 @@ public:
 
     for(size_t i = 0; i < threads.size(); ++i)
     {
-      threads[i] = std::thread(&Kinect2Bridge::threadDispatcher, this);
+      threads[i] = std::thread(&Kinect2Bridge::threadDispatcher, this, i);
     }
 
     std::cout << "starting main loop" << std::endl << std::endl;
@@ -715,27 +715,42 @@ private:
     }
   }
 
-  void threadDispatcher()
+  void threadDispatcher(const size_t id)
   {
+    const size_t checkFirst = id % 2;
+    bool processedFrame = false;
     int oldNice = nice(0);
     oldNice = nice(19 - oldNice);
 
     for(; running && ros::ok();)
     {
-      if(nextIrDepth && lockIrDepth.try_lock())
+      processedFrame = false;
+
+      for(size_t i = 0; i < 2; ++i)
       {
-        nextIrDepth = false;
-        receiveIrDepth();
+        if(i == checkFirst)
+        {
+          if(nextIrDepth && lockIrDepth.try_lock())
+          {
+            nextIrDepth = false;
+            receiveIrDepth();
+            processedFrame = true;
+          }
+        }
+        else
+        {
+          if(nextColor && lockColor.try_lock())
+          {
+            nextColor = false;
+            receiveColor();
+            processedFrame = true;
+          }
+        }
       }
-      else if(nextColor && lockColor.try_lock())
-      {
-        nextColor = false;
-        receiveColor();
-      }
-      else
+
+      if(!processedFrame)
       {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        continue;
       }
     }
   }
