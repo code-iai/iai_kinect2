@@ -58,6 +58,8 @@ Other patterns are available at OpenCV:
 
 ## Calibrating the Kinect One
 
+*Note: It is recommended to start kinect2_bridge with a fps limit for the calibration precedure, for example to 1 to 2 fps.*
+
 1. Record images for the color camera: `rosrun kinect2_calibration kinect2_calibration chess5x7x0.03 record color`
 2. Calibrate the intrinsics: `rosrun kinect2_calibration kinect2_calibration chess5x7x0.03 calibrate color`
 3. Redo step 1. and 2. for the infrared camera
