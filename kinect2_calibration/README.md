@@ -58,7 +58,7 @@ Other patterns are available at OpenCV:
 
 The standard board is a 7x6 0.108m chessboard from the PR2. But any other board can be specified with as parameter. For example a circle board with 8x7 circles in 0.02m distance between them `rosrun kinect2_calibration kinect2_calibration record color circle8x7x0.02`.
 
-Recently, to calibrate our sensosrs, we have used the chess5x7x0.03 pattern, as it can be printed easily on a good laser printer on A4 paper.
+Recently, to calibrate our sensors, we have used the chess5x7x0.03 pattern, as it can be printed easily on a good laser printer on A4 paper.
 
 
 ## Calibrating the Kinect One
