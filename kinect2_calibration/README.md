@@ -56,18 +56,38 @@ Other patterns are available at OpenCV:
 - [Chessboard pattern](http://docs.opencv.org/_downloads/pattern.png)
 - [Asymmetric circle grid](http://docs.opencv.org/_downloads/acircles_pattern.png)
 
+The standard board is a 7x6 0.108m chessboard from the PR2. But any other board can be specified with as parameter. For example a circle board with 8x7 circles in 0.02m distance between them `rosrun kinect2_calibration kinect2_calibration record color circle8x7x0.02`.
+
+Recently, to calibrate our sensosrs, we have used the chess5x7x0.03 pattern, as it can be printed easily on a good laser printer on A4 paper.
+
+
 ## Calibrating the Kinect One
 
-*Note: It is recommended to start kinect2_bridge with a fps limit for the calibration precedure, for example to 1 to 2 fps.*
+*Recommended preparation:*
+- Print your calibration pattern (for the examples, we used chess5x7x0.03) and glue it to a flat object. It is very important that the calibration pattern is very flat. Also, check with a caliper that the distance between the features of the printed pattern is correct. Sometimes printers scale the document, and the calibration won't work. For the mentioned pattern, the distance between intersections of black and white corners should be 3cm exactly.
+- Get two tripods, one for holding the calibration pattern, and another one for holding the kinect2 sensor. Ideally, the tripod for the kinect2 will have a ball head, to allow you to move it easily and lock it in place before you take an image. It is very important that the sensor is stable (and the image is clear and not blurred) before you take an image. The tripod will specially help you to make sure that the sensor has not moved between the moment the IR and the RGB images are taken.
+- When recording images for all the steps indicated below (RGB, IR, SYNC), start the recording program, then press spacebar to record each image. The calibration pattern should be detected (indicated by color lines overlayed on the calibration pattern), and the image should be clear and stable. 
+- It is recommended to take images that show the calibration pattern in all areas of the image, and with different orientations of the pattern, and at least two distances. So you can easily reach 100 images per calibration set.
 
-1. Record images for the color camera: `rosrun kinect2_calibration kinect2_calibration chess5x7x0.03 record color`
-2. Calibrate the intrinsics: `rosrun kinect2_calibration kinect2_calibration chess5x7x0.03 calibrate color`
-3. Redo step 1. and 2. for the infrared camera
-4. Record images on both cameras synchronized: `rosrun kinect2_calibration kinect2_calibration chess5x7x0.03 record sync`
-5. Calibrate the extrinsics: `rosrun kinect2_calibration kinect2_calibration chess5x7x0.03 calibrate sync`
-5. Calibrate the depth measurements: `rosrun kinect2_calibration kinect2_calibration chess5x7x0.03 calibrate depth`
 
-The standard board is a 7x6 0.108m chessboard from the PR2. But any other board can be specified with as parameter. For example a circle board with 8x7 circles in 0.02m distance between them `rosrun kinect2_calibration kinect2_calibration record color circle8x7x0.02`.
+*Detailed steps:*
+
+0. If you haven't already, start the kinect2_bridge with a low number of frames per second (to make it easy on your CPU): `rosrun kinect2_bridge kinect2_bridge _fps_limit:=2`
+1. create a directory for your calibration data files, for example: `mkdir ~/kinect_cal_data; cd ~/kinect_cal_data`
+2. Record images for the color camera: `rosrun kinect2_calibration kinect2_calibration chess5x7x0.03 record color` 
+3. Calibrate the intrinsics: `rosrun kinect2_calibration kinect2_calibration chess5x7x0.03 calibrate color`
+4. Record images for the ir camera: `rosrun kinect2_calibration kinect2_calibration chess5x7x0.03 record ir`
+5. Calibrate the intrinsics of the ir camera: `rosrun kinect2_calibration kinect2_calibration chess5x7x0.03 calibrate ir`
+6. Record images on both cameras synchronized: `rosrun kinect2_calibration kinect2_calibration chess5x7x0.03 record sync`
+7. Calibrate the extrinsics: `rosrun kinect2_calibration kinect2_calibration chess5x7x0.03 calibrate sync`
+8. Calibrate the depth measurements: `rosrun kinect2_calibration kinect2_calibration chess5x7x0.03 calibrate depth`
+9. Find out the serial number of your kinect2 by looking at the first lines printed out by the kinect2_bridge. The line looks like this: 
+  `device serial: 012526541941`
+10. Create the calibration results directory in kinect2_bridge/data/$serial: `roscd kinect2_bridge/data; mkdir 012526541941`
+11. Copy the following files from your calibration directory (~/kinect_cal_data) into the directory you just created: `calib_color.yaml  calib_depth.yaml  calib_ir.yaml  calib_pose.yaml`
+12. Restart the kinect2_bridge and be amazed at the better data.
+ 
+
 
 ## Calibration of the depth measurements
 
