@@ -69,6 +69,8 @@ Recently, to calibrate our sensors, we have used the chess5x7x0.03 pattern, as i
 - When recording images for all the steps indicated below (RGB, IR, SYNC), start the recording program, then press spacebar to record each image. The calibration pattern should be detected (indicated by color lines overlayed on the calibration pattern), and the image should be clear and stable. 
 - It is recommended to take images that show the calibration pattern in all areas of the image, and with different orientations of the pattern, and at least two distances. So you can easily reach 100 images per calibration set.
 
+*Typical calibration setup*
+![kinect2_calibration_setup_small.jpg](https://ai.uni-bremen.de/_media/kinect2_calibration_setup_small.jpg)
 
 *Detailed steps:*
 
