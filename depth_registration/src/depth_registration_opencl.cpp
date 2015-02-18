@@ -311,6 +311,9 @@ void DepthRegistrationOpenCL::registerDepth(const cv::Mat &depth, cv::Mat &regis
     data->queue.enqueueNDRangeKernel(data->kernelCheckDepth, cl::NullRange, range, cl::NullRange, NULL, &eventKernel);
     eventKernel.wait();
 
+    data->queue.enqueueNDRangeKernel(data->kernelCheckDepth, cl::NullRange, range, cl::NullRange, NULL, &eventKernel);
+    eventKernel.wait();
+
     data->queue.enqueueReadBuffer(data->bufferRegistered, CL_TRUE, 0, data->sizeRegistered, registered.data);
   }
   catch(cl::Error err)

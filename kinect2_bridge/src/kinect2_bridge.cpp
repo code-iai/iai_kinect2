@@ -555,6 +555,7 @@ private:
 
     rotation = cv::Mat::eye(3, 3, CV_64F);
     translation = cv::Mat::zeros(3, 1, CV_64F);
+    translation.at<double>(0) = -0.0520;
     return true;
   }
 
@@ -566,22 +567,22 @@ private:
     bool calibDirNotFound = stat(calibPath.c_str(), &fileStat) != 0 || !S_ISDIR(fileStat.st_mode);
     if(calibDirNotFound || !loadCalibrationFile(calibPath + K2_CALIB_COLOR, cameraMatrixColor, distortionColor))
     {
-      std::cerr << "using sensor defaults." << std::endl;
+      std::cerr << "using sensor defaults for color intrinsic parameters." << std::endl;
     }
 
     if(calibDirNotFound || !loadCalibrationFile(calibPath + K2_CALIB_IR, cameraMatrixIr, distortionIr))
     {
-      std::cerr << "using sensor defaults." << std::endl;
+      std::cerr << "using sensor defaults for ir intrinsic parameters." << std::endl;
     }
 
     if(calibDirNotFound || !loadCalibrationPoseFile(calibPath + K2_CALIB_POSE, rotation, translation))
     {
-      std::cerr << "using defaults." << std::endl;
+      std::cerr << "using defaults for rotation and translation." << std::endl;
     }
 
     if(calibDirNotFound || !loadCalibrationDepthFile(calibPath + K2_CALIB_DEPTH, depthShift))
     {
-      std::cerr << "using defaults." << std::endl;
+      std::cerr << "using defaults for depth shift." << std::endl;
       depthShift = 0.0;
     }
 
