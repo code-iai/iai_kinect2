@@ -144,13 +144,15 @@ splot 'plot.dat' using 1:2:5 with dots palette title "Difference relative to XY-
 Example calibration results can be found in the directory [kinect2_bridge/data/](../kinect2_bridge/data).
 
 The following images were made before and after the calibration, using the registration viewer.
- - For the raw images: `rosrun registration_viewer viewer sd image raw`
+ - For the superimposed images: `rosrun registration_viewer viewer sd image raw`
  - For the point cloud images: `rosrun registration_viewer viewer`
-  
-Uncalibrated raw image (depth and RGB superimposed): 
+
+raw here stands for raw data transmission aka uncompressed.
+
+Uncalibrated rectified images (depth and RGB superimposed): 
 ![kinect2_cloud_calib](https://ai.uni-bremen.de/_media/kinect2_raw_nocalib.png)
 
-Calibrated raw image (depth and RGB superimposed):
+Calibrated rectified images (depth and RGB superimposed):
 ![kinect2_cloud_calib](https://ai.uni-bremen.de/_media/kinect2_raw_calib.png)
 
 Uncalibrated depth cloud:
