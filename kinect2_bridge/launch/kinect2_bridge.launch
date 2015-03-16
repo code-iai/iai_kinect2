@@ -1,5 +1,4 @@
 <launch>
-  <machine name="localhost" address="localhost" />
 
   <arg name="base_name"         default="kinect2"/>
   <arg name="sensor"            default="-1" />
@@ -23,6 +22,9 @@
   <arg name="machine"           default="localhost" />
   <arg name="nodelet_manager"   default="$(arg base_name)" />
   <arg name="start_manager"     default="true" />
+  <arg name="use_machine"       default="true" />
+
+  <machine name="localhost" address="localhost" if="$(arg use_machine)"/>
 
   <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager"
         if="$(arg start_manager)" machine="$(arg machine)" output="screen"/>
