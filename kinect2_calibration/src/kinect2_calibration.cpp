@@ -152,11 +152,9 @@ private:
               << "        [4] - increas max value for IR value rage" << std::endl;
 
     image_transport::TransportHints hints("compressed");
-    image_transport::TransportHints hintsIr("compressed");
-    image_transport::TransportHints hintsDepth("compressedDepth");
     subImageColor = new image_transport::SubscriberFilter(it, topicColor, 4, hints);
-    subImageIr = new image_transport::SubscriberFilter(it, topicIr, 4, hintsIr);
-    subImageDepth = new image_transport::SubscriberFilter(it, topicDepth, 4, hintsDepth);
+    subImageIr = new image_transport::SubscriberFilter(it, topicIr, 4, hints);
+    subImageDepth = new image_transport::SubscriberFilter(it, topicDepth, 4, hints);
 
     sync = new message_filters::Synchronizer<ColorIrDepthSyncPolicy>(ColorIrDepthSyncPolicy(4), *subImageColor, *subImageIr, *subImageDepth);
     sync->registerCallback(boost::bind(&Recorder::callback, this, _1, _2, _3));

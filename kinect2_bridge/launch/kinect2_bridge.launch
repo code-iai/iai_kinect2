@@ -6,7 +6,7 @@
   <arg name="base_name_tf"      default="$(arg base_name)" />
   <arg name="fps_limit"         default="-1.0"/>
   <arg name="calib_path"        default="$(find kinect2_bridge)/data/"/>
-  <arg name="use_png"           default="false"/>
+  <arg name="use_png"           default="true"/>
   <arg name="jpeg_quality"      default="90"/>
   <arg name="png_level"         default="1"/>
   <arg name="depth_method"      default="default"/>

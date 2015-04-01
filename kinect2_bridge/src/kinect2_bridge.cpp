@@ -243,7 +243,7 @@ private:
     nh.param("sensor", tmp, -1.0);
     nh.param("fps_limit", fps_limit, -1.0);
     nh.param("calib_path", calib_path, std::string(K2_CALIB_PATH));
-    nh.param("use_png", use_png, false);
+    nh.param("use_png", use_png, true);
     nh.param("jpeg_quality", jpeg_quality, 90);
     nh.param("png_level", png_level, 1);
     nh.param("depth_method", depth_method, depthDefault);
@@ -422,12 +422,12 @@ private:
     if(use_png)
     {
       compression16BitExt = ".png";
-      compression16BitString = "; png compressed ";
+      compression16BitString = sensor_msgs::image_encodings::MONO16 + "; png compressed";
     }
     else
     {
-      compression16BitExt = ".tiff";
-      compression16BitString = "; tiff compressed ";
+      compression16BitExt = ".tif";
+      compression16BitString = sensor_msgs::image_encodings::MONO16 + "; tiff compressed";
     }
   }
 
@@ -455,16 +455,8 @@ private:
     const std::string base = "/" + ns;
     for(size_t i = 0; i < COUNT; ++i)
     {
-      if(i < DEPTH || i > DEPTH_HIRES)
-      {
-        imagePubs[i] = nh.advertise<sensor_msgs::Image>(base + topics[i] + K2_TOPIC_IMAGE, queueSize);
-        compressedPubs[i] = nh.advertise<sensor_msgs::CompressedImage>(base + topics[i] + K2_TOPIC_RAW + K2_TOPIC_COMPRESSED, queueSize);
-      }
-      else
-      {
-        imagePubs[i] = nh.advertise<sensor_msgs::Image>(base + topics[i] + K2_TOPIC_RAW, queueSize);
-        compressedPubs[i] = nh.advertise<sensor_msgs::CompressedImage>(base + topics[i] + K2_TOPIC_RAW + K2_TOPIC_COMP_DEPTH, queueSize);
-      }
+      imagePubs[i] = nh.advertise<sensor_msgs::Image>(base + topics[i] + K2_TOPIC_IMAGE, queueSize);
+      compressedPubs[i] = nh.advertise<sensor_msgs::CompressedImage>(base + topics[i] + K2_TOPIC_IMAGE + K2_TOPIC_COMPRESSED, queueSize);
       infoPubs[i] = nh.advertise<sensor_msgs::CameraInfo>(base + topics[i] + K2_TOPIC_INFO, queueSize);
     }
   }
@@ -1045,13 +1037,11 @@ private:
     {
     case IR:
     case IR_RECT:
-      msgImage.encoding = sensor_msgs::image_encodings::TYPE_16UC1;
-      break;
     case DEPTH:
     case DEPTH_RECT:
     case DEPTH_LORES:
     case DEPTH_HIRES:
-      msgImage.encoding = sensor_msgs::image_encodings::TYPE_16UC1;
+      msgImage.encoding = sensor_msgs::image_encodings::MONO16;
       break;
     case COLOR:
     case COLOR_RECT:
@@ -1084,27 +1074,13 @@ private:
     {
     case IR:
     case IR_RECT:
-      msgImage.format = sensor_msgs::image_encodings::TYPE_16UC1 + compression16BitString;
-      cv::imencode(compression16BitExt, image, msgImage.data, compressionParams);
-      break;
     case DEPTH:
     case DEPTH_RECT:
     case DEPTH_LORES:
     case DEPTH_HIRES:
-      {
-        compressed_depth_image_transport::ConfigHeader compressionConfig;
-        const size_t headerSize = sizeof(compressed_depth_image_transport::ConfigHeader);
-        compressionConfig.format = compressed_depth_image_transport::INV_DEPTH;
-
-        std::vector<uint8_t> data;
-        msgImage.format = sensor_msgs::image_encodings::TYPE_16UC1 + "; compressedDepth";
-        cv::imencode(compression16BitExt, image, data, compressionParams);
-
-        msgImage.data.resize(headerSize + data.size());
-        memcpy(&msgImage.data[0], &compressionConfig, headerSize);
-        memcpy(&msgImage.data[headerSize], &data[0], data.size());
-        break;
-      }
+      msgImage.format = compression16BitString;
+      cv::imencode(compression16BitExt, image, msgImage.data, compressionParams);
+      break;
     case COLOR:
     case COLOR_RECT:
     case COLOR_LORES:
@@ -1114,8 +1090,8 @@ private:
     case MONO:
     case MONO_RECT:
     case MONO_LORES:
-      msgImage.format = sensor_msgs::image_encodings::MONO8 + "; png compressed ";
-      cv::imencode(".png", image, msgImage.data, compressionParams);
+      msgImage.format = sensor_msgs::image_encodings::MONO8 + "; jpeg compressed ";
+      cv::imencode(".jpg", image, msgImage.data, compressionParams);
       break;
     case COUNT:
       return;

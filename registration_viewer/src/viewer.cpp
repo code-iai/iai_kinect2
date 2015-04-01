@@ -133,9 +133,8 @@ private:
     std::string topicCameraInfoDepth = topicDepth.substr(0, topicDepth.rfind('/')) + "/camera_info";
 
     image_transport::TransportHints hints(useCompressed ? "compressed" : "raw");
-    image_transport::TransportHints hintsDepth(useCompressed ? "compressedDepth" : "raw");
     subImageColor = new image_transport::SubscriberFilter(it, topicColor, queueSize, hints);
-    subImageDepth = new image_transport::SubscriberFilter(it, topicDepth, queueSize, hintsDepth);
+    subImageDepth = new image_transport::SubscriberFilter(it, topicDepth, queueSize, hints);
     subCameraInfoColor = new message_filters::Subscriber<sensor_msgs::CameraInfo>(nh, topicCameraInfoColor, queueSize);
     subCameraInfoDepth = new message_filters::Subscriber<sensor_msgs::CameraInfo>(nh, topicCameraInfoDepth, queueSize);
 
