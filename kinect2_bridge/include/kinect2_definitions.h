@@ -22,8 +22,6 @@
 #define K2_DEFAULT_NS          "kinect2"
 
 #define K2_TF_LINK             "_link"
-#define K2_TF_RGB_FRAME        "_rgb_frame"
-#define K2_TF_IR_FRAME         "_ir_frame"
 #define K2_TF_RGB_OPT_FRAME    "_rgb_optical_frame"
 #define K2_TF_IR_OPT_FRAME     "_ir_optical_frame"
 

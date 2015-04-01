@@ -1106,37 +1106,29 @@ private:
   void publishStaticTF()
   {
     tf::TransformBroadcaster broadcaster;
-    tf::StampedTransform stColor, stColorOpt, stIr, stIrOpt;
+    tf::StampedTransform stColorOpt, stIrOpt;
     ros::Time now = ros::Time::now();
 
     tf::Matrix3x3 rot(rotation.at<double>(0, 0), rotation.at<double>(0, 1), rotation.at<double>(0, 2),
                       rotation.at<double>(1, 0), rotation.at<double>(1, 1), rotation.at<double>(1, 2),
                       rotation.at<double>(2, 0), rotation.at<double>(2, 1), rotation.at<double>(2, 2));
-    rot = rot.inverse();
 
-    tf::Quaternion qZero, qOpt;
+    tf::Quaternion qZero;
     qZero.setRPY(0, 0, 0);
-    qOpt.setRPY(-M_PI_2, 0, -M_PI_2);
-    tf::Vector3 trans(translation.at<double>(2), -translation.at<double>(0), -translation.at<double>(1));
+    tf::Vector3 trans(translation.at<double>(0), translation.at<double>(1), translation.at<double>(2));
     tf::Vector3 vZero(0, 0, 0);
-    tf::Transform tIr(rot, trans), tOpt(qOpt, vZero), tZero(qZero, vZero);
+    tf::Transform tIr(rot, trans), tZero(qZero, vZero);
 
-    stColor = tf::StampedTransform(tZero, now, baseNameTF + K2_TF_LINK, baseNameTF + K2_TF_RGB_FRAME);
-    stIr = tf::StampedTransform(tIr, now, baseNameTF + K2_TF_LINK, baseNameTF + K2_TF_IR_FRAME);
-    stColorOpt = tf::StampedTransform(tOpt, now, baseNameTF + K2_TF_RGB_FRAME, baseNameTF + K2_TF_RGB_OPT_FRAME);
-    stIrOpt = tf::StampedTransform(tOpt, now, baseNameTF + K2_TF_IR_FRAME, baseNameTF + K2_TF_IR_OPT_FRAME);
+    stColorOpt = tf::StampedTransform(tZero, now, baseNameTF + K2_TF_LINK, baseNameTF + K2_TF_RGB_OPT_FRAME);
+    stIrOpt = tf::StampedTransform(tIr, now, baseNameTF + K2_TF_RGB_OPT_FRAME, baseNameTF + K2_TF_IR_OPT_FRAME);
 
     for(; running && ros::ok();)
     {
       now = ros::Time::now();
-      stColor.stamp_ = now;
       stColorOpt.stamp_ = now;
-      stIr.stamp_ = now;
       stIrOpt.stamp_ = now;
 
-      broadcaster.sendTransform(stColor);
       broadcaster.sendTransform(stColorOpt);
-      broadcaster.sendTransform(stIr);
       broadcaster.sendTransform(stIrOpt);
 
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
