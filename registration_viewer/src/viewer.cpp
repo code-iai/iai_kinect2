@@ -532,8 +532,8 @@ int main(int argc, char **argv)
   }
 
   std::string ns = K2_DEFAULT_NS;
-  std::string topicColor = K2_TOPIC_LORES_COLOR K2_TOPIC_RAW;
-  std::string topicDepth = K2_TOPIC_LORES_DEPTH K2_TOPIC_RAW;
+  std::string topicColor = K2_TOPIC_LORES_COLOR;
+  std::string topicDepth = K2_TOPIC_LORES_DEPTH;
   bool useExact = true;
   bool useCompressed = true;
   Receiver::Mode mode = Receiver::CLOUD;
@@ -550,18 +550,18 @@ int main(int argc, char **argv)
     }
     else if(param == "sd")
     {
-      topicColor = K2_TOPIC_LORES_COLOR K2_TOPIC_RAW;
-      topicDepth = K2_TOPIC_LORES_DEPTH K2_TOPIC_RAW;
+      topicColor = K2_TOPIC_LORES_COLOR;
+      topicDepth = K2_TOPIC_LORES_DEPTH;
     }
     else if(param == "hd")
     {
-      topicColor = K2_TOPIC_RECT_COLOR K2_TOPIC_RAW;
-      topicDepth = K2_TOPIC_HIRES_DEPTH K2_TOPIC_RAW;
+      topicColor = K2_TOPIC_RECT_COLOR;
+      topicDepth = K2_TOPIC_HIRES_DEPTH;
     }
     else if(param == "ir")
     {
-      topicColor = K2_TOPIC_RECT_IR K2_TOPIC_RAW;
-      topicDepth = K2_TOPIC_RECT_DEPTH K2_TOPIC_RAW;
+      topicColor = K2_TOPIC_RECT_IR;
+      topicDepth = K2_TOPIC_RECT_DEPTH;
     }
     else if(param == "approx")
     {
@@ -589,8 +589,8 @@ int main(int argc, char **argv)
     }
   }
 
-  topicColor = "/" + ns + topicColor;
-  topicDepth = "/" + ns + topicDepth;
+  topicColor = "/" + ns + "/" + topicColor + K2_TOPIC_IMAGE;
+  topicDepth = "/" + ns + "/" + topicDepth + K2_TOPIC_IMAGE;
   std::cout << "topic color: " << topicColor << std::endl;
   std::cout << "topic depth: " << topicDepth << std::endl;
 

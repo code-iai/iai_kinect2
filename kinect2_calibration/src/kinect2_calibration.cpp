@@ -1084,9 +1084,9 @@ int main(int argc, char **argv)
   float boardSize = 0.108;
   std::string ns = K2_DEFAULT_NS;
   std::string path = "./";
-  std::string topicColor = K2_TOPIC_IMAGE_MONO K2_TOPIC_RAW;
-  std::string topicIr = K2_TOPIC_IMAGE_IR K2_TOPIC_RAW;
-  std::string topicDepth = K2_TOPIC_IMAGE_DEPTH K2_TOPIC_RAW;
+  std::string topicColor = K2_TOPIC_IMAGE_MONO;
+  std::string topicIr = K2_TOPIC_IMAGE_IR;
+  std::string topicDepth = K2_TOPIC_IMAGE_DEPTH;
 
   ros::init(argc, argv, "kinect2_calib", ros::init_options::AnonymousName);
 
@@ -1195,9 +1195,9 @@ int main(int argc, char **argv)
     }
   }
 
-  topicColor = "/" + ns + topicColor;
-  topicIr = "/" + ns + topicIr;
-  topicDepth = "/" + ns + topicDepth;
+  topicColor = "/" + ns + "/" + topicColor + K2_TOPIC_IMAGE;
+  topicIr = "/" + ns + "/" + topicIr + K2_TOPIC_IMAGE;
+  topicDepth = "/" + ns + "/" + topicDepth + K2_TOPIC_IMAGE;
   std::cout << "Start settings:" << std::endl
             << "       Mode: " << (mode == RECORD ? "record" : "calibrate") << std::endl
             << "     Source: " << (calibDepth ? "depth" : (source == COLOR ? "color" : (source == IR ? "ir" : "sync"))) << std::endl

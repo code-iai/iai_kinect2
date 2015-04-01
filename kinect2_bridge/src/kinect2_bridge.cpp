@@ -74,7 +74,7 @@ private:
   libfreenect2::SyncMultiFrameListener *listenerColor, *listenerIrDepth;
   libfreenect2::PacketPipeline *packetPipeline;
 
-  ros::NodeHandle nh;
+  ros::NodeHandle nh, priv_nh;
 
   DepthRegistration *depthRegLowRes, *depthRegHighRes;
 
@@ -118,10 +118,14 @@ private:
   std::vector<sensor_msgs::CameraInfo> infos;
 
 public:
-  Kinect2Bridge(const ros::NodeHandle &nh = ros::NodeHandle("~"))
-    : sizeColor(1920, 1080), sizeIr(512, 424), sizeLowRes(sizeColor.width / 2, sizeColor.height / 2), nh(nh), frameColor(0), frameIrDepth(0),
+  Kinect2Bridge(const ros::NodeHandle &nh = ros::NodeHandle(), const ros::NodeHandle &priv_nh = ros::NodeHandle("~"))
+    : sizeColor(1920, 1080), sizeIr(512, 424), sizeLowRes(sizeColor.width / 2, sizeColor.height / 2), nh(nh), priv_nh(priv_nh), frameColor(0), frameIrDepth(0),
       pubFrameColor(0), pubFrameIrDepth(0), lastColor(0, 0), lastDepth(0, 0), nextColor(false), nextIrDepth(false), depthShift(0), running(false)
   {
+    if(this->nh.getNamespace() == "/")
+    {
+      this->nh = ros::NodeHandle(K2_DEFAULT_NS);
+    }
     color = cv::Mat::zeros(sizeColor, CV_8UC3);
     ir = cv::Mat::zeros(sizeIr, CV_32F);
     depth = cv::Mat::zeros(sizeIr, CV_32F);
@@ -239,25 +243,25 @@ private:
     regDefault = "opencl";
 #endif
 
-    nh.param("base_name", ns, std::string(K2_DEFAULT_NS));
-    nh.param("sensor", tmp, -1.0);
-    nh.param("fps_limit", fps_limit, -1.0);
-    nh.param("calib_path", calib_path, std::string(K2_CALIB_PATH));
-    nh.param("use_png", use_png, true);
-    nh.param("jpeg_quality", jpeg_quality, 90);
-    nh.param("png_level", png_level, 1);
-    nh.param("depth_method", depth_method, depthDefault);
-    nh.param("depth_device", depth_dev, -1);
-    nh.param("reg_method", reg_method, regDefault);
-    nh.param("reg_devive", reg_dev, -1);
-    nh.param("max_depth", maxDepth, 12.0);
-    nh.param("min_depth", minDepth, 0.1);
-    nh.param("queue_size", queueSize, 2);
-    nh.param("bilateral_filter", bilateral_filter, true);
-    nh.param("edge_aware_filter", edge_aware_filter, true);
-    nh.param("publish_tf", publishTF, false);
-    nh.param("base_name_tf", baseNameTF, ns);
-    nh.param("worker_threads", worker_threads, 4);
+    priv_nh.param("base_name", ns, std::string(K2_DEFAULT_NS));
+    priv_nh.param("sensor", tmp, -1.0);
+    priv_nh.param("fps_limit", fps_limit, -1.0);
+    priv_nh.param("calib_path", calib_path, std::string(K2_CALIB_PATH));
+    priv_nh.param("use_png", use_png, true);
+    priv_nh.param("jpeg_quality", jpeg_quality, 90);
+    priv_nh.param("png_level", png_level, 1);
+    priv_nh.param("depth_method", depth_method, depthDefault);
+    priv_nh.param("depth_device", depth_dev, -1);
+    priv_nh.param("reg_method", reg_method, regDefault);
+    priv_nh.param("reg_devive", reg_dev, -1);
+    priv_nh.param("max_depth", maxDepth, 12.0);
+    priv_nh.param("min_depth", minDepth, 0.1);
+    priv_nh.param("queue_size", queueSize, 2);
+    priv_nh.param("bilateral_filter", bilateral_filter, true);
+    priv_nh.param("edge_aware_filter", edge_aware_filter, true);
+    priv_nh.param("publish_tf", publishTF, false);
+    priv_nh.param("base_name_tf", baseNameTF, ns);
+    priv_nh.param("worker_threads", worker_threads, 4);
 
     if(tmp > 0)
     {
@@ -455,9 +459,9 @@ private:
     const std::string base = "/" + ns;
     for(size_t i = 0; i < COUNT; ++i)
     {
-      imagePubs[i] = nh.advertise<sensor_msgs::Image>(base + topics[i] + K2_TOPIC_IMAGE, queueSize);
-      compressedPubs[i] = nh.advertise<sensor_msgs::CompressedImage>(base + topics[i] + K2_TOPIC_IMAGE + K2_TOPIC_COMPRESSED, queueSize);
-      infoPubs[i] = nh.advertise<sensor_msgs::CameraInfo>(base + topics[i] + K2_TOPIC_INFO, queueSize);
+      imagePubs[i] = nh.advertise<sensor_msgs::Image>(topics[i] + K2_TOPIC_IMAGE, queueSize);
+      compressedPubs[i] = nh.advertise<sensor_msgs::CompressedImage>(topics[i] + K2_TOPIC_IMAGE + K2_TOPIC_COMPRESSED, queueSize);
+      infoPubs[i] = nh.advertise<sensor_msgs::CameraInfo>(topics[i] + K2_TOPIC_INFO, queueSize);
     }
   }
 
@@ -1165,7 +1169,7 @@ public:
 private:
   void runKinect2Brigde()
   {
-    pKinect2Bridge = new Kinect2Bridge(getPrivateNodeHandle());
+    pKinect2Bridge = new Kinect2Bridge(getNodeHandle(), getPrivateNodeHandle());
     pKinect2Bridge->run();
   }
 };
