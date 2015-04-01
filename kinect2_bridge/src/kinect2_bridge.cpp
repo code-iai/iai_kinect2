@@ -966,29 +966,34 @@ private:
 
   void publishImages(const std::vector<cv::Mat> &images, const std_msgs::Header &header, const std::vector<Status> &status, const size_t frame, size_t &pubFrame, const size_t begin, const size_t end)
   {
-    std::vector<sensor_msgs::Image> imageMsgs(COUNT);
-    std::vector<sensor_msgs::CompressedImage> compressedMsgs(COUNT);
-    std::vector<sensor_msgs::CameraInfo> infoMsgs(COUNT);
+    std::vector<sensor_msgs::ImagePtr> imageMsgs(COUNT);
+    std::vector<sensor_msgs::CompressedImagePtr> compressedMsgs(COUNT);
+    std::vector<sensor_msgs::CameraInfoPtr> infoMsgs(COUNT);
 
     for(size_t i = begin; i < end; ++i)
     {
-      infoMsgs[i] = infos[i];
-      infoMsgs[i].header = header;
-      infoMsgs[i].header.frame_id = baseNameTF + (i < DEPTH_LORES ? K2_TF_IR_OPT_FRAME : K2_TF_RGB_OPT_FRAME);
+      infoMsgs[i] = sensor_msgs::CameraInfoPtr(new sensor_msgs::CameraInfo);
+      *infoMsgs[i] = infos[i];
+      infoMsgs[i]->header = header;
+      infoMsgs[i]->header.frame_id = baseNameTF + (i < DEPTH_LORES ? K2_TF_IR_OPT_FRAME : K2_TF_RGB_OPT_FRAME);
 
       switch(status[i])
       {
       case UNSUBCRIBED:
         break;
       case RAW:
-        createImage(images[i], infoMsgs[i].header, Image(i), imageMsgs[i]);
+        imageMsgs[i] = sensor_msgs::ImagePtr(new sensor_msgs::Image);
+        createImage(images[i], infoMsgs[i]->header, Image(i), *imageMsgs[i]);
         break;
       case COMPRESSED:
-        createCompressed(images[i], infoMsgs[i].header, Image(i), compressedMsgs[i]);
+        compressedMsgs[i] = sensor_msgs::CompressedImagePtr(new sensor_msgs::CompressedImage);
+        createCompressed(images[i], infoMsgs[i]->header, Image(i), *compressedMsgs[i]);
         break;
       case BOTH:
-        createImage(images[i], infoMsgs[i].header, Image(i), imageMsgs[i]);
-        createCompressed(images[i], infoMsgs[i].header, Image(i), compressedMsgs[i]);
+        imageMsgs[i] = sensor_msgs::ImagePtr(new sensor_msgs::Image);
+        compressedMsgs[i] = sensor_msgs::CompressedImagePtr(new sensor_msgs::CompressedImage);
+        createImage(images[i], infoMsgs[i]->header, Image(i), *imageMsgs[i]);
+        createCompressed(images[i], infoMsgs[i]->header, Image(i), *compressedMsgs[i]);
         break;
       }
     }
