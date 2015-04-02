@@ -53,7 +53,7 @@ class Kinect2Bridge
 {
 private:
   std::vector<int> compressionParams;
-  std::string compression16BitExt, compression16BitString, ns, baseNameTF;
+  std::string compression16BitExt, compression16BitString, baseNameTF;
 
   cv::Size sizeColor, sizeIr, sizeLowRes;
   cv::Mat color, ir, depth;
@@ -122,10 +122,6 @@ public:
     : sizeColor(1920, 1080), sizeIr(512, 424), sizeLowRes(sizeColor.width / 2, sizeColor.height / 2), nh(nh), priv_nh(priv_nh), frameColor(0), frameIrDepth(0),
       pubFrameColor(0), pubFrameIrDepth(0), lastColor(0, 0), lastDepth(0, 0), nextColor(false), nextIrDepth(false), depthShift(0), running(false)
   {
-    if(this->nh.getNamespace() == "/")
-    {
-      this->nh = ros::NodeHandle(K2_DEFAULT_NS);
-    }
     color = cv::Mat::zeros(sizeColor, CV_8UC3);
     ir = cv::Mat::zeros(sizeIr, CV_32F);
     depth = cv::Mat::zeros(sizeIr, CV_32F);
@@ -243,11 +239,11 @@ private:
     regDefault = "opencl";
 #endif
 
-    priv_nh.param("base_name", ns, std::string(K2_DEFAULT_NS));
+    std::string ns = nh.getNamespace().substr(1);
     priv_nh.param("sensor", tmp, -1.0);
     priv_nh.param("fps_limit", fps_limit, -1.0);
     priv_nh.param("calib_path", calib_path, std::string(K2_CALIB_PATH));
-    priv_nh.param("use_png", use_png, true);
+    priv_nh.param("use_png", use_png, false);
     priv_nh.param("jpeg_quality", jpeg_quality, 90);
     priv_nh.param("png_level", png_level, 1);
     priv_nh.param("depth_method", depth_method, depthDefault);
@@ -272,7 +268,7 @@ private:
     threads.resize(worker_threads);
 
     std::cout << "parameter:" << std::endl
-              << "        base_name: " << ns << std::endl
+              << "        namespace: " << nh.getNamespace() << std::endl
               << "           sensor: " << sensor << std::endl
               << "        fps_limit: " << fps_limit << std::endl
               << "       calib_path: " << calib_path << std::endl
@@ -456,7 +452,6 @@ private:
     infoPubs.resize(COUNT);
     infos.resize(COUNT);
 
-    const std::string base = "/" + ns;
     for(size_t i = 0; i < COUNT; ++i)
     {
       imagePubs[i] = nh.advertise<sensor_msgs::Image>(topics[i] + K2_TOPIC_IMAGE, queueSize);
@@ -1208,7 +1203,7 @@ void help(const std::string &path)
 #endif
 
   std::cout << path << " [_options:=value]" << std::endl;
-  helpOption("base_name",         "string", K2_DEFAULT_NS,  "set base name for all topics");
+  helpOption("_ns",               "string", K2_DEFAULT_NS,  "set namespace for all topics");
   helpOption("sensor",            "double", "-1.0",         "serial of the sensor to use");
   helpOption("fps_limit",         "double", "-1.0",         "limit the frames per second");
   helpOption("calib_path",        "string", K2_CALIB_PATH,  "path to the calibration files");
@@ -1229,9 +1224,21 @@ void help(const std::string &path)
   helpOption("worker_threads",    "int",    "4",            "number of threads used for processing the images");
 }
 
-int main(int argc, char **argv)
+int main(int argc, char **old_args)
 {
-  ros::init(argc, argv, "kinect2_bridge", ros::init_options::AnonymousName);
+  char **argv = new char*[argc + 1];
+
+  for(int argI = 1; argI < argc; ++ argI)
+  {
+    argv[argI + 1] = old_args[argI];
+  }
+  char defaultParam[sizeof(K2_DEFAULT_NS_PARAM)];
+  memcpy(defaultParam, K2_DEFAULT_NS_PARAM, sizeof(K2_DEFAULT_NS_PARAM));
+  argv[0] = defaultParam;
+  ++argc;
+
+  ros::init(argc, argv, "kinect2_bridge");
+
 
   for(int argI = 1; argI < argc; ++ argI)
   {
@@ -1241,11 +1248,13 @@ int main(int argc, char **argv)
     {
       help(argv[0]);
       ros::shutdown();
+      delete[] argv;
       return 0;
     }
     else
     {
       std::cerr << "Unknown argument: " << arg << std::endl;
+      delete[] argv;
       return -1;
     }
   }
@@ -1253,6 +1262,7 @@ int main(int argc, char **argv)
   if(!ros::ok())
   {
     std::cerr << "ros::ok failed!" << std::endl;
+    delete[] argv;
     return -1;
   }
 
@@ -1261,5 +1271,6 @@ int main(int argc, char **argv)
   kinect2.run();
 
   ros::shutdown();
+  delete[] argv;
   return 0;
 }

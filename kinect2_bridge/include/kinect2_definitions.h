@@ -20,6 +20,7 @@
 #define __KINECT2_DEFINITIONS_H__
 
 #define K2_DEFAULT_NS          "kinect2"
+#define K2_DEFAULT_NS_PARAM    "__ns:=" K2_DEFAULT_NS
 
 #define K2_TF_LINK             "_link"
 #define K2_TF_RGB_OPT_FRAME    "_rgb_optical_frame"
