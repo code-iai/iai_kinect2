@@ -7,9 +7,10 @@
 
 ## Recent changes
 
+- `base_name` parameter replaced by ROS namespace
+- `compressedDepth` topic replaced by `compressed`. Should not make a difference when using `image_transport`, just change the `TransportHints` from `"compressedDepth"` to `"compressed"`. This also fixes an issue with rviz, due to a bug in DepthCloud plugin.
+- TF publisher only publishes `kinect2_rgb_optical_frame` and `kinect2_ir_optical_frame`
 - Added a calibration for the depth measurements to the calibration tool.
-- Support for multiple sensors by different base names for all topics.
-- Integrated static transform publisher that uses calibration results.
 
 ## Description
 
@@ -102,7 +103,15 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="045e", ATTR{idProduct}=="02d9", MODE="0666"
 3. Check if the `idProduct` of your sensor is in the list. If not just add another line with the `idProduct` of your sensor. You can obtain it by running `dmesg | grep "045e"`.
 4. Reconnect the sensor and you should be able to access it.
 
-## OpenCL with Intel GPU on Linux
+## OpenCL with AMD
+
+Install the latest version of the AMD Catalyst drivers from https://support.amd.com and `opencl-headers`.
+
+## OpenCL with Nvidia
+
+Install the latest version of the Nvidia drivers, for example `nvidia-346` from `ppa:xorg-edgers` and `opencl-headers`.
+
+## OpenCL with Intel GPU
 
 #### Known configuration
 - Ubuntu 14.04
