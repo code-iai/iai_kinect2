@@ -1,7 +1,7 @@
 <launch>
 
   <arg name="base_name"         default="kinect2"/>
-  <arg name="sensor"            default="-1" />
+  <arg name="sensor"            default="" />
   <arg name="publish_tf"        default="false" />
   <arg name="base_name_tf"      default="$(arg base_name)" />
   <arg name="fps_limit"         default="-1.0"/>
