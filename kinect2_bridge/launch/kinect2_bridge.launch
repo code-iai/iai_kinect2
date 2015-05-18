@@ -1,7 +1,7 @@
 <launch>
 
-  <arg name="base_name"         default="kinect2" />
-  <arg name="sensor"            default="-1" />
+  <arg name="base_name"         default="kinect2"/>
+  <arg name="sensor"            default="" />
   <arg name="publish_tf"        default="false" />
   <arg name="base_name_tf"      default="$(arg ns)" />
   <arg name="fps_limit"         default="-1.0"/>
@@ -32,7 +32,7 @@
   <node pkg="nodelet" type="nodelet" name="$(arg base_name)_bridge" machine="$(arg machine)"
         args="load kinect2_bridge/kinect2_bridge_nodelet $(arg nodelet_manager)"
         respawn="true" output="screen">
-    <param name="sensor"            type="double" value="$(arg sensor)"/>
+    <param name="sensor"            type="str"    value="$(arg sensor)"/>
     <param name="publish_tf"        type="bool"   value="$(arg publish_tf)"/>
     <param name="base_name_tf"      type="str"    value="$(arg base_name_tf)"/>
     <param name="fps_limit"         type="double" value="$(arg fps_limit)"/>

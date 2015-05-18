@@ -1150,7 +1150,7 @@ int main(int argc, char **argv)
     {
       symmetric = arg.find("circle") == 0;
       circleBoard = true;
-      const size_t start = 6;
+      const size_t start = 6 + (symmetric ? 0 : 1);
       const size_t leftX = arg.find('x');
       const size_t rightX = arg.rfind('x');
       const size_t end = arg.size();

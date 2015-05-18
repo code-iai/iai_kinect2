@@ -223,7 +223,6 @@ private:
     double fps_limit, maxDepth, minDepth;
     bool use_png, bilateral_filter, edge_aware_filter;
     int32_t jpeg_quality, png_level, queueSize, reg_dev, depth_dev, worker_threads;
-    double tmp;
     std::string depth_method, reg_method, calib_path, sensor, base_name;
 
     std::string depthDefault = "cpu";
@@ -240,7 +239,7 @@ private:
 #endif
 
     priv_nh.param("base_name", base_name, std::string(K2_DEFAULT_NS));
-    priv_nh.param("sensor", tmp, -1.0);
+    priv_nh.param("sensor", sensor, std::string(""));
     priv_nh.param("fps_limit", fps_limit, -1.0);
     priv_nh.param("calib_path", calib_path, std::string(K2_CALIB_PATH));
     priv_nh.param("use_png", use_png, false);
@@ -258,11 +257,6 @@ private:
     priv_nh.param("publish_tf", publishTF, false);
     priv_nh.param("base_name_tf", baseNameTF, base_name);
     priv_nh.param("worker_threads", worker_threads, 4);
-
-    if(tmp > 0)
-    {
-      sensor = std::to_string((uint64_t)tmp);
-    }
 
     worker_threads = std::max(1, worker_threads);
     threads.resize(worker_threads);
