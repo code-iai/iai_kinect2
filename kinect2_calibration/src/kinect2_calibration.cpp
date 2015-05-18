@@ -1195,9 +1195,9 @@ int main(int argc, char **argv)
     }
   }
 
-  topicColor = "/" + ns + "/" + topicColor + K2_TOPIC_IMAGE;
-  topicIr = "/" + ns + "/" + topicIr + K2_TOPIC_IMAGE;
-  topicDepth = "/" + ns + "/" + topicDepth + K2_TOPIC_IMAGE;
+  topicColor = "/" + ns + topicColor + K2_TOPIC_IMAGE;
+  topicIr = "/" + ns + topicIr + K2_TOPIC_IMAGE;
+  topicDepth = "/" + ns + topicDepth + K2_TOPIC_IMAGE;
   std::cout << "Start settings:" << std::endl
             << "       Mode: " << (mode == RECORD ? "record" : "calibrate") << std::endl
             << "     Source: " << (calibDepth ? "depth" : (source == COLOR ? "color" : (source == IR ? "ir" : "sync"))) << std::endl

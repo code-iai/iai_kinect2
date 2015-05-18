@@ -589,8 +589,8 @@ int main(int argc, char **argv)
     }
   }
 
-  topicColor = "/" + ns + "/" + topicColor + K2_TOPIC_IMAGE;
-  topicDepth = "/" + ns + "/" + topicDepth + K2_TOPIC_IMAGE;
+  topicColor = "/" + ns + topicColor + K2_TOPIC_IMAGE;
+  topicDepth = "/" + ns + topicDepth + K2_TOPIC_IMAGE;
   std::cout << "topic color: " << topicColor << std::endl;
   std::cout << "topic depth: " << topicDepth << std::endl;
 

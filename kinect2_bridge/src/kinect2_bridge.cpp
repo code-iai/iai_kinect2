@@ -224,7 +224,7 @@ private:
     bool use_png, bilateral_filter, edge_aware_filter;
     int32_t jpeg_quality, png_level, queueSize, reg_dev, depth_dev, worker_threads;
     double tmp;
-    std::string depth_method, reg_method, calib_path, sensor;
+    std::string depth_method, reg_method, calib_path, sensor, base_name;
 
     std::string depthDefault = "cpu";
     std::string regDefault = "default";
@@ -239,7 +239,7 @@ private:
     regDefault = "opencl";
 #endif
 
-    std::string ns = nh.getNamespace().substr(1);
+    priv_nh.param("base_name", base_name, std::string(K2_DEFAULT_NS));
     priv_nh.param("sensor", tmp, -1.0);
     priv_nh.param("fps_limit", fps_limit, -1.0);
     priv_nh.param("calib_path", calib_path, std::string(K2_CALIB_PATH));
@@ -256,7 +256,7 @@ private:
     priv_nh.param("bilateral_filter", bilateral_filter, true);
     priv_nh.param("edge_aware_filter", edge_aware_filter, true);
     priv_nh.param("publish_tf", publishTF, false);
-    priv_nh.param("base_name_tf", baseNameTF, ns);
+    priv_nh.param("base_name_tf", baseNameTF, base_name);
     priv_nh.param("worker_threads", worker_threads, 4);
 
     if(tmp > 0)
@@ -268,7 +268,7 @@ private:
     threads.resize(worker_threads);
 
     std::cout << "parameter:" << std::endl
-              << "        namespace: " << nh.getNamespace() << std::endl
+              << "        base_name: " << base_name << std::endl
               << "           sensor: " << sensor << std::endl
               << "        fps_limit: " << fps_limit << std::endl
               << "       calib_path: " << calib_path << std::endl
@@ -296,7 +296,7 @@ private:
     }
 
     initCompression(jpeg_quality, png_level, use_png);
-    initTopics(queueSize);
+    initTopics(queueSize, base_name);
 
     bool ret = true;
     ret = ret && initPipeline(depth_method, depth_dev, bilateral_filter, edge_aware_filter, minDepth, maxDepth);
@@ -431,7 +431,7 @@ private:
     }
   }
 
-  void initTopics(const int32_t queueSize)
+  void initTopics(const int32_t queueSize, const std::string &base_name)
   {
     std::vector<std::string> topics(COUNT);
     topics[IR] = K2_TOPIC_IMAGE_IR;
@@ -454,9 +454,9 @@ private:
 
     for(size_t i = 0; i < COUNT; ++i)
     {
-      imagePubs[i] = nh.advertise<sensor_msgs::Image>(topics[i] + K2_TOPIC_IMAGE, queueSize);
-      compressedPubs[i] = nh.advertise<sensor_msgs::CompressedImage>(topics[i] + K2_TOPIC_IMAGE + K2_TOPIC_COMPRESSED, queueSize);
-      infoPubs[i] = nh.advertise<sensor_msgs::CameraInfo>(topics[i] + K2_TOPIC_INFO, queueSize);
+      imagePubs[i] = nh.advertise<sensor_msgs::Image>(base_name + topics[i] + K2_TOPIC_IMAGE, queueSize);
+      compressedPubs[i] = nh.advertise<sensor_msgs::CompressedImage>(base_name + topics[i] + K2_TOPIC_IMAGE + K2_TOPIC_COMPRESSED, queueSize);
+      infoPubs[i] = nh.advertise<sensor_msgs::CameraInfo>(base_name + topics[i] + K2_TOPIC_INFO, queueSize);
     }
   }
 
@@ -1203,7 +1203,7 @@ void help(const std::string &path)
 #endif
 
   std::cout << path << " [_options:=value]" << std::endl;
-  helpOption("_ns",               "string", K2_DEFAULT_NS,  "set namespace for all topics");
+  helpOption("base_name",         "string", K2_DEFAULT_NS,  "set base name for all topics");
   helpOption("sensor",            "double", "-1.0",         "serial of the sensor to use");
   helpOption("fps_limit",         "double", "-1.0",         "limit the frames per second");
   helpOption("calib_path",        "string", K2_CALIB_PATH,  "path to the calibration files");
@@ -1224,23 +1224,12 @@ void help(const std::string &path)
   helpOption("worker_threads",    "int",    "4",            "number of threads used for processing the images");
 }
 
-int main(int argc, char **old_args)
+int main(int argc, char **argv)
 {
-  char **argv = new char*[argc + 1];
-
-  for(int argI = 1; argI < argc; ++ argI)
-  {
-    argv[argI + 1] = old_args[argI];
-  }
-  char defaultParam[sizeof(K2_DEFAULT_NS_PARAM)];
-  memcpy(defaultParam, K2_DEFAULT_NS_PARAM, sizeof(K2_DEFAULT_NS_PARAM));
-  argv[0] = defaultParam;
-  ++argc;
-
   ros::init(argc, argv, "kinect2_bridge");
 
 
-  for(int argI = 1; argI < argc; ++ argI)
+  for(int argI = 1; argI < argc; ++argI)
   {
     std::string arg(argv[argI]);
 
@@ -1248,13 +1237,11 @@ int main(int argc, char **old_args)
     {
       help(argv[0]);
       ros::shutdown();
-      delete[] argv;
       return 0;
     }
     else
     {
       std::cerr << "Unknown argument: " << arg << std::endl;
-      delete[] argv;
       return -1;
     }
   }
@@ -1262,7 +1249,6 @@ int main(int argc, char **old_args)
   if(!ros::ok())
   {
     std::cerr << "ros::ok failed!" << std::endl;
-    delete[] argv;
     return -1;
   }
 
@@ -1271,6 +1257,5 @@ int main(int argc, char **old_args)
   kinect2.run();
 
   ros::shutdown();
-  delete[] argv;
   return 0;
 }
