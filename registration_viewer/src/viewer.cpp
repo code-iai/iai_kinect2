@@ -460,7 +460,7 @@ private:
         itP->b = itC->val[0];
         itP->g = itC->val[1];
         itP->r = itC->val[2];
-        itP->a = 0;
+        itP->a = 255;
       }
     }
   }
