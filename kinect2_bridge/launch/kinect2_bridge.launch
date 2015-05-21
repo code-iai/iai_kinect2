@@ -3,7 +3,7 @@
   <arg name="base_name"         default="kinect2"/>
   <arg name="sensor"            default="" />
   <arg name="publish_tf"        default="false" />
-  <arg name="base_name_tf"      default="$(arg ns)" />
+  <arg name="base_name_tf"      default="$(arg base_name)" />
   <arg name="fps_limit"         default="-1.0"/>
   <arg name="calib_path"        default="$(find kinect2_bridge)/data/"/>
   <arg name="use_png"           default="false"/>

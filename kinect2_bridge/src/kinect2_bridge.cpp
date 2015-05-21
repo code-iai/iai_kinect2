@@ -63,11 +63,11 @@ private:
 
   std::vector<std::thread> threads;
   std::mutex lockIrDepth, lockColor;
-  std::mutex lockSync, lockPub, lockTime;
+  std::mutex lockSync, lockPub, lockTime, lockStatus;
   std::mutex lockRegLowRes, lockRegHighRes;
 
   bool publishTF;
-  std::thread tfPublisher;
+  std::thread tfPublisher, mainThread;
 
   libfreenect2::Freenect2 freenect2;
   libfreenect2::Freenect2Device *device;
@@ -83,7 +83,7 @@ private:
 
   bool nextColor, nextIrDepth;
   double deltaT, depthShift, elapsedTimeColor, elapsedTimeIrDepth;
-  bool running;
+  bool running, deviceActive, clientConnected;
 
   enum Image
   {
@@ -116,18 +116,21 @@ private:
 
   std::vector<ros::Publisher> imagePubs, compressedPubs, infoPubs;
   std::vector<sensor_msgs::CameraInfo> infos;
+  std::vector<Status> status;
 
 public:
   Kinect2Bridge(const ros::NodeHandle &nh = ros::NodeHandle(), const ros::NodeHandle &priv_nh = ros::NodeHandle("~"))
     : sizeColor(1920, 1080), sizeIr(512, 424), sizeLowRes(sizeColor.width / 2, sizeColor.height / 2), nh(nh), priv_nh(priv_nh), frameColor(0), frameIrDepth(0),
-      pubFrameColor(0), pubFrameIrDepth(0), lastColor(0, 0), lastDepth(0, 0), nextColor(false), nextIrDepth(false), depthShift(0), running(false)
+      pubFrameColor(0), pubFrameIrDepth(0), lastColor(0, 0), lastDepth(0, 0), nextColor(false), nextIrDepth(false), depthShift(0), running(false), deviceActive(false), clientConnected(false)
   {
     color = cv::Mat::zeros(sizeColor, CV_8UC3);
     ir = cv::Mat::zeros(sizeIr, CV_32F);
     depth = cv::Mat::zeros(sizeIr, CV_32F);
+
+    status.resize(COUNT, UNSUBCRIBED);
   }
 
-  void run()
+  void start()
   {
     if(!initialize())
     {
@@ -145,52 +148,19 @@ public:
       threads[i] = std::thread(&Kinect2Bridge::threadDispatcher, this, i);
     }
 
-    std::cout << "starting main loop" << std::endl << std::endl;
-    double nextFrame = ros::Time::now().toSec() + deltaT;
-    double fpsTime = ros::Time::now().toSec();
-    size_t oldFrameIrDepth = 0, oldFrameColor = 0;
-    nextColor = true;
-    nextIrDepth = true;
+    mainThread = std::thread(&Kinect2Bridge::main, this);
+  }
 
-    for(; running && ros::ok();)
-    {
-      double now = ros::Time::now().toSec();
+  void stop()
+  {
+    running = false;
 
-      if(now - fpsTime >= 3.0)
-      {
-        fpsTime = now - fpsTime;
-        size_t framesIrDepth = frameIrDepth - oldFrameIrDepth;
-        size_t framesColor = frameColor - oldFrameColor;
-        oldFrameIrDepth = frameIrDepth;
-        oldFrameColor = frameColor;
-
-        lockTime.lock();
-        double tColor = elapsedTimeColor;
-        double tDepth = elapsedTimeIrDepth;
-        elapsedTimeColor = 0;
-        elapsedTimeIrDepth = 0;
-        lockTime.unlock();
-
-        std::cout << "[kinect2_bridge] depth processing: ~" << framesIrDepth / tDepth << "Hz (" << (tDepth / framesIrDepth) * 1000 << "ms) publishing rate: ~" << framesIrDepth / fpsTime << "Hz" << std::endl
-                  << "[kinect2_bridge] color processing: ~" << framesColor / tColor << "Hz (" << (tColor / framesColor) * 1000 << "ms) publishing rate: ~" << framesColor / fpsTime << "Hz" << std::endl << std::flush;
-        fpsTime = now;
-      }
-
-      if(now >= nextFrame)
-      {
-        nextColor = true;
-        nextIrDepth = true;
-        nextFrame += deltaT;
-      }
-
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    }
+    mainThread.join();
 
     for(size_t i = 0; i < threads.size(); ++i)
     {
       threads[i].join();
     }
-    threads.clear();
 
     if(publishTF)
     {
@@ -210,11 +180,6 @@ public:
     }
 
     nh.shutdown();
-  }
-
-  void stop()
-  {
-    running = false;
   }
 
 private:
@@ -290,7 +255,6 @@ private:
     }
 
     initCompression(jpeg_quality, png_level, use_png);
-    initTopics(queueSize, base_name);
 
     bool ret = true;
     ret = ret && initPipeline(depth_method, depth_dev, bilateral_filter, edge_aware_filter, minDepth, maxDepth);
@@ -307,6 +271,7 @@ private:
     {
       createCameraInfo();
     }
+    initTopics(queueSize, base_name);
 
     return ret;
   }
@@ -444,13 +409,13 @@ private:
     imagePubs.resize(COUNT);
     compressedPubs.resize(COUNT);
     infoPubs.resize(COUNT);
-    infos.resize(COUNT);
+    ros::SubscriberStatusCallback cb = boost::bind(&Kinect2Bridge::callbackStatus, this);
 
     for(size_t i = 0; i < COUNT; ++i)
     {
-      imagePubs[i] = nh.advertise<sensor_msgs::Image>(base_name + topics[i] + K2_TOPIC_IMAGE, queueSize);
-      compressedPubs[i] = nh.advertise<sensor_msgs::CompressedImage>(base_name + topics[i] + K2_TOPIC_IMAGE + K2_TOPIC_COMPRESSED, queueSize);
-      infoPubs[i] = nh.advertise<sensor_msgs::CameraInfo>(base_name + topics[i] + K2_TOPIC_INFO, queueSize);
+      imagePubs[i] = nh.advertise<sensor_msgs::Image>(base_name + topics[i] + K2_TOPIC_IMAGE, queueSize, cb, cb);
+      compressedPubs[i] = nh.advertise<sensor_msgs::CompressedImage>(base_name + topics[i] + K2_TOPIC_IMAGE + K2_TOPIC_COMPRESSED, queueSize, cb, cb);
+      infoPubs[i] = nh.advertise<sensor_msgs::CameraInfo>(base_name + topics[i] + K2_TOPIC_INFO, queueSize, cb, cb);
     }
   }
 
@@ -506,6 +471,8 @@ private:
 
     libfreenect2::Freenect2Device::ColorCameraParams colorParams = device->getColorCameraParams();
     libfreenect2::Freenect2Device::IrCameraParams irParams = device->getIrCameraParams();
+
+    device->stop();
 
     std::cout << std::endl << "default ir camera parameters: " << std::endl;
     std::cout << "fx " << irParams.fx << ", fy " << irParams.fy << ", cx " << irParams.cx << ", cy " << irParams.cy << std::endl;
@@ -644,6 +611,7 @@ private:
 
   void createCameraInfo()
   {
+    infos.resize(COUNT);
     cv::Mat projColor = cv::Mat::zeros(3, 4, CV_64F);
     cv::Mat projIr = cv::Mat::zeros(3, 4, CV_64F);
     cv::Mat projLowRes = cv::Mat::zeros(3, 4, CV_64F);
@@ -701,6 +669,110 @@ private:
     }
   }
 
+  void callbackStatus()
+  {
+    lockStatus.lock();
+    clientConnected = updateStatus();
+
+    if(clientConnected && !deviceActive)
+    {
+      std::cout << "[kinect2_bridge] client connected. starting device..." << std::endl << std::flush;
+      deviceActive = true;
+      device->start();
+    }
+    else if(!clientConnected && deviceActive)
+    {
+      std::cout << "[kinect2_bridge] no clients connected. stopping device..." << std::endl << std::flush;
+      deviceActive = false;
+      device->stop();
+    }
+    lockStatus.unlock();
+  }
+
+  bool updateStatus()
+  {
+    bool any = false;
+    for(size_t i = 0; i < COUNT; ++i)
+    {
+      Status s = UNSUBCRIBED;
+      if(imagePubs[i].getNumSubscribers() > 0)
+      {
+        s = RAW;
+      }
+      if(compressedPubs[i].getNumSubscribers() > 0)
+      {
+        s = s == RAW ? BOTH : COMPRESSED;
+      }
+
+      status[i] = s;
+      any = any || s != UNSUBCRIBED || infoPubs[i].getNumSubscribers() > 0;
+    }
+    return any;
+  }
+
+  void main()
+  {
+    std::cout << "[kinect2_bridge] waiting for clients to connect" << std::endl << std::endl;
+    double nextFrame = ros::Time::now().toSec() + deltaT;
+    double fpsTime = ros::Time::now().toSec();
+    size_t oldFrameIrDepth = 0, oldFrameColor = 0;
+    nextColor = true;
+    nextIrDepth = true;
+
+    for(; running && ros::ok();)
+    {
+      if(!deviceActive)
+      {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        fpsTime =  ros::Time::now().toSec();
+        nextFrame = fpsTime + deltaT;
+        continue;
+      }
+
+      double now = ros::Time::now().toSec();
+
+      if(now - fpsTime >= 3.0)
+      {
+        fpsTime = now - fpsTime;
+        size_t framesIrDepth = frameIrDepth - oldFrameIrDepth;
+        size_t framesColor = frameColor - oldFrameColor;
+        oldFrameIrDepth = frameIrDepth;
+        oldFrameColor = frameColor;
+
+        lockTime.lock();
+        double tColor = elapsedTimeColor;
+        double tDepth = elapsedTimeIrDepth;
+        elapsedTimeColor = 0;
+        elapsedTimeIrDepth = 0;
+        lockTime.unlock();
+
+        std::cout << "[kinect2_bridge] depth processing: ~" << framesIrDepth / tDepth << "Hz (" << (tDepth / framesIrDepth) * 1000 << "ms) publishing rate: ~" << framesIrDepth / fpsTime << "Hz" << std::endl
+                  << "[kinect2_bridge] color processing: ~" << framesColor / tColor << "Hz (" << (tColor / framesColor) * 1000 << "ms) publishing rate: ~" << framesColor / fpsTime << "Hz" << std::endl << std::flush;
+        fpsTime = now;
+      }
+
+      if(now >= nextFrame)
+      {
+        nextColor = true;
+        nextIrDepth = true;
+        nextFrame += deltaT;
+      }
+
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+      if(!deviceActive)
+      {
+        oldFrameIrDepth = frameIrDepth;
+        oldFrameColor = frameColor;
+        lockTime.lock();
+        elapsedTimeColor = 0;
+        elapsedTimeIrDepth = 0;
+        lockTime.unlock();
+        continue;
+      }
+    }
+  }
+
   void threadDispatcher(const size_t id)
   {
     const size_t checkFirst = id % 2;
@@ -748,11 +820,12 @@ private:
     cv::Mat depth, ir;
     std_msgs::Header header;
     std::vector<cv::Mat> images(COUNT);
-    std::vector<Status> status(COUNT, UNSUBCRIBED);
+    std::vector<Status> status = this->status;
     size_t frame;
 
     if(!receiveFrames(listenerIrDepth, frames))
     {
+      lockIrDepth.unlock();
       return;
     }
     double now = ros::Time::now().toSec();
@@ -768,7 +841,6 @@ private:
     frame = frameIrDepth++;
     lockIrDepth.unlock();
 
-    updateStatus(status);
     processIrDepth(ir, depth, images, status);
     listenerIrDepth->release(frames);
 
@@ -787,11 +859,12 @@ private:
     cv::Mat color;
     std_msgs::Header header;
     std::vector<cv::Mat> images(COUNT);
-    std::vector<Status> status(COUNT, UNSUBCRIBED);
+    std::vector<Status> status = this->status;
     size_t frame;
 
     if(!receiveFrames(listenerColor, frames))
     {
+      lockColor.unlock();
       return;
     }
     double now = ros::Time::now().toSec();
@@ -804,7 +877,6 @@ private:
     frame = frameColor++;
     lockColor.unlock();
 
-    updateStatus(status);
     processColor(color, images, status);
     listenerColor->release(frames);
 
@@ -827,7 +899,7 @@ private:
       newFrames = true;
       listener->waitForNewFrame(frames);
 #endif
-      if(!running || !ros::ok())
+      if(!deviceActive || !running || !ros::ok())
       {
         if(newFrames)
         {
@@ -859,27 +931,6 @@ private:
     header.stamp = timestamp;
     header.frame_id = K2_TF_RGB_OPT_FRAME;
     return header;
-  }
-
-  bool updateStatus(std::vector<Status> &status)
-  {
-    bool any = false;
-    for(size_t i = 0; i < COUNT; ++i)
-    {
-      Status s = UNSUBCRIBED;
-      if(imagePubs[i].getNumSubscribers() > 0)
-      {
-        s = RAW;
-      }
-      if(compressedPubs[i].getNumSubscribers() > 0)
-      {
-        s = s == RAW ? BOTH : COMPRESSED;
-      }
-
-      status[i] = s;
-      any = any || s != UNSUBCRIBED || infoPubs[i].getNumSubscribers() > 0;
-    }
-    return any;
   }
 
   void processIrDepth(const cv::Mat &ir, const cv::Mat &depth, std::vector<cv::Mat> &images, const std::vector<Status> &status)
@@ -1145,21 +1196,14 @@ public:
     if(pKinect2Bridge)
     {
       pKinect2Bridge->stop();
-      kinect2BridgeThread.join();
       delete pKinect2Bridge;
     }
   }
 
   virtual void onInit()
   {
-    kinect2BridgeThread = std::thread(&Kinect2BridgeNodelet::runKinect2Brigde, this);
-  }
-
-private:
-  void runKinect2Brigde()
-  {
     pKinect2Bridge = new Kinect2Bridge(getNodeHandle(), getPrivateNodeHandle());
-    pKinect2Bridge->run();
+    pKinect2Bridge->start();
   }
 };
 
@@ -1247,8 +1291,11 @@ int main(int argc, char **argv)
   }
 
   Kinect2Bridge kinect2;
+  kinect2.start();
 
-  kinect2.run();
+  ros::spin();
+
+  kinect2.stop();
 
   ros::shutdown();
   return 0;
