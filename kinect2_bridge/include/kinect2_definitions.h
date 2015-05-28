@@ -25,23 +25,16 @@
 #define K2_TF_RGB_OPT_FRAME    "_rgb_optical_frame"
 #define K2_TF_IR_OPT_FRAME     "_ir_optical_frame"
 
-#define K2_TOPIC_IMAGE_IR      "/ir"
-#define K2_TOPIC_RECT_IR       "/ir_rect"
+#define K2_TOPIC_HD            "/hd"
+#define K2_TOPIC_QHD           "/qhd"
+#define K2_TOPIC_IR            "/ir"
 
-#define K2_TOPIC_IMAGE_COLOR   "/rgb"
-#define K2_TOPIC_RECT_COLOR    "/rgb_rect"
-#define K2_TOPIC_LORES_COLOR   "/rgb_lowres"
+#define K2_TOPIC_IMAGE_RECT    "_rect"
+#define K2_TOPIC_IMAGE_COLOR   "/image_color"
+#define K2_TOPIC_IMAGE_MONO    "/image_mono"
+#define K2_TOPIC_IMAGE_DEPTH   "/image_depth"
+#define K2_TOPIC_IMAGE_IR      "/image_ir"
 
-#define K2_TOPIC_IMAGE_MONO    "/mono"
-#define K2_TOPIC_RECT_MONO     "/mono_rect"
-#define K2_TOPIC_LORES_MONO    "/mono_lowres"
-
-#define K2_TOPIC_IMAGE_DEPTH   "/depth"
-#define K2_TOPIC_RECT_DEPTH    "/depth_rect"
-#define K2_TOPIC_LORES_DEPTH   "/depth_lowres"
-#define K2_TOPIC_HIRES_DEPTH   "/depth_highres"
-
-#define K2_TOPIC_IMAGE         "/image"
 #define K2_TOPIC_COMPRESSED    "/compressed"
 #define K2_TOPIC_INFO          "/camera_info"
 

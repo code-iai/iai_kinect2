@@ -7,10 +7,10 @@
 
 ## Recent changes
 
-- `base_name` parameter replaced by ROS namespace
+- Structure of topics changed. Grouped by resolution.
+- Kinect2 device is stopped if no subscribers are listening to lower CPU usage on idle.
 - `compressedDepth` topic replaced by `compressed`. Should not make a difference when using `image_transport`, just change the `TransportHints` from `"compressedDepth"` to `"compressed"`. This also fixes an issue with rviz, due to a bug in DepthCloud plugin.
-- TF publisher only publishes `kinect2_rgb_optical_frame` and `kinect2_ir_optical_frame`
-- Added a calibration for the depth measurements to the calibration tool.
+- TF publisher only publishes `kinect2_rgb_optical_frame` and `kinect2_ir_optical_frame`.
 
 ## Description
 
@@ -112,6 +112,12 @@ Install the latest version of the AMD Catalyst drivers from https://support.amd.
 Install the latest version of the Nvidia drivers, for example `nvidia-346` from `ppa:xorg-edgers` and `opencl-headers`.
 
 ## OpenCL with Intel GPU
+
+You can either install a binary package from a ppa, or build beignet yourself.
+
+#### Install binary package from PPA
+
+There is a ppa providing the newest version of beignet for Ubuntu 14.04: https://launchpad.net/~pmjdebruijn/+archive/ubuntu/beignet-testing
 
 #### Known configuration
 - Ubuntu 14.04
