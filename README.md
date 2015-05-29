@@ -22,6 +22,41 @@ It contains:
 - [the bridge](kinect2_bridge) between [libfreenect2](https://github.com/OpenKinect/libfreenect2) and [ROS](http://www.ros.org/)
 - [a viewer](registration_viewer) for the images / point clouds
 
+## FAQ
+
+#### Someting is not working, what should I do first?
+
+First you should look at this FAQ and the [FAQ from libfreenect2](https://github.com/OpenKinect/libfreenect2#faq).
+Secondly, look at [issue page from libfreenect2](https://github.com/OpenKinect/libfreenect2/issues) and the [issue page of iai_kinect2](https://github.com/code-iai/iai_kinect2/issues) for similar issues and solutions.
+
+#### kinect2_bridge is not working / crashing, what is wrong?
+
+There are many reasons why `kinect2_bridge` might not working. The first thing to find out whether the problem is related to `kinect2_bridge` or `libfreenect2`. A good tool for testing is `Protonect`, it is a binary located in `libfreenect2/examples/protonect/bin/Protonect`. It uses libfreenect directly with a minimal dependency on other libraries, so it is a good tool for the first tests.
+
+Execute:
+- `./Protonect gl` to test OpenGL support.
+- `./Protonect cl` to test OpenCL support.
+- `./Protonect cpu` to test CPU support.
+
+If none of them work you should look at the issues from the libfreenect2 GitHub page for help.
+
+If one of them works, try out the one that worked with `kinect2_bridge`: `rosrun kinect2_bridge kinect2_bridge depth_method:=<opengl|opencl|cpu>`. You can also change the registration method with `reg_method:=<cpu|opencl>`.
+
+#### Protonect works fine, but kinect2_bridge is still not working / crashing.
+
+If that is the case, you have to make sure that `Protonect` uses the same version of `libfreenect2` as `kinect2_bridge` does. To do so, run `make` and `sudo make install` in the build folder again. And try out `kinect2_bridge` again.
+
+```
+cd libfreenect2/build
+make & sudo make install
+```
+
+#### I still have an issue, what should I do?
+
+First of all, check the issue pages on GitHub for similar issues, as they might contain solutions for them. By default you will only see the open issues, but if you click on `closed` you will the the ones solved. There is also a search field which helps to find similar issues.
+
+If you found no solution in the issues, feel free to open a new issue for your problem. Please describe your problem in detail and provide error messages and log output.
+
 ## Dependencies from all parts
 
 - ROS Hydro/Indigo
@@ -62,10 +97,10 @@ git clone https://github.com/OpenKinect/libfreenect2
    ```
 cd libfreenect2/depends
 ./install_ubuntu.sh
-cd ../build
-mkdir linux
-cd linux
-cmake ../../examples/protonect/ -DENABLE_CXX11=ON
+cd ..
+mkdir build
+cd build
+cmake ../examples/protonect/ -DENABLE_CXX11=ON
 make && sudo make install
 ```
 4. Clone this repository into your catkin workspace, install the dependencies and build it:

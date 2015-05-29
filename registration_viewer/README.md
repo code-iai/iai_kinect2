@@ -23,7 +23,7 @@ It just listens to two ROS topics and displays a the color with the overlayed co
 ```
 viewer [options]
   name: 'any string' equals to the kinect2_bridge topic base name
-  mode: 'sd', 'hd', or 'ir'
+  mode: 'qhd', 'hd', or 'ir'
   visualization: 'image', 'cloud' or 'both'
   options:
     'raw' use raw instead of compressed topics

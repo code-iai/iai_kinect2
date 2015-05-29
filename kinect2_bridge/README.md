@@ -25,110 +25,64 @@ This is a bridge between [libfreenect2](https://github.com/OpenKinect/libfreenec
 
 ## First steps
 
-For the depth registration the camera intrinsics and extrinsics need to be known. The program reads in the values from the `data/<serialnumber>` folder. For each new sensor you need to add a subfolder with the serial number of the device as the folder name. In this folder you need to provide 3 yaml files with the intrinsics and extrinsics. These files can be created by the `kinect2_calibration` tool (or you can copy the files provided in one of the other folders, but results can be sub optimal). The device serial number is shown when `kinect2_bridge` or `Protonect` from libfreenect2 is started, it also appears in `dmesg` when you connect the sensor. [More information on calibration](../kinect2_calibration#calibrating-the-kinect-one).
+For the depth registration the camera intrinsics and extrinsics need to be known. The program reads in the values from the `data/<serialnumber>` folder. For each new sensor you need to add a subfolder with the serial number of the device as the folder name. In this folder you need to provide 4 yaml files with the intrinsics and extrinsics. These files can be created by the `kinect2_calibration` tool (or you can copy the files provided in one of the other folders, but results can be sub optimal). The device serial number is shown when `kinect2_bridge` or `Protonect` from libfreenect2 is started, it also appears in `dmesg` when you connect the sensor. [More information on calibration](../kinect2_calibration#calibrating-the-kinect-one).
 
-When `kinect2_bridge` is running you can use the `registration_viewer` to display the images or point cloud: `rosrun registration_viewer viewer -kinect2 -image` or `rosrun registration_viewer viewer -kinect2 -cloud`.
+When `kinect2_bridge` is running you can use the `registration_viewer` to display the images or point cloud: `rosrun registration_viewer viewer image` or `rosrun registration_viewer viewer cloud`.
 
 ## Topics
 
-### Depth Topics
+### HD Topics
 
-###### Raw depth image
-```
-/kinect2/depth/camera_info
-/kinect2/depth/image
-/kinect2/depth/image/compressedDepth
-```
+The images in this topics have a FullHD resolution (1920x1080).
 
-###### Rectified depth image
 ```
-/kinect2/depth_rect/camera_info
-/kinect2/depth_rect/image
-/kinect2/depth_rect/image/compressedDepth
-```
-
-###### Depth image registered to low resolution image (960x540)
-```
-/kinect2/depth_lowres/camera_info
-/kinect2/depth_lowres/image
-/kinect2/depth_lowres/image/compressedDepth
+/kinect2/hd/camera_info
+/kinect2/hd/image_color
+/kinect2/hd/image_color/compressed
+/kinect2/hd/image_color_rect
+/kinect2/hd/image_color_rect/compressed
+/kinect2/hd/image_depth_rect
+/kinect2/hd/image_depth_rect/compressed
+/kinect2/hd/image_mono
+/kinect2/hd/image_mono/compressed
+/kinect2/hd/image_mono_rect
+/kinect2/hd/image_mono_rect/compressed
+/kinect2/hd/points
 ```
 
-###### Depth image registered to high resolution image
+### Quater HD Topics
+
+The images in this topics have a quater FullHD resolution (960x540).
+
 ```
-/kinect2/depth_highres/camera_info
-/kinect2/depth_highres/image
-/kinect2/depth_highres/image/compressedDepth
+/kinect2/qhd/camera_info
+/kinect2/qhd/image_color
+/kinect2/qhd/image_color/compressed
+/kinect2/qhd/image_color_rect
+/kinect2/qhd/image_color_rect/compressed
+/kinect2/qhd/image_depth_rect
+/kinect2/qhd/image_depth_rect/compressed
+/kinect2/qhd/image_mono
+/kinect2/qhd/image_mono/compressed
+/kinect2/qhd/image_mono_rect
+/kinect2/qhd/image_mono_rect/compressed
+/kinect2/qhd/points
 ```
 
-### Infrared Topics
+### IR/Depth Topics
 
-###### Raw ir image
+This are the raw IR and depth images from the sensor (512x424).
+
 ```
 /kinect2/ir/camera_info
-/kinect2/ir/image
-/kinect2/ir/image/compressed
-```
-
-###### Rectified ir image
-```
-/kinect2/ir_rect/camera_info
-/kinect2/ir_rect/image
-/kinect2/ir_rect/image/compressed
-```
-
-### Mono Topics
-
-###### Raw mono image
-```
-/kinect2/mono/camera_info
-/kinect2/mono/image
-/kinect2/mono/image/compressed
-```
-
-###### Rectified mono image
-```
-/kinect2/mono_rect/camera_info
-/kinect2/mono_rect/image
-/kinect2/mono_rect/image/compressed
-```
-
-###### Mono image in low resolution (960x540)
-```
-/kinect2/mono_lowres/camera_info
-/kinect2/mono_lowres/image
-/kinect2/mono_lowres/image/compressed
-```
-
-### Color Topics
-
-###### Raw color image
-```
-/kinect2/rgb/camera_info
-/kinect2/rgb/image
-/kinect2/rgb/image/compressed
-```
-
-###### Rectified color image
-```
-/kinect2/rgb_rect/camera_info
-/kinect2/rgb_rect/image
-/kinect2/rgb_rect/image/compressed
-```
-
-###### Color image in low resolution (960x540)
-```
-/kinect2/rgb_lowres/camera_info
-/kinect2/rgb_lowres/image
-/kinect2/rgb_lowres/image/compressed
-```
-
-### Point cloud Topics
-*Only available if `kinect2_bridge.launch` is launched.*
-
-```
-/kinect2/depth_lowres/points
-/kinect2/depth_highres/points
+/kinect2/ir/image_depth
+/kinect2/ir/image_depth/compressed
+/kinect2/ir/image_depth_rect
+/kinect2/ir/image_depth_rect/compressed
+/kinect2/ir/image_ir
+/kinect2/ir/image_ir/compressed
+/kinect2/ir/image_ir_rect
+/kinect2/ir/image_ir_rect/compressed
 ```
 
 ## Notes
