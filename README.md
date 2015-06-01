@@ -38,7 +38,7 @@ Execute:
 - `./Protonect cl` to test OpenCL support.
 - `./Protonect cpu` to test CPU support.
 
-If none of them work you should look at the issues from the libfreenect2 GitHub page for help.
+Before running `kinect2_bridge` please make sure `Protonect` is working and showing color, depth and ir images. If some of them are black, than there is a problem not related to `kinect2_bridge` and you should look at the issues from the libfreenect2 GitHub page for help.
 
 If one of them works, try out the one that worked with `kinect2_bridge`: `rosrun kinect2_bridge kinect2_bridge depth_method:=<opengl|opencl|cpu>`. You can also change the registration method with `reg_method:=<cpu|opencl>`.
 
@@ -50,6 +50,14 @@ If that is the case, you have to make sure that `Protonect` uses the same versio
 cd libfreenect2/build
 make & sudo make install
 ```
+
+#### rosdep: Cannot locate rosdep definition for [kinect2_bridge] or [depth_registration]
+
+`rosdep` will output errors on not being able to locate `[kinect2_bridge]` and `[depth_registration]`. That is fine because they are all part of the iai_kinect2 package and `rosdep` does not know these packages.
+
+#### `Protonect` or `kinect2_bridge` outputs `[TransferPool::submit] failed to submit transfer`
+
+This indicates problems with the USB connection.
 
 #### I still have an issue, what should I do?
 
@@ -113,6 +121,9 @@ rosdep install -r --from-paths .
 cd ~/catkin_ws
 catkin_make -DCMAKE_BUILD_TYPE="Release"
 ```
+
+**Note: `rosdep` will output errors on not being able to locate `[kinect2_bridge]` and `[depth_registration]`. That is fine because they are all part of the iai_kinect2 package and `rosdep` does not know these packages.**
+
 5. Connect your sensor and run `kinect2_bridge`:
 
    ```
