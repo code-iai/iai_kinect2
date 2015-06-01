@@ -55,7 +55,7 @@ make & sudo make install
 
 `rosdep` will output errors on not being able to locate `[kinect2_bridge]` and `[depth_registration]`. That is fine because they are all part of the iai_kinect2 package and `rosdep` does not know these packages.
 
-#### `Protonect` or `kinect2_bridge` outputs `[TransferPool::submit] failed to submit transfer`
+#### Protonect or kinect2_bridge outputs [TransferPool::submit] failed to submit transfer
 
 This indicates problems with the USB connection.
 
