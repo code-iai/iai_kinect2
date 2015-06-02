@@ -1,4 +1,4 @@
-# Registration Viewer
+# Kinect2 Viewer
 
 ## Maintainer
 
@@ -21,7 +21,7 @@ It just listens to two ROS topics and displays a the color with the overlayed co
 ## Usage
 
 ```
-viewer [options]
+kinect2_viewer [options]
   name: 'any string' equals to the kinect2_bridge topic base name
   mode: 'qhd', 'hd', 'sd' or 'ir'
   visualization: 'image', 'cloud' or 'both'
@@ -30,7 +30,7 @@ viewer [options]
     'approx' use approximate time synchronization
 ```
 
-Example: `rosrun registration_viewer viewer kinect2 sd cloud`
+Example: `rosrun kinect2_viewer kinect2_viewer kinect2 sd cloud`
 
 ## Key bindings
 

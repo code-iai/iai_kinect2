@@ -21,7 +21,7 @@ ENDIF()
 
 find_package(freenect2 REQUIRED)
 
-find_package(catkin REQUIRED COMPONENTS roscpp rostime std_msgs sensor_msgs nodelet cv_bridge compressed_depth_image_transport depth_registration)
+find_package(catkin REQUIRED COMPONENTS roscpp rostime std_msgs sensor_msgs nodelet cv_bridge compressed_depth_image_transport kinect2_registration)
 
 ## System dependencies are found with CMake's conventions
 find_package(OpenCV REQUIRED)

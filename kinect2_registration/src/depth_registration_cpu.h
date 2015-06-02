@@ -21,7 +21,7 @@
 
 #include <Eigen/Geometry>
 
-#include <depth_registration.h>
+#include <kinect2_registration.h>
 
 class DepthRegistrationCPU : public DepthRegistration
 {

@@ -12,9 +12,9 @@
   <buildtool_depend>catkin</buildtool_depend>
 
   <run_depend>kinect2_calibration</run_depend>
-  <run_depend>registration_viewer</run_depend>
+  <run_depend>kinect2_viewer</run_depend>
   <run_depend>kinect2_bridge</run_depend>
-  <run_depend>depth_registration</run_depend>
+  <run_depend>kinect2_registration</run_depend>
 
   <export>
     <metapackage/>

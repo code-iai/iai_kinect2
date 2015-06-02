@@ -19,7 +19,7 @@
 #ifndef __DEPTH_REGISTRATION_OPENCL_H__
 #define __DEPTH_REGISTRATION_OPENCL_H__
 
-#include <depth_registration.h>
+#include <kinect2_registration.h>
 
 class DepthRegistrationOpenCL : public DepthRegistration
 {

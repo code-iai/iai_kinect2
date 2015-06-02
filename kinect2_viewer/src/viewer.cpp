@@ -524,7 +524,7 @@ void help(const std::string &path)
 
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "viewer", ros::init_options::AnonymousName);
+  ros::init(argc, argv, "kinect2_viewer", ros::init_options::AnonymousName);
 
   if(!ros::ok())
   {

@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package>
-  <name>depth_registration</name>
+  <name>kinect2_registration</name>
   <version>0.0.1</version>
-  <description>The depth_registration package</description>
+  <description>The kinect2_registration package</description>
 
   <maintainer email="wiedemeyer@informatik.uni-bremen.de">Thiemo Wiedemeyer</maintainer>
 

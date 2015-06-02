@@ -18,9 +18,9 @@ This is a collection of tools and libraries for a ROS Interface to the Kinect On
 
 It contains:
 - [a calibration tool](kinect2_calibration) for calibrating the IR sensor of the Kinect One to the RGB sensor and the depth measurements
-- [a library](depth_registration) for depth registration with OpenCL support
+- [a library](kinect2_registration) for depth registration with OpenCL support
 - [the bridge](kinect2_bridge) between [libfreenect2](https://github.com/OpenKinect/libfreenect2) and [ROS](http://www.ros.org/)
-- [a viewer](registration_viewer) for the images / point clouds
+- [a viewer](kinect2_viewer) for the images / point clouds
 
 ## FAQ
 
@@ -53,7 +53,7 @@ make & sudo make install
 
 #### rosdep: Cannot locate rosdep definition for [kinect2_bridge] or [depth_registration]
 
-`rosdep` will output errors on not being able to locate `[kinect2_bridge]` and `[depth_registration]`. That is fine because they are all part of the iai_kinect2 package and `rosdep` does not know these packages.
+`rosdep` will output errors on not being able to locate `[kinect2_bridge]` and `[kinect2_registration]`. That is fine because they are all part of the iai_kinect2 package and `rosdep` does not know these packages.
 
 #### Protonect or kinect2_bridge outputs [TransferPool::submit] failed to submit transfer
 
@@ -131,7 +131,7 @@ rosrun kinect2_bridge kinect2_bridge
 ```
 6. Calibrate your sensor using the `kinect2_calibration`. [Further details](kinect2_calibration#calibrating-the-kinect-one)
 7. Add the calibration files to the `kinect2_bridge/data/<serialnumber>` folder. [Further details](kinect2_bridge#first-steps)
-8. Restart `kinect2_bridge` and view the results using `rosrun registration_viewer viewer -kinect2 -cloud`.
+8. Restart `kinect2_bridge` and view the results using `rosrun kinect2_viewer kinect2_viewer kinect2 sd cloud`.
 
 ## Permissions to access the Kinect One
 

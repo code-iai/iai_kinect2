@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(registration_viewer)
+project(kinect2_registration)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBT_USE_DOUBLE_PRECISION -Wall")
 # Unused warnings
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wuninitialized -Winit-self -Wunused-function -Wunused-label -Wunused-variable -Wunused-but-set-variable -Wunused-but-set-parameter")
 # Additional warnings
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Warray-bounds -Wtype-limits -Wreturn-type -Wsequence-point -Wparentheses -Wmissing-braces -Wchar-subscripts -Wswitch -Wwrite-strings -Wenum-compare -Wempty-body -Wlogical-op")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Warray-bounds -Wtype-limits -Wreturn-type -Wsequence-point -Wparentheses -Wmissing-braces -Wchar-subscripts -Wswitch -Wwrite-strings -Wenum-compare -Wempty-body")# -Wlogical-op")
 
 # Check for c++11 support
 INCLUDE(CheckCXXCompilerFlag)
@@ -19,15 +19,46 @@ ELSE()
   MESSAGE(ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
 ENDIF()
 
-find_package(catkin REQUIRED COMPONENTS roscpp rostime std_msgs sensor_msgs message_filters cv_bridge image_transport compressed_image_transport compressed_depth_image_transport kinect2_bridge)
+# additional cmake modules
+LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+
+find_package(catkin REQUIRED COMPONENTS roscpp)
+find_package(cmake_modules QUIET)
 
 ## System dependencies are found with CMake's conventions
 find_package(OpenCV REQUIRED)
 find_package(OpenMP)
-find_package(PCL REQUIRED)
+find_package(Eigen)
+find_package(OpenCL)
 
 if(OPENMP_FOUND)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+endif()
+
+############################################################
+## Check for modules being build based on found libraries ##
+############################################################
+
+if(Eigen_FOUND)
+  message(STATUS "CPU based depth registration enabled")
+  set(DEPTH_REG_CPU ON)
+  add_definitions(-DDEPTH_REG_CPU)
+else()
+  message(STATUS "CPU based depth registration disabled")
+  set(DEPTH_REG_CPU OFF)
+endif()
+
+if(OPENCL_FOUND)
+  message(STATUS "OpenCL based depth registration enabled")
+  set(DEPTH_REG_OPENCL ON)
+  add_definitions(-DDEPTH_REG_OPENCL)
+else()
+  message(STATUS "OpenCL based depth registration disabled")
+  set(DEPTH_REG_OPENCL OFF)
+endif()
+
+if(NOT DEPTH_REG_CPU AND NOT DEPTH_REG_OPENCL)
+  message(FATAL_ERROR "No registration method available!")
 endif()
 
 ################################################
@@ -44,10 +75,11 @@ endif()
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES registration_viewer
+  INCLUDE_DIRS include
+  LIBRARIES kinect2_registration
 #  CATKIN_DEPENDS other_catkin_pkg
 #  DEPENDS system_lib
+  CFG_EXTRAS kinect2_registration.cmake
 )
 
 ###########
@@ -65,14 +97,28 @@ add_custom_target(additional_files_${PROJECT_NAME}
 include_directories(include
   ${catkin_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIR}
-  ${PCL_INCLUDE_DIRS}
 )
 
-add_executable(viewer src/viewer.cpp)
-target_link_libraries(viewer
+if(DEPTH_REG_CPU)
+  include_directories(
+    ${Eigen_INCLUDE_DIRS}
+  )
+  set(MODULES ${MODULES} src/depth_registration_cpu.cpp)
+  set(MODULE_LIBS ${MODULE_LIBS} ${Eigen_LIBRARIES})
+endif()
+
+if(DEPTH_REG_OPENCL)
+  include_directories(${OPENCL_INCLUDE_DIRS})
+  add_definitions(-DREG_OPENCL_FILE="${PROJECT_SOURCE_DIR}/src/depth_registration.cl")
+  set(MODULES ${MODULES} src/depth_registration_opencl.cpp)
+  set(MODULE_LIBS ${MODULE_LIBS} ${OPENCL_LIBRARIES})
+endif()
+
+add_library(kinect2_registration SHARED src/kinect2_registration.cpp ${MODULES})
+target_link_libraries(kinect2_registration
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
-  ${PCL_LIBRARIES}
+  ${MODULE_LIBS}
 )
 
 #############

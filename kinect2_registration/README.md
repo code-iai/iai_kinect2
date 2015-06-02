@@ -1,4 +1,4 @@
-# Depth Registration
+# Kinect2 Registration
 
 ## Maintainer
 

@@ -16,8 +16,8 @@
  */
 
 #pragma once
-#ifndef __DEPTH_REGISTRATION_H__
-#define __DEPTH_REGISTRATION_H__
+#ifndef __KINECT2_REGISTRATION_H__
+#define __KINECT2_REGISTRATION_H__
 
 #include <vector>
 
@@ -54,4 +54,4 @@ public:
   static DepthRegistration *New(Method method = DEFAULT);
 };
 
-#endif //__DEPTH_REGISTRATION_H__
+#endif //__KINECT2_REGISTRATION_H__
