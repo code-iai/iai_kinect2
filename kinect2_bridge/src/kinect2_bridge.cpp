@@ -47,8 +47,8 @@
 #include <libfreenect2/config.h>
 #include <libfreenect2/registration.h>
 
-#include <kinect2_definitions.h>
-#include <kinect2_registration.h>
+#include <kinect2_bridge/kinect2_definitions.h>
+#include <kinect2_registration/kinect2_registration.h>
 
 class Kinect2Bridge
 {

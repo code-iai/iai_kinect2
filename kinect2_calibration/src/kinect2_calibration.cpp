@@ -44,8 +44,8 @@
 #include <message_filters/synchronizer.h>
 #include <message_filters/sync_policies/exact_time.h>
 
-#include <kinect2_calibration_definitions.h>
-#include <kinect2_definitions.h>
+#include <kinect2_calibration/kinect2_calibration_definitions.h>
+#include <kinect2_bridge/kinect2_definitions.h>
 
 
 enum Mode

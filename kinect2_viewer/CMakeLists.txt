@@ -66,6 +66,7 @@ include_directories(include
   ${catkin_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIR}
   ${PCL_INCLUDE_DIRS}
+  ${kinect2_bridge_INCLUDE_DIRS}
 )
 
 add_executable(kinect2_viewer src/viewer.cpp)
@@ -73,6 +74,7 @@ target_link_libraries(kinect2_viewer
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${PCL_LIBRARIES}
+  ${kinect2_bridge_LIBRARIES}
 )
 
 #############
@@ -90,11 +92,11 @@ target_link_libraries(kinect2_viewer
 # )
 
 ## Mark executables and/or libraries for installation
-# install(TARGETS kinect2_bridge kinect2_bridge_node
+install(TARGETS kinect2_viewer
 #   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 
 ## Mark cpp header files for installation
 # install(DIRECTORY include/${PROJECT_NAME}/

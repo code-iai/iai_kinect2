@@ -47,7 +47,7 @@ endif()
 catkin_package(
   INCLUDE_DIRS include
 #  LIBRARIES kinect2_bridge
-#  CATKIN_DEPENDS other_catkin_pkg
+  CATKIN_DEPENDS depth_registration
 #  DEPENDS system_lib
 )
 
@@ -68,6 +68,7 @@ include_directories(include
   ${catkin_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIR}
   ${freenect2_INCLUDE_DIRS}
+  ${depth_registration_INCLUDE_DIRS}
 )
 
 if(DEPTH_REG_OPENCL)
@@ -83,6 +84,7 @@ target_link_libraries(kinect2_bridge_nodelet
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${freenect2_LIBRARY}
+  ${depth_registration_LIBRARY}
 )
 
 add_executable(kinect2_bridge src/kinect2_bridge.cpp)
@@ -90,6 +92,7 @@ target_link_libraries(kinect2_bridge
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${freenect2_LIBRARY}
+  ${depth_registration_LIBRARY}
 )
 
 #############
@@ -107,25 +110,30 @@ target_link_libraries(kinect2_bridge
 # )
 
 ## Mark executables and/or libraries for installation
-# install(TARGETS kinect2_bridge kinect2_bridge_node
+install(TARGETS kinect2_bridge kinect2_bridge_nodelet
 #   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 
 ## Mark cpp header files for installation
-# install(DIRECTORY include/${PROJECT_NAME}/
-#   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-#   FILES_MATCHING PATTERN "*.h"
-#   PATTERN ".svn" EXCLUDE
-# )
+install(DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+  FILES_MATCHING PATTERN "*.h"
+  PATTERN ".svn" EXCLUDE
+)
 
 ## Mark other files for installation (e.g. launch and bag files, etc.)
-# install(FILES
-#   # myfile1
-#   # myfile2
-#   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-# )
+install(DIRECTORY
+  launch
+  # myfile2
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)
+install(FILES
+  nodelet_plugins.xml
+  # myfile2
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)
 
 #############
 ## Testing ##

@@ -64,6 +64,7 @@ add_custom_target(additional_files_${PROJECT_NAME}
 include_directories(include
   ${catkin_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIR}
+  ${kinect2_bridge_INCLUDE_DIR}
 )
 
 add_executable(kinect2_calibration src/kinect2_calibration.cpp)

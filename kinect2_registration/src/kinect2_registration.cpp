@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#include <kinect2_registration.h>
+#include <kinect2_registration/kinect2_registration.h>
 
 #ifdef DEPTH_REG_CPU
 #include "depth_registration_cpu.h"
