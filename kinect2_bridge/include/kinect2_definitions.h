@@ -27,7 +27,7 @@
 
 #define K2_TOPIC_HD            "/hd"
 #define K2_TOPIC_QHD           "/qhd"
-#define K2_TOPIC_IR            "/ir"
+#define K2_TOPIC_SD            "/sd"
 
 #define K2_TOPIC_IMAGE_RECT    "_rect"
 #define K2_TOPIC_IMAGE_COLOR   "/image_color"

@@ -515,10 +515,10 @@ void help(const std::string &path)
 {
   std::cout << path << " [options]" << std::endl
             << "  name: 'any string' equals to the kinect2_bridge topic base name" << std::endl
-            << "  mode: 'qhd', 'hd', or 'ir'" << std::endl
+            << "  mode: 'qhd', 'hd', 'sd' or 'ir'" << std::endl
             << "  visualization: 'image', 'cloud' or 'both'" << std::endl
             << "  options:" << std::endl
-            << "    'raw' use raw instead of compressed topics" << std::endl
+            << "    'compressed' use compressed instead of raw topics" << std::endl
             << "    'approx' use approximate time synchronization" << std::endl;
 }
 
@@ -535,7 +535,7 @@ int main(int argc, char **argv)
   std::string topicColor = K2_TOPIC_QHD K2_TOPIC_IMAGE_COLOR K2_TOPIC_IMAGE_RECT;
   std::string topicDepth = K2_TOPIC_QHD K2_TOPIC_IMAGE_DEPTH K2_TOPIC_IMAGE_RECT;
   bool useExact = true;
-  bool useCompressed = true;
+  bool useCompressed = false;
   Receiver::Mode mode = Receiver::CLOUD;
 
   for(size_t i = 1; i < (size_t)argc; ++i)
@@ -560,16 +560,22 @@ int main(int argc, char **argv)
     }
     else if(param == "ir")
     {
-      topicColor = K2_TOPIC_IR K2_TOPIC_IMAGE_IR K2_TOPIC_IMAGE_RECT;
-      topicDepth = K2_TOPIC_IR K2_TOPIC_IMAGE_DEPTH K2_TOPIC_IMAGE_RECT;
+      topicColor = K2_TOPIC_SD K2_TOPIC_IMAGE_IR K2_TOPIC_IMAGE_RECT;
+      topicDepth = K2_TOPIC_SD K2_TOPIC_IMAGE_DEPTH K2_TOPIC_IMAGE_RECT;
+    }
+    else if(param == "sd")
+    {
+      topicColor = K2_TOPIC_SD K2_TOPIC_IMAGE_COLOR K2_TOPIC_IMAGE_RECT;
+      topicDepth = K2_TOPIC_SD K2_TOPIC_IMAGE_DEPTH K2_TOPIC_IMAGE_RECT;
     }
     else if(param == "approx")
     {
       useExact = false;
     }
-    else if(param == "raw")
+
+    else if(param == "compressed")
     {
-      useCompressed = false;
+      useCompressed = true;
     }
     else if(param == "image")
     {

@@ -45,6 +45,7 @@
 #include <libfreenect2/frame_listener_impl.h>
 #include <libfreenect2/packet_pipeline.h>
 #include <libfreenect2/config.h>
+#include <libfreenect2/registration.h>
 
 #include <kinect2_definitions.h>
 #include <depth_registration.h>
@@ -73,6 +74,10 @@ private:
   libfreenect2::Freenect2Device *device;
   libfreenect2::SyncMultiFrameListener *listenerColor, *listenerIrDepth;
   libfreenect2::PacketPipeline *packetPipeline;
+  libfreenect2::Registration *registration;
+  libfreenect2::Freenect2Device::ColorCameraParams colorParams;
+  libfreenect2::Freenect2Device::IrCameraParams irParams;
+  std::shared_ptr<libfreenect2::Frame> irFrame, depthFrame, colorFrame;
 
   ros::NodeHandle nh, priv_nh;
 
@@ -87,14 +92,15 @@ private:
 
   enum Image
   {
-    IR = 0,
-    IR_RECT,
-    DEPTH,
-    DEPTH_RECT,
+    IR_SD = 0,
+    IR_SD_RECT,
 
+    DEPTH_SD,
+    DEPTH_SD_RECT,
     DEPTH_HD,
     DEPTH_QHD,
 
+    COLOR_SD_RECT,
     COLOR_HD,
     COLOR_HD_RECT,
     COLOR_QHD,
@@ -123,8 +129,9 @@ private:
 
 public:
   Kinect2Bridge(const ros::NodeHandle &nh = ros::NodeHandle(), const ros::NodeHandle &priv_nh = ros::NodeHandle("~"))
-    : sizeColor(1920, 1080), sizeIr(512, 424), sizeLowRes(sizeColor.width / 2, sizeColor.height / 2), nh(nh), priv_nh(priv_nh), frameColor(0), frameIrDepth(0),
-      pubFrameColor(0), pubFrameIrDepth(0), lastColor(0, 0), lastDepth(0, 0), nextColor(false), nextIrDepth(false), depthShift(0), running(false), deviceActive(false), clientConnected(false)
+    : sizeColor(1920, 1080), sizeIr(512, 424), sizeLowRes(sizeColor.width / 2, sizeColor.height / 2), nh(nh), priv_nh(priv_nh),
+      frameColor(0), frameIrDepth(0), pubFrameColor(0), pubFrameIrDepth(0), lastColor(0, 0), lastDepth(0, 0), nextColor(false),
+      nextIrDepth(false), depthShift(0), running(false), deviceActive(false), clientConnected(false)
   {
     color = cv::Mat::zeros(sizeColor, CV_8UC3);
     ir = cv::Mat::zeros(sizeIr, CV_32F);
@@ -174,6 +181,7 @@ public:
     device->close();
     delete listenerIrDepth;
     delete listenerColor;
+    delete registration;
 
     for(size_t i = 0; i < COUNT; ++i)
     {
@@ -320,6 +328,8 @@ private:
     ret = ret && depthRegLowRes->init(cameraMatrixLowRes, sizeLowRes, cameraMatrixIr, sizeIr, distortionIr, rotation, translation, 0.5f, maxDepth, device);
     ret = ret && depthRegHighRes->init(cameraMatrixColor, sizeColor, cameraMatrixIr, sizeIr, distortionIr, rotation, translation, 0.5f, maxDepth, device);
 
+    registration = new libfreenect2::Registration(irParams, colorParams);
+
     return ret;
   }
 
@@ -386,25 +396,27 @@ private:
     if(use_png)
     {
       compression16BitExt = ".png";
-      compression16BitString = sensor_msgs::image_encodings::MONO16 + "; png compressed";
+      compression16BitString = sensor_msgs::image_encodings::TYPE_16UC1 + "; png compressed";
     }
     else
     {
       compression16BitExt = ".tif";
-      compression16BitString = sensor_msgs::image_encodings::MONO16 + "; tiff compressed";
+      compression16BitString = sensor_msgs::image_encodings::TYPE_16UC1 + "; tiff compressed";
     }
   }
 
   void initTopics(const int32_t queueSize, const std::string &base_name)
   {
     std::vector<std::string> topics(COUNT);
-    topics[IR] = K2_TOPIC_IR K2_TOPIC_IMAGE_IR;
-    topics[IR_RECT] = K2_TOPIC_IR K2_TOPIC_IMAGE_IR K2_TOPIC_IMAGE_RECT;
+    topics[IR_SD] = K2_TOPIC_SD K2_TOPIC_IMAGE_IR;
+    topics[IR_SD_RECT] = K2_TOPIC_SD K2_TOPIC_IMAGE_IR K2_TOPIC_IMAGE_RECT;
 
-    topics[DEPTH] = K2_TOPIC_IR K2_TOPIC_IMAGE_DEPTH;
-    topics[DEPTH_RECT] = K2_TOPIC_IR K2_TOPIC_IMAGE_DEPTH K2_TOPIC_IMAGE_RECT;
+    topics[DEPTH_SD] = K2_TOPIC_SD K2_TOPIC_IMAGE_DEPTH;
+    topics[DEPTH_SD_RECT] = K2_TOPIC_SD K2_TOPIC_IMAGE_DEPTH K2_TOPIC_IMAGE_RECT;
     topics[DEPTH_HD] = K2_TOPIC_HD K2_TOPIC_IMAGE_DEPTH K2_TOPIC_IMAGE_RECT;
     topics[DEPTH_QHD] = K2_TOPIC_QHD K2_TOPIC_IMAGE_DEPTH K2_TOPIC_IMAGE_RECT;
+
+    topics[COLOR_SD_RECT] = K2_TOPIC_SD K2_TOPIC_IMAGE_COLOR K2_TOPIC_IMAGE_RECT;
 
     topics[COLOR_HD] = K2_TOPIC_HD K2_TOPIC_IMAGE_COLOR;
     topics[COLOR_HD_RECT] = K2_TOPIC_HD K2_TOPIC_IMAGE_COLOR K2_TOPIC_IMAGE_RECT;
@@ -427,7 +439,7 @@ private:
     }
     infoHDPub = nh.advertise<sensor_msgs::CameraInfo>(base_name + K2_TOPIC_HD + K2_TOPIC_INFO, queueSize, cb, cb);
     infoQHDPub = nh.advertise<sensor_msgs::CameraInfo>(base_name + K2_TOPIC_QHD + K2_TOPIC_INFO, queueSize, cb, cb);
-    infoIRPub = nh.advertise<sensor_msgs::CameraInfo>(base_name + K2_TOPIC_IR + K2_TOPIC_INFO, queueSize, cb, cb);
+    infoIRPub = nh.advertise<sensor_msgs::CameraInfo>(base_name + K2_TOPIC_SD + K2_TOPIC_INFO, queueSize, cb, cb);
   }
 
   bool initDevice(std::string &sensor)
@@ -480,8 +492,8 @@ private:
     std::cout << std::endl << "device serial: " << sensor << std::endl;
     std::cout << "device firmware: " << device->getFirmwareVersion() << std::endl;
 
-    libfreenect2::Freenect2Device::ColorCameraParams colorParams = device->getColorCameraParams();
-    libfreenect2::Freenect2Device::IrCameraParams irParams = device->getIrCameraParams();
+    colorParams = device->getColorCameraParams();
+    irParams = device->getIrCameraParams();
 
     device->stop();
 
@@ -554,6 +566,23 @@ private:
     cameraMatrixLowRes.at<double>(1, 1) /= 2;
     cameraMatrixLowRes.at<double>(0, 2) /= 2;
     cameraMatrixLowRes.at<double>(1, 2) /= 2;
+
+    colorParams.fx = cameraMatrixColor.at<double>(0, 0);
+    colorParams.fy = cameraMatrixColor.at<double>(1, 1);
+    colorParams.cx = cameraMatrixColor.at<double>(0, 2);
+    colorParams.cy = cameraMatrixColor.at<double>(1, 2);
+
+    irParams.fx = cameraMatrixIr.at<double>(0, 0);
+    irParams.fy = cameraMatrixIr.at<double>(1, 1);
+    irParams.cx = cameraMatrixIr.at<double>(0, 2);
+    irParams.cy = cameraMatrixIr.at<double>(1, 2);
+
+    irParams.k1 = distortionIr.at<double>(0, 0);
+    irParams.k2 = distortionIr.at<double>(0, 1);
+    irParams.p1 = distortionIr.at<double>(0, 2);
+    irParams.p2 = distortionIr.at<double>(0, 3);
+    irParams.k3 = distortionIr.at<double>(0, 4);
+
 
     const int mapType = CV_16SC2;
     cv::initUndistortRectifyMap(cameraMatrixColor, distortionColor, cv::Mat(), cameraMatrixColor, sizeColor, mapType, map1Color, map2Color);
@@ -814,7 +843,6 @@ private:
   void receiveIrDepth()
   {
     libfreenect2::FrameMap frames;
-    libfreenect2::Frame *irFrame, *depthFrame;
     cv::Mat depth, ir;
     std_msgs::Header header;
     std::vector<cv::Mat> images(COUNT);
@@ -830,8 +858,8 @@ private:
 
     header = createHeader(lastDepth, lastColor);
 
-    irFrame = frames[libfreenect2::Frame::Ir];
-    depthFrame = frames[libfreenect2::Frame::Depth];
+    irFrame = std::shared_ptr<libfreenect2::Frame>(frames[libfreenect2::Frame::Ir]);
+    depthFrame = std::shared_ptr<libfreenect2::Frame>(frames[libfreenect2::Frame::Depth]);
 
     ir = cv::Mat(irFrame->height, irFrame->width, CV_32FC1, irFrame->data);
     depth = cv::Mat(depthFrame->height, depthFrame->width, CV_32FC1, depthFrame->data);
@@ -840,9 +868,8 @@ private:
     lockIrDepth.unlock();
 
     processIrDepth(ir, depth, images, status);
-    listenerIrDepth->release(frames);
 
-    publishImages(images, header, status, frame, pubFrameIrDepth, IR, COLOR_HD);
+    publishImages(images, header, status, frame, pubFrameIrDepth, IR_SD, COLOR_HD);
 
     double elapsed = ros::Time::now().toSec() - now;
     lockTime.lock();
@@ -853,7 +880,6 @@ private:
   void receiveColor()
   {
     libfreenect2::FrameMap frames;
-    libfreenect2::Frame *colorFrame;
     cv::Mat color;
     std_msgs::Header header;
     std::vector<cv::Mat> images(COUNT);
@@ -869,14 +895,14 @@ private:
 
     header = createHeader(lastColor, lastDepth);
 
-    colorFrame = frames[libfreenect2::Frame::Color];
+    colorFrame = std::shared_ptr<libfreenect2::Frame>(frames[libfreenect2::Frame::Color]);
+
     color = cv::Mat(colorFrame->height, colorFrame->width, CV_8UC3, colorFrame->data);
 
     frame = frameColor++;
     lockColor.unlock();
 
     processColor(color, images, status);
-    listenerColor->release(frames);
 
     publishImages(images, header, status, frame, pubFrameColor, COLOR_HD, COUNT);
 
@@ -933,33 +959,50 @@ private:
 
   void processIrDepth(const cv::Mat &ir, const cv::Mat &depth, std::vector<cv::Mat> &images, const std::vector<Status> &status)
   {
+    // COLOR registered to depth
+    if(status[COLOR_SD_RECT])
+    {
+      if(!colorFrame)
+      {
+        images[COLOR_SD_RECT] = cv::Mat::zeros(sizeIr, CV_8UC3);
+      }
+      else
+      {
+        std::shared_ptr<libfreenect2::Frame> tmpColor, tmpDepth;
+        tmpColor = colorFrame;
+        tmpDepth = depthFrame;
+        cv::Mat tmp = cv::Mat::zeros(sizeIr, CV_8UC3);
+        registration->apply(tmpColor.get(), tmpDepth.get(), tmp.data);
+        cv::flip(tmp, images[COLOR_SD_RECT], 1);
+      }
+    }
 
     // IR
-    if(status[IR] || status[IR_RECT])
+    if(status[IR_SD] || status[IR_SD_RECT])
     {
-      ir.convertTo(images[IR], CV_16U);
-      cv::flip(images[IR], images[IR], 1);
+      ir.convertTo(images[IR_SD], CV_16U);
+      cv::flip(images[IR_SD], images[IR_SD], 1);
     }
-    if(status[IR_RECT])
+    if(status[IR_SD_RECT])
     {
-      cv::remap(images[IR], images[IR_RECT], map1Ir, map2Ir, cv::INTER_AREA);
+      cv::remap(images[IR_SD], images[IR_SD_RECT], map1Ir, map2Ir, cv::INTER_AREA);
     }
 
     // DEPTH
     cv::Mat depthShifted;
-    if(status[DEPTH])
+    if(status[DEPTH_SD])
     {
-      depth.convertTo(images[DEPTH], CV_16U, 1);
-      cv::flip(images[DEPTH], images[DEPTH], 1);
+      depth.convertTo(images[DEPTH_SD], CV_16U, 1);
+      cv::flip(images[DEPTH_SD], images[DEPTH_SD], 1);
     }
-    if(status[DEPTH_RECT] || status[DEPTH_QHD] || status[DEPTH_HD])
+    if(status[DEPTH_SD_RECT] || status[DEPTH_QHD] || status[DEPTH_HD])
     {
       depth.convertTo(depthShifted, CV_16U, 1, depthShift);
       cv::flip(depthShifted, depthShifted, 1);
     }
-    if(status[DEPTH_RECT])
+    if(status[DEPTH_SD_RECT])
     {
-      cv::remap(depthShifted, images[DEPTH_RECT], map1Ir, map2Ir, cv::INTER_NEAREST);
+      cv::remap(depthShifted, images[DEPTH_SD_RECT], map1Ir, map2Ir, cv::INTER_NEAREST);
     }
     if(status[DEPTH_QHD])
     {
@@ -1046,6 +1089,15 @@ private:
 
     for(size_t i = begin; i < end; ++i)
     {
+      if(i < DEPTH_HD || i == COLOR_SD_RECT)
+      {
+        _header.frame_id = baseNameTF + K2_TF_IR_OPT_FRAME;
+      }
+      else
+      {
+        _header.frame_id = baseNameTF + K2_TF_RGB_OPT_FRAME;
+      }
+
       switch(status[i])
       {
       case UNSUBCRIBED:
@@ -1122,14 +1174,15 @@ private:
 
     switch(type)
     {
-    case IR:
-    case IR_RECT:
-    case DEPTH:
-    case DEPTH_RECT:
+    case IR_SD:
+    case IR_SD_RECT:
+    case DEPTH_SD:
+    case DEPTH_SD_RECT:
     case DEPTH_HD:
     case DEPTH_QHD:
-      msgImage.encoding = sensor_msgs::image_encodings::MONO16;
+      msgImage.encoding = sensor_msgs::image_encodings::TYPE_16UC1;
       break;
+    case COLOR_SD_RECT:
     case COLOR_HD:
     case COLOR_HD_RECT:
     case COLOR_QHD:
@@ -1140,7 +1193,7 @@ private:
     case MONO_HD_RECT:
     case MONO_QHD:
     case MONO_QHD_RECT:
-      msgImage.encoding = sensor_msgs::image_encodings::MONO8;
+      msgImage.encoding = sensor_msgs::image_encodings::TYPE_8UC1;
       break;
     case COUNT:
       return;
@@ -1161,15 +1214,16 @@ private:
 
     switch(type)
     {
-    case IR:
-    case IR_RECT:
-    case DEPTH:
-    case DEPTH_RECT:
+    case IR_SD:
+    case IR_SD_RECT:
+    case DEPTH_SD:
+    case DEPTH_SD_RECT:
     case DEPTH_HD:
     case DEPTH_QHD:
       msgImage.format = compression16BitString;
       cv::imencode(compression16BitExt, image, msgImage.data, compressionParams);
       break;
+    case COLOR_SD_RECT:
     case COLOR_HD:
     case COLOR_HD_RECT:
     case COLOR_QHD:
@@ -1181,7 +1235,7 @@ private:
     case MONO_HD_RECT:
     case MONO_QHD:
     case MONO_QHD_RECT:
-      msgImage.format = sensor_msgs::image_encodings::MONO8 + "; jpeg compressed ";
+      msgImage.format = sensor_msgs::image_encodings::TYPE_8UC1 + "; jpeg compressed ";
       cv::imencode(".jpg", image, msgImage.data, compressionParams);
       break;
     case COUNT:
