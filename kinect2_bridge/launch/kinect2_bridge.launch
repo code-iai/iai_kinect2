@@ -32,6 +32,7 @@
   <node pkg="nodelet" type="nodelet" name="$(arg base_name)_bridge" machine="$(arg machine)"
         args="load kinect2_bridge/kinect2_bridge_nodelet $(arg nodelet_manager)"
         respawn="true" output="screen">
+    <param name="base_name"         type="str"    value="$(arg base_name)"/>
     <param name="sensor"            type="str"    value="$(arg sensor)"/>
     <param name="publish_tf"        type="bool"   value="$(arg publish_tf)"/>
     <param name="base_name_tf"      type="str"    value="$(arg base_name_tf)"/>
