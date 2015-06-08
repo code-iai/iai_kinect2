@@ -10,11 +10,11 @@
 - [FAQ](#faq)
 - [Dependencies](#dependencies)
 - [Install](#install)
-- [Permissions to access the Kinect One](#permissions_to_access_the_kinect_one)
+- [Permissions to access the Kinect One](#permissions-to-access-the-kinect-one)
 - [OpenCL](#opencl)
-  - [OpenCL with AMD](#opencl_with_amd)
-  - [OpenCL with Nvidia](#opencl_with_nvidia)
-  - [OpenCL with Intel](#opencl_with_intel)
+  - [OpenCL with AMD](#opencl-with-amd)
+  - [OpenCL with Nvidia](#opencl-with-nvidia)
+  - [OpenCL with Intel](#opencl-with-intel)
 - [Screenshots](#screenshots)
 
 ## Recent changes
