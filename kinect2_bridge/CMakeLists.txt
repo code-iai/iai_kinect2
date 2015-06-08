@@ -47,7 +47,7 @@ endif()
 catkin_package(
   INCLUDE_DIRS include
 #  LIBRARIES kinect2_bridge
-  CATKIN_DEPENDS depth_registration
+  CATKIN_DEPENDS kinect2_registration
 #  DEPENDS system_lib
 )
 
@@ -68,7 +68,7 @@ include_directories(include
   ${catkin_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIR}
   ${freenect2_INCLUDE_DIRS}
-  ${depth_registration_INCLUDE_DIRS}
+  ${kinect2_registration_INCLUDE_DIRS}
 )
 
 if(DEPTH_REG_OPENCL)
@@ -84,7 +84,7 @@ target_link_libraries(kinect2_bridge_nodelet
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${freenect2_LIBRARY}
-  ${depth_registration_LIBRARY}
+  ${kinect2_registration_LIBRARY}
 )
 
 add_executable(kinect2_bridge src/kinect2_bridge.cpp)
@@ -92,7 +92,7 @@ target_link_libraries(kinect2_bridge
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${freenect2_LIBRARY}
-  ${depth_registration_LIBRARY}
+  ${kinect2_registration_LIBRARY}
 )
 
 #############
