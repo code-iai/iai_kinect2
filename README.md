@@ -4,9 +4,22 @@
 
 - [Thiemo Wiedemeyer](https://ai.uni-bremen.de/team/thiemo_wiedemeyer) <<wiedemeyer@cs.uni-bremen.de>>, [Institute for Artificial Intelligence](http://ai.uni-bremen.de/), University of Bremen
 
+## Table of contents
+- [Recent changes](#recent-changes)
+- [Description](#description)
+- [FAQ](#faq)
+- [Dependencies](#dependencies)
+- [Install](#install)
+- [Permissions to access the Kinect One](#permissions_to_access_the_kinect_one)
+- [OpenCL](#opencl)
+  - [OpenCL with AMD](#opencl_with_amd)
+  - [OpenCL with Nvidia](#opencl_with_nvidia)
+  - [OpenCL with Intel](#opencl_with_intel)
+- [Screenshots](#screenshots)
 
 ## Recent changes
 
+- Install instructions added to CMakeLists.txt
 - Structure of topics changed. Grouped by resolution.
 - Kinect2 device is stopped if no subscribers are listening to lower CPU usage on idle.
 - `compressedDepth` topic replaced by `compressed`. Should not make a difference when using `image_transport`, just change the `TransportHints` from `"compressedDepth"` to `"compressed"`. This also fixes an issue with rviz, due to a bug in DepthCloud plugin.
@@ -65,7 +78,7 @@ First of all, check the issue pages on GitHub for similar issues, as they might 
 
 If you found no solution in the issues, feel free to open a new issue for your problem. Please describe your problem in detail and provide error messages and log output.
 
-## Dependencies from all parts
+## Dependencies
 
 - ROS Hydro/Indigo
 - OpenCV
@@ -74,43 +87,27 @@ If you found no solution in the issues, feel free to open a new issue for your p
 - OpenCL (optional)
 - [libfreenect2](https://github.com/OpenKinect/libfreenect2)
 
-## Modifications to Upstream libfreenect2
-
-[CMakeLists.txt](https://github.com/OpenKinect/libfreenect2/blob/master/examples/protonect/CMakeLists.txt):
-- Replace [line 48 to 50](https://github.com/OpenKinect/libfreenect2/blob/master/examples/protonect/CMakeLists.txt#L48-50) with
-
-   ```
-# LibUSB
-GET_FILENAME_COMPONENT(LIBUSB_DIR "${MY_DIR}/../../depends/libusb/" REALPATH)
-
-INCLUDE_DIRECTORIES("${LIBUSB_DIR}/include/libusb-1.0/")
-LINK_DIRECTORIES("${LIBUSB_DIR}/lib/")
-SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-```
-
 ## Install
 
 1. Install the ROS. [Instructions for Ubuntu 14.04](http://wiki.ros.org/indigo/Installation/Ubuntu)
 2. [Setup your ROS environment](http://wiki.ros.org/ROS/Tutorials/InstallingandConfiguringROSEnvironment)
-3. Install [libfreenect2](https://github.com/OpenKinect/libfreenect2) with the described modifications:
+3. Install [libfreenect2](https://github.com/OpenKinect/libfreenect2):
 
    ```
 cd ~
 sudo apt-get install -y build-essential libturbojpeg libtool autoconf libudev-dev cmake mesa-common-dev freeglut3-dev libxrandr-dev doxygen libxi-dev libopencv-dev
 sudo ln -s /usr/lib/x86_64-linux-gnu/libturbojpeg.so.0 /usr/lib/x86_64-linux-gnu/libturbojpeg.so
 git clone https://github.com/OpenKinect/libfreenect2
-```
-   Apply the modifications and then
-
-   ```
 cd libfreenect2/depends
 ./install_ubuntu.sh
+sudo dpkg -i libglfw3*_3.0.4-1_*.deb
 cd ..
 mkdir build
 cd build
 cmake ../examples/protonect/ -DENABLE_CXX11=ON
 make && sudo make install
 ```
+
 4. Clone this repository into your catkin workspace, install the dependencies and build it:
 
    ```
@@ -149,15 +146,17 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="045e", ATTR{idProduct}=="02d9", MODE="0666"
 3. Check if the `idProduct` of your sensor is in the list. If not just add another line with the `idProduct` of your sensor. You can obtain it by running `dmesg | grep "045e"`.
 4. Reconnect the sensor and you should be able to access it.
 
-## OpenCL with AMD
+## OpenCL
+
+### OpenCL with AMD
 
 Install the latest version of the AMD Catalyst drivers from https://support.amd.com and `opencl-headers`.
 
-## OpenCL with Nvidia
+### OpenCL with Nvidia
 
 Install the latest version of the Nvidia drivers, for example `nvidia-346` from `ppa:xorg-edgers` and `opencl-headers`.
 
-## OpenCL with Intel GPU
+### OpenCL with Intel
 
 You can either install a binary package from a ppa, or build beignet yourself.
 
