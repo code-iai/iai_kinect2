@@ -969,11 +969,11 @@ private:
       else
       {
         std::shared_ptr<libfreenect2::Frame> tmpColor, tmpDepth;
+        libfreenect2::Frame undistorted(512, 424, 4), registered(512, 424, 3);
         tmpColor = colorFrame;
         tmpDepth = depthFrame;
-        cv::Mat tmp = cv::Mat::zeros(sizeIr, CV_8UC3);
-        registration->apply(tmpColor.get(), tmpDepth.get(), tmp.data);
-        cv::flip(tmp, images[COLOR_SD_RECT], 1);
+        registration->apply(tmpColor.get(), tmpDepth.get(), &undistorted, &registered);
+        cv::flip(cv::Mat(sizeIr, CV_8UC3, registered.data), images[COLOR_SD_RECT], 1);
       }
     }
 
