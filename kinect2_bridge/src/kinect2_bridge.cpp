@@ -897,7 +897,7 @@ private:
 
     colorFrame = std::shared_ptr<libfreenect2::Frame>(frames[libfreenect2::Frame::Color]);
 
-    color = cv::Mat(colorFrame->height, colorFrame->width, CV_8UC3, colorFrame->data);
+    color = cv::Mat(colorFrame->height, colorFrame->width, CV_8UC4, colorFrame->data);
 
     frame = frameColor++;
     lockColor.unlock();
@@ -969,11 +969,13 @@ private:
       else
       {
         std::shared_ptr<libfreenect2::Frame> tmpColor, tmpDepth;
-        libfreenect2::Frame undistorted(512, 424, 4), registered(512, 424, 3);
+        cv::Mat tmp;
+        libfreenect2::Frame undistorted(sizeIr.width, sizeIr.height, 4), registered(sizeIr.width, sizeIr.height, 4);
         tmpColor = colorFrame;
         tmpDepth = depthFrame;
         registration->apply(tmpColor.get(), tmpDepth.get(), &undistorted, &registered);
-        cv::flip(cv::Mat(sizeIr, CV_8UC3, registered.data), images[COLOR_SD_RECT], 1);
+        cv::flip(cv::Mat(sizeIr, CV_8UC4, registered.data), tmp, 1);
+        cv::cvtColor(tmp, images[COLOR_SD_RECT], CV_BGRA2BGR);
       }
     }
 
@@ -1024,7 +1026,9 @@ private:
     if(status[COLOR_HD] || status[COLOR_HD_RECT] || status[COLOR_QHD] || status[COLOR_QHD_RECT] ||
        status[MONO_HD] || status[MONO_HD_RECT] || status[MONO_QHD] || status[MONO_QHD_RECT])
     {
-      cv::flip(color, images[COLOR_HD], 1);
+      cv::Mat tmp;
+      cv::flip(color, tmp, 1);
+      cv::cvtColor(tmp, images[COLOR_HD], CV_BGRA2BGR);
     }
     if(status[COLOR_HD_RECT] || status[MONO_HD_RECT])
     {
