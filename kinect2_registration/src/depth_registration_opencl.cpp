@@ -99,7 +99,7 @@ void listDevice(std::vector<cl::Device> &devices)
   {
     cl::Device &dev = devices[i];
     std::string devName, devVendor, devType;
-    size_t devTypeID;
+    cl_device_type devTypeID;
     dev.getInfo(CL_DEVICE_NAME, &devName);
     dev.getInfo(CL_DEVICE_VENDOR, &devVendor);
     dev.getInfo(CL_DEVICE_TYPE, &devTypeID);
@@ -135,12 +135,12 @@ bool selectDevice(std::vector<cl::Device> &devices, cl::Device &device, const in
   }
 
   bool selected = false;
-  size_t selectedType = 0;
+  cl_device_type selectedType = 0;
 
   for(size_t i = 0; i < devices.size(); ++i)
   {
     cl::Device &dev = devices[i];
-    size_t devTypeID;
+    cl_device_type devTypeID;
     dev.getInfo(CL_DEVICE_TYPE, &devTypeID);
 
     if(!selected || (selectedType != CL_DEVICE_TYPE_GPU && devTypeID == CL_DEVICE_TYPE_GPU))
@@ -182,7 +182,7 @@ bool DepthRegistrationOpenCL::init(const int deviceId)
     if(selectDevice(devices, data->device, deviceId))
     {
       std::string devName, devVendor, devType;
-      size_t devTypeID;
+      cl_device_type devTypeID;
       data->device.getInfo(CL_DEVICE_NAME, &devName);
       data->device.getInfo(CL_DEVICE_VENDOR, &devVendor);
       data->device.getInfo(CL_DEVICE_TYPE, &devTypeID);
