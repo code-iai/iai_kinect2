@@ -145,9 +145,10 @@ splot 'plot.dat' using 1:2:5 with dots palette title "Difference relative to XY-
 
 Example calibration results can be found in the directory [kinect2_bridge/data/](../kinect2_bridge/data).
 
-The following images were made before and after the calibration, using the registration viewer.
- - For the superimposed images: `rosrun registration_viewer viewer sd image raw`
- - For the point cloud images: `rosrun registration_viewer viewer`
+The following images were made before and after the calibration, using the kinect2 viewer.
+ - For the superimposed images: `rosrun kinect2_viewer kinect2_viewer hd image`
+ - For the point cloud images: `rosrun kinect2_viewer kinect2_viewer hd cloud`
+ - For the superimposed and point cloud images: `rosrun kinect2_viewer kinect2_viewer hd both`
 
 raw here stands for raw data transmission aka uncompressed.
 

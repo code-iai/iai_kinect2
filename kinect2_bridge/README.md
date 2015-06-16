@@ -27,13 +27,15 @@ This is a bridge between [libfreenect2](https://github.com/OpenKinect/libfreenec
 
 For the depth registration the camera intrinsics and extrinsics need to be known. The program reads in the values from the `data/<serialnumber>` folder. For each new sensor you need to add a subfolder with the serial number of the device as the folder name. In this folder you need to provide 4 yaml files with the intrinsics and extrinsics. These files can be created by the `kinect2_calibration` tool (or you can copy the files provided in one of the other folders, but results can be sub optimal). The device serial number is shown when `kinect2_bridge` or `Protonect` from libfreenect2 is started, it also appears in `dmesg` when you connect the sensor. [More information on calibration](../kinect2_calibration#calibrating-the-kinect-one).
 
-When `kinect2_bridge` is running you can use the `registration_viewer` to display the images or point cloud: `rosrun registration_viewer viewer image` or `rosrun registration_viewer viewer cloud`.
+When `kinect2_bridge` is running you can use the `kinect2_viewer` to display the images or point cloud: `rosrun kinect2_viewer kinect2_viewer sd image` or `rosrun kinect2_viewer kinect2_viewer sd cloud`.
 
 ## Topics
 
 ### HD Topics
 
 The images in this topics have a FullHD resolution (1920x1080).
+
+*Note: For correct registration of the depth image to the color image it is needed to perform a calibration.*
 
 ```
 /kinect2/hd/camera_info
@@ -54,6 +56,8 @@ The images in this topics have a FullHD resolution (1920x1080).
 
 The images in this topics have a quater FullHD resolution (960x540).
 
+*Note: For correct registration of the depth image to the color image it is needed to perform a calibration.*
+
 ```
 /kinect2/qhd/camera_info
 /kinect2/qhd/image_color
@@ -73,16 +77,21 @@ The images in this topics have a quater FullHD resolution (960x540).
 
 This are the raw IR and depth images from the sensor (512x424).
 
+*Note: The registration of the color image is available without a calibration. Parameters for the registration are provided by the sensor itself.*
+
 ```
-/kinect2/ir/camera_info
-/kinect2/ir/image_depth
-/kinect2/ir/image_depth/compressed
-/kinect2/ir/image_depth_rect
-/kinect2/ir/image_depth_rect/compressed
-/kinect2/ir/image_ir
-/kinect2/ir/image_ir/compressed
-/kinect2/ir/image_ir_rect
-/kinect2/ir/image_ir_rect/compressed
+/kinect2/sd/camera_info
+/kinect2/sd/image_color_rect
+/kinect2/sd/image_color_rect/compressed
+/kinect2/sd/image_depth
+/kinect2/sd/image_depth/compressed
+/kinect2/sd/image_depth_rect
+/kinect2/sd/image_depth_rect/compressed
+/kinect2/sd/image_ir
+/kinect2/sd/image_ir/compressed
+/kinect2/sd/image_ir_rect
+/kinect2/sd/image_ir_rect/compressed
+/kinect2/sd/points
 ```
 
 ## Notes

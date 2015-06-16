@@ -45,7 +45,7 @@ endif()
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES registration_viewer
+#  LIBRARIES kinect2_viewer
 #  CATKIN_DEPENDS other_catkin_pkg
 #  DEPENDS system_lib
 )

@@ -15,6 +15,7 @@
   - [OpenCL with AMD](#opencl-with-amd)
   - [OpenCL with Nvidia](#opencl-with-nvidia)
   - [OpenCL with Intel](#opencl-with-intel)
+- [Citation](#citation)
 - [Screenshots](#screenshots)
 
 ## Recent changes
@@ -42,6 +43,10 @@ It contains:
 First you should look at this FAQ and the [FAQ from libfreenect2](https://github.com/OpenKinect/libfreenect2#faq).
 Secondly, look at [issue page from libfreenect2](https://github.com/OpenKinect/libfreenect2/issues) and the [issue page of iai_kinect2](https://github.com/code-iai/iai_kinect2/issues) for similar issues and solutions.
 
+#### Will it work with OpenCV 3.0
+
+Right now it will not work with OpenCV 3.0. The default version in Ubuntu and ROS and therefore also for the iai_kinect2 package is OpenCV 2.4.x.
+
 #### kinect2_bridge is not working / crashing, what is wrong?
 
 There are many reasons why `kinect2_bridge` might not working. The first thing to find out whether the problem is related to `kinect2_bridge` or `libfreenect2`. A good tool for testing is `Protonect`, it is a binary located in `libfreenect2/examples/protonect/bin/Protonect`. It uses libfreenect directly with a minimal dependency on other libraries, so it is a good tool for the first tests.
@@ -64,7 +69,11 @@ cd libfreenect2/build
 make & sudo make install
 ```
 
-#### rosdep: Cannot locate rosdep definition for [kinect2_bridge] or [depth_registration]
+#### kinect2_bridge hangs and prints "waiting for clients to connect"
+
+This is the normal behavior. 'kinect2_bridge' will only process data when clients are connected (ROS nodes listening to at least one of the topics). This saves CPU and GPU resources. As soon as you start the `kinect_viewer` or `rostopic hz` on one of the topics, processing should start.
+
+#### rosdep: Cannot locate rosdep definition for [kinect2_bridge] or [kinect2_registration]
 
 `rosdep` will output errors on not being able to locate `[kinect2_bridge]` and `[kinect2_registration]`. That is fine because they are all part of the iai_kinect2 package and `rosdep` does not know these packages.
 
@@ -81,10 +90,10 @@ If you found no solution in the issues, feel free to open a new issue for your p
 ## Dependencies
 
 - ROS Hydro/Indigo
-- OpenCV
-- PCL
-- Eigen (optional)
-- OpenCL (optional)
+- OpenCV (2.4.x, using the one from the official Ubuntu repositories is recommended)
+- PCL (1.7.x, using the one from the official Ubuntu repositories is recommended)
+- Eigen (optional, but recommeded)
+- OpenCL (optional, but recommeded)
 - [libfreenect2](https://github.com/OpenKinect/libfreenect2)
 
 ## Install
@@ -210,6 +219,30 @@ echo 0 > /sys/module/i915/parameters/enable_cmd_parser
 [OpenCLDepthPacketProcessor] avg. time: 10.1716ms -> ~98.3129Hz
 [TurboJpegRgbPacketProcessor] avg. time: 16.0787ms -> ~62.194Hz
 ...
+```
+
+## Citation
+
+If you used `iai_kinect2` for your work, please cite it.
+
+```tex
+@misc{iai_kinect2,
+  author = {Wiedemeyer, Thiemo},
+  title = {{IAI Kinect2}},
+  organization = {Institute for Artificial Intelligence},
+  address = {University Bremen},
+  year = {2014 -- 2015},
+  howpublished = {\url{https://github.com/code-iai/iai\_kinect2}},
+  note = {Accessed June 12, 2015}
+}
+```
+
+The result should look something similar to this (may depend on the bibliography style used):
+
+```
+T. Wiedemeyer, “IAI Kinect2,” https://github.com/code-iai/iai_kinect2,
+Institute for Artificial Intelligence, University Bremen, 2014 – 2015,
+accessed June 12, 2015.
 ```
 
 ## Screenshots
