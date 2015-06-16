@@ -128,7 +128,7 @@ cd ~/catkin_ws
 catkin_make -DCMAKE_BUILD_TYPE="Release"
 ```
 
-**Note: `rosdep` will output errors on not being able to locate `[kinect2_bridge]` and `[depth_registration]`. That is fine because they are all part of the iai_kinect2 package and `rosdep` does not know these packages.**
+*Note: `rosdep` will output errors on not being able to locate `[kinect2_bridge]` and `[depth_registration]`. That is fine because they are all part of the iai_kinect2 package and `rosdep` does not know these packages.*
 
 5. Connect your sensor and run `kinect2_bridge`:
 
