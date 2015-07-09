@@ -140,11 +140,12 @@ public:
     status.resize(COUNT, UNSUBCRIBED);
   }
 
-  void start()
+  bool start()
   {
     if(!initialize())
     {
-      return;
+      std::cerr << "Initialization failed!" << std::endl;
+      return false;
     }
     running = true;
 
@@ -159,6 +160,7 @@ public:
     }
 
     mainThread = std::thread(&Kinect2Bridge::main, this);
+    return true;
   }
 
   void stop()
@@ -182,6 +184,9 @@ public:
     delete listenerIrDepth;
     delete listenerColor;
     delete registration;
+
+    delete depthRegLowRes;
+    delete depthRegHighRes;
 
     for(size_t i = 0; i < COUNT; ++i)
     {
@@ -269,24 +274,30 @@ private:
 
     initCompression(jpeg_quality, png_level, use_png);
 
-    bool ret = true;
-    ret = ret && initPipeline(depth_method, depth_dev, bilateral_filter, edge_aware_filter, minDepth, maxDepth);
-    ret = ret && initDevice(sensor);
-
-    if(ret)
+    if(!initPipeline(depth_method, depth_dev, bilateral_filter, edge_aware_filter, minDepth, maxDepth))
     {
-      initCalibration(calib_path, sensor);
+      return false;
     }
 
-    ret = ret && initRegistration(reg_method, reg_dev, maxDepth);
-
-    if(ret)
+    if(!initDevice(sensor))
     {
-      createCameraInfo();
+      return false;
     }
+
+    initCalibration(calib_path, sensor);
+
+    if(!initRegistration(reg_method, reg_dev, maxDepth))
+    {
+      device->close();
+      delete listenerIrDepth;
+      delete listenerColor;
+      return false;
+    }
+
+    createCameraInfo();
     initTopics(queueSize, base_name);
 
-    return ret;
+    return true;
   }
 
   bool initRegistration(const std::string &method, const int32_t device, const double maxDepth)
@@ -303,7 +314,7 @@ private:
       reg = DepthRegistration::CPU;
 #else
       std::cerr << "CPU registration is not available!" << std::endl;
-      return -1;
+      return false;
 #endif
     }
     else if(method == "opencl")
@@ -312,7 +323,7 @@ private:
       reg = DepthRegistration::OPENCL;
 #else
       std::cerr << "OpenCL registration is not available!" << std::endl;
-      return -1;
+      return false;
 #endif
     }
     else
@@ -324,13 +335,17 @@ private:
     depthRegLowRes = DepthRegistration::New(reg);
     depthRegHighRes = DepthRegistration::New(reg);
 
-    bool ret = true;
-    ret = ret && depthRegLowRes->init(cameraMatrixLowRes, sizeLowRes, cameraMatrixIr, sizeIr, distortionIr, rotation, translation, 0.5f, maxDepth, device);
-    ret = ret && depthRegHighRes->init(cameraMatrixColor, sizeColor, cameraMatrixIr, sizeIr, distortionIr, rotation, translation, 0.5f, maxDepth, device);
+    if(!depthRegLowRes->init(cameraMatrixLowRes, sizeLowRes, cameraMatrixIr, sizeIr, distortionIr, rotation, translation, 0.5f, maxDepth, device) ||
+       !depthRegHighRes->init(cameraMatrixColor, sizeColor, cameraMatrixIr, sizeIr, distortionIr, rotation, translation, 0.5f, maxDepth, device))
+    {
+      delete depthRegLowRes;
+      delete depthRegHighRes;
+      return false;
+    }
 
     registration = new libfreenect2::Registration(irParams, colorParams);
 
-    return ret;
+    return true;
   }
 
   bool initPipeline(const std::string &method, const int32_t device, const bool bilateral_filter, const bool edge_aware_filter, const double minDepth, const double maxDepth)
@@ -450,6 +465,7 @@ private:
     if(numOfDevs <= 0)
     {
       std::cerr << "Error: no Kinect2 devices found!" << std::endl;
+      delete packetPipeline;
       return false;
     }
 
@@ -469,6 +485,7 @@ private:
     if(!deviceFound)
     {
       std::cerr << "Error: Device with serial '" << sensor << "' not found!" << std::endl;
+      delete packetPipeline;
       return false;
     }
 
@@ -477,7 +494,7 @@ private:
     if(device == 0)
     {
       std::cout << "no device connected or failure opening the default one!" << std::endl;
-      return -1;
+      return false;
     }
 
     listenerColor = new libfreenect2::SyncMultiFrameListener(libfreenect2::Frame::Color);
@@ -1391,11 +1408,12 @@ int main(int argc, char **argv)
   }
 
   Kinect2Bridge kinect2;
-  kinect2.start();
+  if(kinect2.start())
+  {
+    ros::spin();
 
-  ros::spin();
-
-  kinect2.stop();
+    kinect2.stop();
+  }
 
   ros::shutdown();
   return 0;
