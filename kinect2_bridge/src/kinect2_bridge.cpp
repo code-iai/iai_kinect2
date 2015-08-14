@@ -852,6 +852,7 @@ private:
     std::vector<cv::Mat> images(COUNT);
     std::vector<Status> status = this->status;
     size_t frame;
+    std::shared_ptr<libfreenect2::Frame> irFrame, depthFrame;
 
     if(!receiveFrames(listenerIrDepth, frames))
     {
@@ -864,6 +865,8 @@ private:
 
     irFrame = std::shared_ptr<libfreenect2::Frame>(frames[libfreenect2::Frame::Ir]);
     depthFrame = std::shared_ptr<libfreenect2::Frame>(frames[libfreenect2::Frame::Depth]);
+    this->irFrame = irFrame;
+    this->depthFrame = depthFrame;
 
     ir = cv::Mat(irFrame->height, irFrame->width, CV_32FC1, irFrame->data);
     depth = cv::Mat(depthFrame->height, depthFrame->width, CV_32FC1, depthFrame->data);
@@ -889,6 +892,7 @@ private:
     std::vector<cv::Mat> images(COUNT);
     std::vector<Status> status = this->status;
     size_t frame;
+    std::shared_ptr<libfreenect2::Frame> colorFrame;
 
     if(!receiveFrames(listenerColor, frames))
     {
@@ -900,6 +904,7 @@ private:
     header = createHeader(lastColor, lastDepth);
 
     colorFrame = std::shared_ptr<libfreenect2::Frame>(frames[libfreenect2::Frame::Color]);
+    this->colorFrame = colorFrame;
 
     color = cv::Mat(colorFrame->height, colorFrame->width, CV_8UC4, colorFrame->data);
 
@@ -1368,7 +1373,7 @@ void help(const std::string &path)
 
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "kinect2_bridge");
+  ros::init(argc, argv, "kinect2_bridge", ros::init_options::AnonymousName);
 
 
   for(int argI = 1; argI < argc; ++argI)
