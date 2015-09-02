@@ -58,12 +58,12 @@ private:
 
   cv::Size sizeColor, sizeIr, sizeLowRes;
   cv::Mat color, ir, depth;
-  cv::Mat cameraMatrixColor, distortionColor, cameraMatrixLowRes, cameraMatrixIr, distortionIr;
+  cv::Mat cameraMatrixColor, distortionColor, cameraMatrixLowRes, cameraMatrixIr, distortionIr, cameraMatrixDepth, distortionDepth;
   cv::Mat rotation, translation;
   cv::Mat map1Color, map2Color, map1Ir, map2Ir, map1LowRes, map2LowRes;
 
   std::vector<std::thread> threads;
-  std::mutex lockIrDepth, lockColor;
+  std::mutex lockIrDepth, lockColor, lockColorFrame;
   std::mutex lockSync, lockPub, lockTime, lockStatus;
   std::mutex lockRegLowRes, lockRegHighRes;
 
@@ -77,7 +77,7 @@ private:
   libfreenect2::Registration *registration;
   libfreenect2::Freenect2Device::ColorCameraParams colorParams;
   libfreenect2::Freenect2Device::IrCameraParams irParams;
-  std::shared_ptr<libfreenect2::Frame> irFrame, depthFrame, colorFrame;
+  libfreenect2::Frame colorFrame;
 
   ros::NodeHandle nh, priv_nh;
 
@@ -129,13 +129,14 @@ private:
 
 public:
   Kinect2Bridge(const ros::NodeHandle &nh = ros::NodeHandle(), const ros::NodeHandle &priv_nh = ros::NodeHandle("~"))
-    : sizeColor(1920, 1080), sizeIr(512, 424), sizeLowRes(sizeColor.width / 2, sizeColor.height / 2), nh(nh), priv_nh(priv_nh),
+    : sizeColor(1920, 1080), sizeIr(512, 424), sizeLowRes(sizeColor.width / 2, sizeColor.height / 2), colorFrame(1920, 1080, 4), nh(nh), priv_nh(priv_nh),
       frameColor(0), frameIrDepth(0), pubFrameColor(0), pubFrameIrDepth(0), lastColor(0, 0), lastDepth(0, 0), nextColor(false),
       nextIrDepth(false), depthShift(0), running(false), deviceActive(false), clientConnected(false)
   {
     color = cv::Mat::zeros(sizeColor, CV_8UC3);
     ir = cv::Mat::zeros(sizeIr, CV_32F);
     depth = cv::Mat::zeros(sizeIr, CV_32F);
+    memset(colorFrame.data, 0, colorFrame.width * colorFrame.height * colorFrame.bytes_per_pixel);
 
     status.resize(COUNT, UNSUBCRIBED);
   }
@@ -335,8 +336,8 @@ private:
     depthRegLowRes = DepthRegistration::New(reg);
     depthRegHighRes = DepthRegistration::New(reg);
 
-    if(!depthRegLowRes->init(cameraMatrixLowRes, sizeLowRes, cameraMatrixIr, sizeIr, distortionIr, rotation, translation, 0.5f, maxDepth, device) ||
-       !depthRegHighRes->init(cameraMatrixColor, sizeColor, cameraMatrixIr, sizeIr, distortionIr, rotation, translation, 0.5f, maxDepth, device))
+    if(!depthRegLowRes->init(cameraMatrixLowRes, sizeLowRes, cameraMatrixDepth, sizeIr, distortionDepth, rotation, translation, 0.5f, maxDepth, device) ||
+       !depthRegHighRes->init(cameraMatrixColor, sizeColor, cameraMatrixDepth, sizeIr, distortionDepth, rotation, translation, 0.5f, maxDepth, device))
     {
       delete depthRegLowRes;
       delete depthRegHighRes;
@@ -545,9 +546,11 @@ private:
     distortionIr.at<double>(0, 3) = irParams.p2;
     distortionIr.at<double>(0, 4) = irParams.k3;
 
+    cameraMatrixDepth = cameraMatrixIr.clone();
+    distortionDepth = distortionIr.clone();
+
     rotation = cv::Mat::eye(3, 3, CV_64F);
     translation = cv::Mat::zeros(3, 1, CV_64F);
-    translation.at<double>(0) = -0.0520;
     return true;
   }
 
@@ -562,7 +565,7 @@ private:
       std::cerr << "using sensor defaults for color intrinsic parameters." << std::endl;
     }
 
-    if(calibDirNotFound || !loadCalibrationFile(calibPath + K2_CALIB_IR, cameraMatrixIr, distortionIr))
+    if(calibDirNotFound || !loadCalibrationFile(calibPath + K2_CALIB_IR, cameraMatrixDepth, distortionDepth))
     {
       std::cerr << "using sensor defaults for ir intrinsic parameters." << std::endl;
     }
@@ -584,23 +587,6 @@ private:
     cameraMatrixLowRes.at<double>(0, 2) /= 2;
     cameraMatrixLowRes.at<double>(1, 2) /= 2;
 
-    colorParams.fx = cameraMatrixColor.at<double>(0, 0);
-    colorParams.fy = cameraMatrixColor.at<double>(1, 1);
-    colorParams.cx = cameraMatrixColor.at<double>(0, 2);
-    colorParams.cy = cameraMatrixColor.at<double>(1, 2);
-
-    irParams.fx = cameraMatrixIr.at<double>(0, 0);
-    irParams.fy = cameraMatrixIr.at<double>(1, 1);
-    irParams.cx = cameraMatrixIr.at<double>(0, 2);
-    irParams.cy = cameraMatrixIr.at<double>(1, 2);
-
-    irParams.k1 = distortionIr.at<double>(0, 0);
-    irParams.k2 = distortionIr.at<double>(0, 1);
-    irParams.p1 = distortionIr.at<double>(0, 2);
-    irParams.p2 = distortionIr.at<double>(0, 3);
-    irParams.k3 = distortionIr.at<double>(0, 4);
-
-
     const int mapType = CV_16SC2;
     cv::initUndistortRectifyMap(cameraMatrixColor, distortionColor, cv::Mat(), cameraMatrixColor, sizeColor, mapType, map1Color, map2Color);
     cv::initUndistortRectifyMap(cameraMatrixIr, distortionIr, cv::Mat(), cameraMatrixIr, sizeIr, mapType, map1Ir, map2Ir);
@@ -611,6 +597,8 @@ private:
               << "distortion coefficients color:" << std::endl << distortionColor << std::endl
               << "camera matrix ir:" << std::endl << cameraMatrixIr << std::endl
               << "distortion coefficients ir:" << std::endl << distortionIr << std::endl
+              << "camera matrix depth:" << std::endl << cameraMatrixDepth << std::endl
+              << "distortion coefficients depth:" << std::endl << distortionDepth << std::endl
               << "rotation:" << std::endl << rotation << std::endl
               << "translation:" << std::endl << translation << std::endl
               << "depth shift:" << std::endl << depthShift << std::endl << std::endl;
@@ -875,8 +863,8 @@ private:
 
     header = createHeader(lastDepth, lastColor);
 
-    irFrame = std::shared_ptr<libfreenect2::Frame>(frames[libfreenect2::Frame::Ir]);
-    depthFrame = std::shared_ptr<libfreenect2::Frame>(frames[libfreenect2::Frame::Depth]);
+    libfreenect2::Frame *irFrame = frames[libfreenect2::Frame::Ir];
+    libfreenect2::Frame *depthFrame = frames[libfreenect2::Frame::Depth];
 
     ir = cv::Mat(irFrame->height, irFrame->width, CV_32FC1, irFrame->data);
     depth = cv::Mat(depthFrame->height, depthFrame->width, CV_32FC1, depthFrame->data);
@@ -884,9 +872,11 @@ private:
     frame = frameIrDepth++;
     lockIrDepth.unlock();
 
-    processIrDepth(ir, depth, images, status);
+    processIrDepth(ir, depth, images, status, depthFrame);
 
     publishImages(images, header, status, frame, pubFrameIrDepth, IR_SD, COLOR_HD);
+
+    listenerIrDepth->release(frames);
 
     double elapsed = ros::Time::now().toSec() - now;
     lockTime.lock();
@@ -912,16 +902,18 @@ private:
 
     header = createHeader(lastColor, lastDepth);
 
-    colorFrame = std::shared_ptr<libfreenect2::Frame>(frames[libfreenect2::Frame::Color]);
+    libfreenect2::Frame *colorFrame = frames[libfreenect2::Frame::Color];
 
     color = cv::Mat(colorFrame->height, colorFrame->width, CV_8UC4, colorFrame->data);
 
     frame = frameColor++;
     lockColor.unlock();
 
-    processColor(color, images, status);
+    processColor(color, images, status, colorFrame);
 
     publishImages(images, header, status, frame, pubFrameColor, COLOR_HD, COUNT);
+
+    listenerColor->release(frames);
 
     double elapsed = ros::Time::now().toSec() - now;
     lockTime.lock();
@@ -970,30 +962,21 @@ private:
     std_msgs::Header header;
     header.seq = 0;
     header.stamp = timestamp;
-    header.frame_id = K2_TF_RGB_OPT_FRAME;
     return header;
   }
 
-  void processIrDepth(const cv::Mat &ir, const cv::Mat &depth, std::vector<cv::Mat> &images, const std::vector<Status> &status)
+  void processIrDepth(const cv::Mat &ir, const cv::Mat &depth, std::vector<cv::Mat> &images, const std::vector<Status> &status, libfreenect2::Frame *depthFrame)
   {
     // COLOR registered to depth
     if(status[COLOR_SD_RECT])
     {
-      if(!colorFrame)
-      {
-        images[COLOR_SD_RECT] = cv::Mat::zeros(sizeIr, CV_8UC3);
-      }
-      else
-      {
-        std::shared_ptr<libfreenect2::Frame> tmpColor, tmpDepth;
-        cv::Mat tmp;
-        libfreenect2::Frame undistorted(sizeIr.width, sizeIr.height, 4), registered(sizeIr.width, sizeIr.height, 4);
-        tmpColor = colorFrame;
-        tmpDepth = depthFrame;
-        registration->apply(tmpColor.get(), tmpDepth.get(), &undistorted, &registered);
-        cv::flip(cv::Mat(sizeIr, CV_8UC4, registered.data), tmp, 1);
-        cv::cvtColor(tmp, images[COLOR_SD_RECT], CV_BGRA2BGR);
-      }
+      cv::Mat tmp;
+      libfreenect2::Frame undistorted(sizeIr.width, sizeIr.height, 4), registered(sizeIr.width, sizeIr.height, 4);
+      lockColorFrame.lock();
+      registration->apply(&colorFrame, depthFrame, &undistorted, &registered);
+      lockColorFrame.unlock();
+      cv::flip(cv::Mat(sizeIr, CV_8UC4, registered.data), tmp, 1);
+      cv::cvtColor(tmp, images[COLOR_SD_RECT], CV_BGRA2BGR);
     }
 
     // IR
@@ -1037,8 +1020,18 @@ private:
     }
   }
 
-  void processColor(const cv::Mat &color, std::vector<cv::Mat> &images, const std::vector<Status> &status)
+  void processColor(const cv::Mat &color, std::vector<cv::Mat> &images, const std::vector<Status> &status, libfreenect2::Frame *colorFrame)
   {
+    if(status[COLOR_SD_RECT])
+    {
+      this->colorFrame.timestamp = colorFrame->timestamp;
+      this->colorFrame.sequence = colorFrame->sequence;
+      size_t size = colorFrame->height * colorFrame->width * colorFrame->bytes_per_pixel;
+      lockColorFrame.lock();
+      memcpy(this->colorFrame.data, colorFrame->data, size);
+      lockColorFrame.unlock();
+    }
+
     // COLOR
     if(status[COLOR_HD] || status[COLOR_HD_RECT] || status[COLOR_QHD] || status[COLOR_QHD_RECT] ||
        status[MONO_HD] || status[MONO_HD_RECT] || status[MONO_QHD] || status[MONO_QHD_RECT])
@@ -1381,7 +1374,7 @@ void help(const std::string &path)
 
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "kinect2_bridge");
+  ros::init(argc, argv, "kinect2_bridge", ros::init_options::AnonymousName);
 
 
   for(int argI = 1; argI < argc; ++argI)
