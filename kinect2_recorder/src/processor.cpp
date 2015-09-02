@@ -49,6 +49,26 @@ void readImage(const sensor_msgs::Image::ConstPtr msgImage, cv::Mat &image)
   pCvImage->image.copyTo(image);
 }
 
+void dispDepth(const cv::Mat &in, cv::Mat &out, const float maxValue)
+{
+  cv::Mat tmp = cv::Mat(in.rows, in.cols, CV_8U);
+  const uint32_t maxInt = 255;
+
+  #pragma omp parallel for
+  for(int r = 0; r < in.rows; ++r)
+  {
+    const uint16_t *itI = in.ptr<uint16_t>(r);
+    uint8_t *itO = tmp.ptr<uint8_t>(r);
+
+    for(int c = 0; c < in.cols; ++c, ++itI, ++itO)
+    {
+      *itO = (uint8_t)std::min((*itI * maxInt / maxValue), 255.0f);
+    }
+  }
+
+  cv::applyColorMap(tmp, out, cv::COLORMAP_JET);
+}
+
 // help function
 void help(const std::string &path)
 {
@@ -149,7 +169,7 @@ int main(int argc, char **argv)
   rosbag::View view(bag, rosbag::TopicQuery(topics));
 
   // opencv variables
-  cv::Mat color, depth;
+  cv::Mat color, depth, depthDisp;
   cv::namedWindow("Color",0);
   cv::namedWindow("Depth",0);
 
@@ -181,7 +201,6 @@ int main(int argc, char **argv)
         else if (image->encoding == "16UC1")
           readImage(image, depth);
       }
-
       // process of camera info matrix
       else
         sensor_msgs::CameraInfo::ConstPtr cameraInfo = m.instantiate<sensor_msgs::CameraInfo>();
@@ -192,9 +211,14 @@ int main(int argc, char **argv)
     // processing of color and depth images can be done here
     // camera info can also be used for computing point clouds
 
+    dispDepth(depth, depthDisp, 12000.0f);
+
     cv::imshow("Color", color);
-    cv::imshow("Depth", depth);
-    cv::waitKey(30);
+    cv::imshow("Depth", depthDisp);
+    char c = cv::waitKey(30);
+
+    if (c == 'q' || c == 27)
+      break;
 
     std::cout << "Frame: " << frame << ", Time: " << time << std::endl;
     frame++;
