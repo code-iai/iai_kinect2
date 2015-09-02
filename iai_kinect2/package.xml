@@ -15,6 +15,7 @@
   <run_depend>kinect2_viewer</run_depend>
   <run_depend>kinect2_bridge</run_depend>
   <run_depend>kinect2_registration</run_depend>
+  <run_depend>kinect2_recorder</run_depend>
 
   <export>
     <metapackage/>
