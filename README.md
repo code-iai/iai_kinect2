@@ -113,7 +113,7 @@ sudo dpkg -i libglfw3*_3.0.4-1_*.deb
 cd ..
 mkdir build
 cd build
-cmake ../examples/protonect/ -DENABLE_CXX11=ON
+cmake .. -DENABLE_CXX11=ON
 make && sudo make install
 ```
 
