@@ -10,7 +10,6 @@
 - [FAQ](#faq)
 - [Dependencies](#dependencies)
 - [Install](#install)
-- [Permissions to access the Kinect One](#permissions-to-access-the-kinect-one)
 - [OpenCL](#opencl)
   - [OpenCL with AMD](#opencl-with-amd)
   - [OpenCL with Nvidia](#opencl-with-nvidia)
@@ -49,7 +48,7 @@ Right now it will not work with OpenCV 3.0. The default version in Ubuntu and RO
 
 #### kinect2_bridge is not working / crashing, what is wrong?
 
-There are many reasons why `kinect2_bridge` might not working. The first thing to find out whether the problem is related to `kinect2_bridge` or `libfreenect2`. A good tool for testing is `Protonect`, it is a binary located in `libfreenect2/examples/protonect/bin/Protonect`. It uses libfreenect directly with a minimal dependency on other libraries, so it is a good tool for the first tests.
+There are many reasons why `kinect2_bridge` might not working. The first thing to find out whether the problem is related to `kinect2_bridge` or `libfreenect2`. A good tool for testing is `Protonect`, it is a binary located in `libfreenect2/build/bin/Protonect`. It uses libfreenect directly with a minimal dependency on other libraries, so it is a good tool for the first tests.
 
 Execute:
 - `./Protonect gl` to test OpenGL support.
@@ -102,22 +101,10 @@ If you found no solution in the issues, feel free to open a new issue for your p
 2. [Setup your ROS environment](http://wiki.ros.org/ROS/Tutorials/InstallingandConfiguringROSEnvironment)
 3. Install [libfreenect2](https://github.com/OpenKinect/libfreenect2):
 
-   ```
-cd ~
-sudo apt-get install -y build-essential libturbojpeg libtool autoconf libudev-dev cmake mesa-common-dev freeglut3-dev libxrandr-dev doxygen libxi-dev libopencv-dev
-sudo ln -s /usr/lib/x86_64-linux-gnu/libturbojpeg.so.0 /usr/lib/x86_64-linux-gnu/libturbojpeg.so
-git clone https://github.com/OpenKinect/libfreenect2
-cd libfreenect2/depends
-./install_ubuntu.sh
-sudo dpkg -i libglfw3*_3.0.4-1_*.deb
-cd ..
-mkdir build
-cd build
-cmake .. -DENABLE_CXX11=ON
-make && sudo make install
-```
+   Follow [the instructions](https://github.com/OpenKinect/libfreenect2#debianubuntu-1404-perhaps-earlier) and enable C++11 by using `cmake .. -DENABLE_CXX11=ON` instead of `cmake ..`
 
-4. Clone this repository into your catkin workspace, install the dependencies and build it:
+4. Copy the udev rule file `sudo cp libfreenect2/rules/90-kinect2.rules /etc/udev/rules.d/` and reconnect the sensor
+5. Clone this repository into your catkin workspace, install the dependencies and build it:
 
    ```
 cd ~/catkin_ws/src/
@@ -128,32 +115,16 @@ cd ~/catkin_ws
 catkin_make -DCMAKE_BUILD_TYPE="Release"
 ```
 
-*Note: `rosdep` will output errors on not being able to locate `[kinect2_bridge]` and `[depth_registration]`. That is fine because they are all part of the iai_kinect2 package and `rosdep` does not know these packages.*
+   *Note: `rosdep` will output errors on not being able to locate `[kinect2_bridge]` and `[depth_registration]`. That is fine because they are all part of the iai_kinect2 package and `rosdep` does not know these packages.*
 
-5. Connect your sensor and run `kinect2_bridge`:
+6. Connect your sensor and run `kinect2_bridge`:
 
    ```
 rosrun kinect2_bridge kinect2_bridge
 ```
-6. Calibrate your sensor using the `kinect2_calibration`. [Further details](kinect2_calibration#calibrating-the-kinect-one)
-7. Add the calibration files to the `kinect2_bridge/data/<serialnumber>` folder. [Further details](kinect2_bridge#first-steps)
-8. Restart `kinect2_bridge` and view the results using `rosrun kinect2_viewer kinect2_viewer kinect2 sd cloud`.
-
-## Permissions to access the Kinect One
-
-To gain access to the Kinect One for non root users you have to add a rule to the udev rules.
-
-1. Create a file named `90-kinect2.rules` in `/etc/udev/rules.d/`.
-2. Write the following lines into that file:
-
-  ```
-# ATTR{product}=="Kinect2"
-SUBSYSTEM=="usb", ATTR{idVendor}=="045e", ATTR{idProduct}=="02c4", MODE="0666"
-SUBSYSTEM=="usb", ATTR{idVendor}=="045e", ATTR{idProduct}=="02d8", MODE="0666"
-SUBSYSTEM=="usb", ATTR{idVendor}=="045e", ATTR{idProduct}=="02d9", MODE="0666"
-```
-3. Check if the `idProduct` of your sensor is in the list. If not just add another line with the `idProduct` of your sensor. You can obtain it by running `dmesg | grep "045e"`.
-4. Reconnect the sensor and you should be able to access it.
+7. Calibrate your sensor using the `kinect2_calibration`. [Further details](kinect2_calibration#calibrating-the-kinect-one)
+8. Add the calibration files to the `kinect2_bridge/data/<serialnumber>` folder. [Further details](kinect2_bridge#first-steps)
+9. Restart `kinect2_bridge` and view the results using `rosrun kinect2_viewer kinect2_viewer kinect2 sd cloud`.
 
 ## OpenCL
 
@@ -163,22 +134,22 @@ Install the latest version of the AMD Catalyst drivers from https://support.amd.
 
 ### OpenCL with Nvidia
 
-Install the latest version of the Nvidia drivers, for example `nvidia-346` from `ppa:xorg-edgers` and `opencl-headers`.
+Install the latest version of the Nvidia drivers, for example `nvidia-355` and `nvidia-modprobe` from [ppa:graphics-drivers/ppa](https://launchpad.net/~graphics-drivers/+archive/ubuntu/ppa) and `opencl-headers`.
 
 ### OpenCL with Intel
 
-You can either install a binary package from a ppa, or build beignet yourself.
+You can either install a binary package from a PPA like [ppa:pmjdebruijn/beignet-testing](https://launchpad.net/~pmjdebruijn/+archive/ubuntu/beignet-testing), or build beignet yourself. It's recommended to use the binary from the PPA.
 
-#### Install binary package from PPA
+#### Building Beignet
 
-There is a ppa providing the newest version of beignet for Ubuntu 14.04: https://launchpad.net/~pmjdebruijn/+archive/ubuntu/beignet-testing
+Download and compile the newest Beignet release from source.
 
-#### Known configuration
+##### Known configuration
 - Ubuntu 14.04
 - Kernel 3.13 (>= 3.13.0-35-generic) or Kernel 3.16 (needed for the Intel USB 3.0 Controller)
 - Beignet v1.0 (http://www.freedesktop.org/wiki/Software/Beignet/)
 
-#### Dependencies for Beignet
+##### Dependencies for Beignet
 For Beignet the following depencies have to be installed manually:
 * ocl-icd-dev
 * ocl-icd-libopencl1
@@ -187,9 +158,6 @@ For Beignet the following depencies have to be installed manually:
 * clang-3.5 / clang-3.5-dev
 * libegl1-mesa-dev
 * libedit-dev
-
-#### Building Beignet
-Download and compile the Beignet v1.0 release from source (there is a Beignet_v0.3 binary for Trusty, but it is very old, buggy and slow)
 
 ##### Additional steps (if needed):
 
