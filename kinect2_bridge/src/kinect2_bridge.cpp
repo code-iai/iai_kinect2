@@ -941,7 +941,7 @@ private:
         return false;
       }
     }
-    return true;
+    return newFrames;
   }
 
   std_msgs::Header createHeader(ros::Time &last, ros::Time &other)
