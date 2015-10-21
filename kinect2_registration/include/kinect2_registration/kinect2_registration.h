@@ -49,7 +49,7 @@ public:
             const cv::Mat &distortionDepth, const cv::Mat &rotation, const cv::Mat &translation,
             const float zNear = 0.5f, const float zFar = 12.0f, const int deviceId = -1);
 
-  virtual void registerDepth(const cv::Mat &depth, cv::Mat &registered) = 0;
+  virtual bool registerDepth(const cv::Mat &depth, cv::Mat &registered) = 0;
 
   static DepthRegistration *New(Method method = DEFAULT);
 };

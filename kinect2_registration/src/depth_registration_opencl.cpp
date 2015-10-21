@@ -17,7 +17,6 @@
 
 #include <fstream>
 
-#define __CL_ENABLE_EXCEPTIONS
 #ifdef __APPLE__
 #include <OpenCL/cl.hpp>
 #else
@@ -31,6 +30,7 @@
 #include "depth_registration_opencl.h"
 
 #define OUT_NAME(FUNCTION) "[DepthRegistrationOpenCL::" FUNCTION "] "
+#define CHECK_CL_ERROR(err, str) if(err != CL_SUCCESS) {std::cerr << "[DepthRegistrationOpenCL::" << __FUNCTION__ << "] " << str << " failed: " << err; return false; }
 
 struct DepthRegistrationOpenCL::OCLData
 {
@@ -92,37 +92,38 @@ void getDevices(const std::vector<cl::Platform> &platforms, std::vector<cl::Devi
   }
 }
 
+std::string deviceString(cl::Device &dev)
+{
+  std::string devName, devVendor, devType;
+  cl_device_type devTypeID;
+  dev.getInfo(CL_DEVICE_NAME, &devName);
+  dev.getInfo(CL_DEVICE_VENDOR, &devVendor);
+  dev.getInfo(CL_DEVICE_TYPE, &devTypeID);
+
+  switch(devTypeID)
+  {
+  case CL_DEVICE_TYPE_CPU:
+    devType = "CPU";
+    break;
+  case CL_DEVICE_TYPE_GPU:
+    devType = "GPU";
+    break;
+  case CL_DEVICE_TYPE_ACCELERATOR:
+    devType = "ACCELERATOR";
+    break;
+  default:
+    devType = "CUSTOM/UNKNOWN";
+  }
+
+  return devName + " (" + devType + ")[" + devVendor + ']';
+}
+
 void listDevice(std::vector<cl::Device> &devices)
 {
   std::cout << OUT_NAME("listDevice") " devices:" << std::endl;
   for(size_t i = 0; i < devices.size(); ++i)
   {
-    cl::Device &dev = devices[i];
-    std::string devName, devVendor, devType;
-    cl_device_type devTypeID;
-    dev.getInfo(CL_DEVICE_NAME, &devName);
-    dev.getInfo(CL_DEVICE_VENDOR, &devVendor);
-    dev.getInfo(CL_DEVICE_TYPE, &devTypeID);
-
-    switch(devTypeID)
-    {
-    case CL_DEVICE_TYPE_CPU:
-      devType = "CPU";
-      break;
-    case CL_DEVICE_TYPE_GPU:
-      devType = "GPU";
-      break;
-    case CL_DEVICE_TYPE_ACCELERATOR:
-      devType = "ACCELERATOR";
-      break;
-    case CL_DEVICE_TYPE_CUSTOM:
-      devType = "CUSTOM";
-      break;
-    default:
-      devType = "UNKNOWN";
-    }
-
-    std::cout << "  " << i << ": " << devName << " (" << devType << ")[" << devVendor << ']' << std::endl;
+    std::cout << "  " << i << ": " << deviceString(devices[i]) << std::endl;
   }
 }
 
@@ -162,165 +163,173 @@ bool DepthRegistrationOpenCL::init(const int deviceId)
   }
 
   cl_int err = CL_SUCCESS;
-  try
+
+  std::vector<cl::Platform> platforms;
+  err = cl::Platform::get(&platforms);
+  CHECK_CL_ERROR(err, "cl::Platform::get");
+
+  if(platforms.empty())
   {
-    std::vector<cl::Platform> platforms;
-    if(cl::Platform::get(&platforms) != CL_SUCCESS)
-    {
-      std::cerr << OUT_NAME("init") "error while getting opencl platforms." << std::endl;
-      return false;
-    }
-    if(platforms.empty())
-    {
-      std::cerr << OUT_NAME("init") "no opencl platforms found." << std::endl;
-      return false;
-    }
-
-    std::vector<cl::Device> devices;
-    getDevices(platforms, devices);
-    listDevice(devices);
-    if(selectDevice(devices, data->device, deviceId))
-    {
-      std::string devName, devVendor, devType;
-      cl_device_type devTypeID;
-      data->device.getInfo(CL_DEVICE_NAME, &devName);
-      data->device.getInfo(CL_DEVICE_VENDOR, &devVendor);
-      data->device.getInfo(CL_DEVICE_TYPE, &devTypeID);
-
-      switch(devTypeID)
-      {
-      case CL_DEVICE_TYPE_CPU:
-        devType = "CPU";
-        break;
-      case CL_DEVICE_TYPE_GPU:
-        devType = "GPU";
-        break;
-      case CL_DEVICE_TYPE_ACCELERATOR:
-        devType = "ACCELERATOR";
-        break;
-      case CL_DEVICE_TYPE_CUSTOM:
-        devType = "CUSTOM";
-        break;
-      default:
-        devType = "UNKNOWN";
-      }
-      std::cout << OUT_NAME("init") " selected device: " << devName << " (" << devType << ")[" << devVendor << ']' << std::endl;
-    }
-    else
-    {
-      std::cerr << OUT_NAME("init") "could not find any suitable device" << std::endl;
-      return false;
-    }
-
-    data->context = cl::Context(data->device);
-
-    std::string options;
-    generateOptions(options);
-
-    cl::Program::Sources source(1, std::make_pair(sourceCode.c_str(), sourceCode.length()));
-    data->program = cl::Program(data->context, source);
-    data->program.build(options.c_str());
-
-    data->queue = cl::CommandQueue(data->context, data->device, 0, &err);
-
-    data->sizeDepth = sizeDepth.height * sizeDepth.width * sizeof(uint16_t);
-    data->sizeRegistered = sizeRegistered.height * sizeRegistered.width * sizeof(uint16_t);
-    data->sizeIndex = sizeRegistered.height * sizeRegistered.width * sizeof(cl_int4);
-    data->sizeImgZ = sizeRegistered.height * sizeRegistered.width * sizeof(uint16_t);
-    data->sizeDists = sizeRegistered.height * sizeRegistered.width * sizeof(cl_float4);
-    data->sizeSelDist = sizeRegistered.height * sizeRegistered.width * sizeof(float);
-    data->sizeMap = sizeRegistered.height * sizeRegistered.width * sizeof(float);
-
-    data->bufferDepth = cl::Buffer(data->context, CL_READ_ONLY_CACHE, data->sizeDepth, NULL, &err);
-    data->bufferScaled = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeRegistered, NULL, &err);
-    data->bufferRegistered = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeRegistered, NULL, &err);
-    data->bufferIndex = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeIndex, NULL, &err);
-    data->bufferImgZ = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeImgZ, NULL, &err);
-    data->bufferDists = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeDists, NULL, &err);
-    data->bufferSelDist = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeSelDist, NULL, &err);
-    data->bufferMapX = cl::Buffer(data->context, CL_READ_ONLY_CACHE, data->sizeMap, NULL, &err);
-    data->bufferMapY = cl::Buffer(data->context, CL_READ_ONLY_CACHE, data->sizeMap, NULL, &err);
-
-    data->kernelSetZero = cl::Kernel(data->program, "setZero", &err);
-    data->kernelSetZero.setArg(0, data->bufferRegistered);
-    data->kernelSetZero.setArg(1, data->bufferSelDist);
-
-    data->kernelProject = cl::Kernel(data->program, "project", &err);
-    data->kernelProject.setArg(0, data->bufferScaled);
-    data->kernelProject.setArg(1, data->bufferIndex);
-    data->kernelProject.setArg(2, data->bufferImgZ);
-    data->kernelProject.setArg(3, data->bufferDists);
-    data->kernelProject.setArg(4, data->bufferSelDist);
-    data->kernelProject.setArg(5, data->bufferRegistered);
-
-    data->kernelCheckDepth = cl::Kernel(data->program, "checkDepth", &err);
-    data->kernelCheckDepth.setArg(0, data->bufferIndex);
-    data->kernelCheckDepth.setArg(1, data->bufferImgZ);
-    data->kernelCheckDepth.setArg(2, data->bufferDists);
-    data->kernelCheckDepth.setArg(3, data->bufferSelDist);
-    data->kernelCheckDepth.setArg(4, data->bufferRegistered);
-
-    data->kernelRemap = cl::Kernel(data->program, "remapDepth", &err);
-    data->kernelRemap.setArg(0, data->bufferDepth);
-    data->kernelRemap.setArg(1, data->bufferScaled);
-    data->kernelRemap.setArg(2, data->bufferMapX);
-    data->kernelRemap.setArg(3, data->bufferMapY);
-
-    data->queue.enqueueWriteBuffer(data->bufferMapX, CL_TRUE, 0, data->sizeMap, mapX.data);
-    data->queue.enqueueWriteBuffer(data->bufferMapY, CL_TRUE, 0, data->sizeMap, mapY.data);
-  }
-  catch(cl::Error err)
-  {
-    std::cerr << OUT_NAME("init") "ERROR: " << err.what() << "(" << err.err() << ")" << std::endl;
-
-    if(err.err() == CL_BUILD_PROGRAM_FAILURE)
-    {
-      std::cout << OUT_NAME("init") "Build Status: " << data->program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(data->device) << std::endl;
-      std::cout << OUT_NAME("init") "Build Options:\t" << data->program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(data->device) << std::endl;
-      std::cout << OUT_NAME("init") "Build Log:\t " << data->program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(data->device) << std::endl;
-    }
-
+    std::cerr << OUT_NAME("init") "no opencl platforms found." << std::endl;
     return false;
   }
+
+  std::vector<cl::Device> devices;
+  getDevices(platforms, devices);
+  listDevice(devices);
+  if(!selectDevice(devices, data->device, deviceId))
+  {
+    std::cerr << OUT_NAME("init") "could not find any suitable device" << std::endl;
+    return false;
+  }
+  std::cout << OUT_NAME("init") " selected device: " << deviceString(data->device) << std::endl;
+
+  data->context = cl::Context(data->device, NULL, NULL, NULL, &err);
+  CHECK_CL_ERROR(err, "cl::Context");
+
+  std::string options;
+  generateOptions(options);
+
+  cl::Program::Sources source(1, std::make_pair(sourceCode.c_str(), sourceCode.length()));
+  data->program = cl::Program(data->context, source, &err);
+  CHECK_CL_ERROR(err, "cl::Program");
+
+  err = data->program.build(options.c_str());
+  if(err != CL_SUCCESS)
+  {
+    std::cerr << OUT_NAME("init") "ERROR: failed to build program: " << err << std::endl;
+    std::cerr << OUT_NAME("init") "Build Status: " << data->program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(data->device) << std::endl;
+    std::cerr << OUT_NAME("init") "Build Options:\t" << data->program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(data->device) << std::endl;
+    std::cerr << OUT_NAME("init") "Build Log:\t " << data->program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(data->device) << std::endl;
+    return false;
+  }
+
+  data->queue = cl::CommandQueue(data->context, data->device, 0, &err);
+  CHECK_CL_ERROR(err, "cl::CommandQueue");
+
+  data->sizeDepth = sizeDepth.height * sizeDepth.width * sizeof(uint16_t);
+  data->sizeRegistered = sizeRegistered.height * sizeRegistered.width * sizeof(uint16_t);
+  data->sizeIndex = sizeRegistered.height * sizeRegistered.width * sizeof(cl_int4);
+  data->sizeImgZ = sizeRegistered.height * sizeRegistered.width * sizeof(uint16_t);
+  data->sizeDists = sizeRegistered.height * sizeRegistered.width * sizeof(cl_float4);
+  data->sizeSelDist = sizeRegistered.height * sizeRegistered.width * sizeof(float);
+  data->sizeMap = sizeRegistered.height * sizeRegistered.width * sizeof(float);
+
+  data->bufferDepth = cl::Buffer(data->context, CL_READ_ONLY_CACHE, data->sizeDepth, NULL, &err);
+  CHECK_CL_ERROR(err, "cl::Buffer");
+  data->bufferScaled = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeRegistered, NULL, &err);
+  CHECK_CL_ERROR(err, "cl::Buffer");
+  data->bufferRegistered = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeRegistered, NULL, &err);
+  CHECK_CL_ERROR(err, "cl::Buffer");
+  data->bufferIndex = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeIndex, NULL, &err);
+  CHECK_CL_ERROR(err, "cl::Buffer");
+  data->bufferImgZ = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeImgZ, NULL, &err);
+  CHECK_CL_ERROR(err, "cl::Buffer");
+  data->bufferDists = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeDists, NULL, &err);
+  CHECK_CL_ERROR(err, "cl::Buffer");
+  data->bufferSelDist = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeSelDist, NULL, &err);
+  CHECK_CL_ERROR(err, "cl::Buffer");
+  data->bufferMapX = cl::Buffer(data->context, CL_READ_ONLY_CACHE, data->sizeMap, NULL, &err);
+  CHECK_CL_ERROR(err, "cl::Buffer");
+  data->bufferMapY = cl::Buffer(data->context, CL_READ_ONLY_CACHE, data->sizeMap, NULL, &err);
+  CHECK_CL_ERROR(err, "cl::Buffer");
+
+  data->kernelSetZero = cl::Kernel(data->program, "setZero", &err);
+  CHECK_CL_ERROR(err, "cl::Kernel");
+  err = data->kernelSetZero.setArg(0, data->bufferRegistered);
+  CHECK_CL_ERROR(err, "setArg");
+  err = data->kernelSetZero.setArg(1, data->bufferSelDist);
+  CHECK_CL_ERROR(err, "setArg");
+
+  data->kernelProject = cl::Kernel(data->program, "project", &err);
+  CHECK_CL_ERROR(err, "cl::Kernel");
+  err = data->kernelProject.setArg(0, data->bufferScaled);
+  CHECK_CL_ERROR(err, "setArg");
+  err = data->kernelProject.setArg(1, data->bufferIndex);
+  CHECK_CL_ERROR(err, "setArg");
+  err = data->kernelProject.setArg(2, data->bufferImgZ);
+  CHECK_CL_ERROR(err, "setArg");
+  err = data->kernelProject.setArg(3, data->bufferDists);
+  CHECK_CL_ERROR(err, "setArg");
+  err = data->kernelProject.setArg(4, data->bufferSelDist);
+  CHECK_CL_ERROR(err, "setArg");
+  err = data->kernelProject.setArg(5, data->bufferRegistered);
+
+  data->kernelCheckDepth = cl::Kernel(data->program, "checkDepth", &err);
+  CHECK_CL_ERROR(err, "cl::Kernel");
+  err = data->kernelCheckDepth.setArg(0, data->bufferIndex);
+  CHECK_CL_ERROR(err, "setArg");
+  err = data->kernelCheckDepth.setArg(1, data->bufferImgZ);
+  CHECK_CL_ERROR(err, "setArg");
+  err = data->kernelCheckDepth.setArg(2, data->bufferDists);
+  CHECK_CL_ERROR(err, "setArg");
+  err = data->kernelCheckDepth.setArg(3, data->bufferSelDist);
+  CHECK_CL_ERROR(err, "setArg");
+  err = data->kernelCheckDepth.setArg(4, data->bufferRegistered);
+  CHECK_CL_ERROR(err, "setArg");
+
+  data->kernelRemap = cl::Kernel(data->program, "remapDepth", &err);
+  CHECK_CL_ERROR(err, "cl::Kernel");
+  err = data->kernelRemap.setArg(0, data->bufferDepth);
+  CHECK_CL_ERROR(err, "setArg");
+  err = data->kernelRemap.setArg(1, data->bufferScaled);
+  CHECK_CL_ERROR(err, "setArg");
+  err = data->kernelRemap.setArg(2, data->bufferMapX);
+  CHECK_CL_ERROR(err, "setArg");
+  err = data->kernelRemap.setArg(3, data->bufferMapY);
+  CHECK_CL_ERROR(err, "setArg");
+
+  err = data->queue.enqueueWriteBuffer(data->bufferMapX, CL_TRUE, 0, data->sizeMap, mapX.data);
+  CHECK_CL_ERROR(err, "enqueueWriteBuffer");
+  err = data->queue.enqueueWriteBuffer(data->bufferMapY, CL_TRUE, 0, data->sizeMap, mapY.data);
+  CHECK_CL_ERROR(err, "enqueueWriteBuffer");
+
 
   return true;
 }
 
-void DepthRegistrationOpenCL::registerDepth(const cv::Mat &depth, cv::Mat &registered)
+bool DepthRegistrationOpenCL::registerDepth(const cv::Mat &depth, cv::Mat &registered)
 {
   if(registered.empty() || registered.rows != sizeRegistered.height || registered.cols != sizeRegistered.width || registered.type() != CV_16U)
   {
     registered = cv::Mat(sizeRegistered, CV_16U);
   }
 
-  try
-  {
-    cl::Event eventKernel, eventZero;
-    cl::NDRange range(sizeRegistered.height * sizeRegistered.width);
+  cl_int err = CL_SUCCESS;
+  cl::Event eventKernel, eventZero;
+  cl::NDRange range(sizeRegistered.height * sizeRegistered.width);
 
-    data->queue.enqueueWriteBuffer(data->bufferDepth, CL_TRUE, 0, data->sizeDepth, depth.data);
-    data->queue.enqueueNDRangeKernel(data->kernelSetZero, cl::NullRange, range, cl::NullRange, NULL, &eventZero);
+  err = data->queue.enqueueWriteBuffer(data->bufferDepth, CL_TRUE, 0, data->sizeDepth, depth.data);
+  CHECK_CL_ERROR(err, "enqueueWriteBuffer");
+  err = data->queue.enqueueNDRangeKernel(data->kernelSetZero, cl::NullRange, range, cl::NullRange, NULL, &eventZero);
+  CHECK_CL_ERROR(err, "enqueueNDRangeKernel");
 
-    data->queue.enqueueNDRangeKernel(data->kernelRemap, cl::NullRange, range, cl::NullRange, NULL, &eventKernel);
-    eventKernel.wait();
-    eventZero.wait();
+  err = data->queue.enqueueNDRangeKernel(data->kernelRemap, cl::NullRange, range, cl::NullRange, NULL, &eventKernel);
+  CHECK_CL_ERROR(err, "enqueueNDRangeKernel");
+  err = eventKernel.wait();
+  CHECK_CL_ERROR(err, "wait");
+  err = eventZero.wait();
+  CHECK_CL_ERROR(err, "wait");
 
-    data->queue.enqueueNDRangeKernel(data->kernelProject, cl::NullRange, range, cl::NullRange, NULL, &eventKernel);
-    eventKernel.wait();
+  err = data->queue.enqueueNDRangeKernel(data->kernelProject, cl::NullRange, range, cl::NullRange, NULL, &eventKernel);
+  CHECK_CL_ERROR(err, "enqueueNDRangeKernel");
+  err = eventKernel.wait();
+  CHECK_CL_ERROR(err, "wait");
 
-    data->queue.enqueueNDRangeKernel(data->kernelCheckDepth, cl::NullRange, range, cl::NullRange, NULL, &eventKernel);
-    eventKernel.wait();
+  err = data->queue.enqueueNDRangeKernel(data->kernelCheckDepth, cl::NullRange, range, cl::NullRange, NULL, &eventKernel);
+  CHECK_CL_ERROR(err, "enqueueNDRangeKernel");
+  err = eventKernel.wait();
+  CHECK_CL_ERROR(err, "wait");
 
-    data->queue.enqueueNDRangeKernel(data->kernelCheckDepth, cl::NullRange, range, cl::NullRange, NULL, &eventKernel);
-    eventKernel.wait();
+  err = data->queue.enqueueNDRangeKernel(data->kernelCheckDepth, cl::NullRange, range, cl::NullRange, NULL, &eventKernel);
+  CHECK_CL_ERROR(err, "enqueueNDRangeKernel");
+  err = eventKernel.wait();
+  CHECK_CL_ERROR(err, "wait");
 
-    data->queue.enqueueReadBuffer(data->bufferRegistered, CL_TRUE, 0, data->sizeRegistered, registered.data);
-  }
-  catch(cl::Error err)
-  {
-    std::cerr << OUT_NAME("registerDepth") "ERROR: " << err.what() << "(" << err.err() << ")" << std::endl;
-    return;
-  }
+  err = data->queue.enqueueReadBuffer(data->bufferRegistered, CL_TRUE, 0, data->sizeRegistered, registered.data);
+  CHECK_CL_ERROR(err, "enqueueReadBuffer");
+
+  return true;
 }
 
 void DepthRegistrationOpenCL::generateOptions(std::string &options) const

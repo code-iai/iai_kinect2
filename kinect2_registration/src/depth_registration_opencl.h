@@ -35,7 +35,7 @@ public:
 
   bool init(const int deviceId);
 
-  void registerDepth(const cv::Mat &depth, cv::Mat &registered);
+  bool registerDepth(const cv::Mat &depth, cv::Mat &registered);
 
 private:
   void generateOptions(std::string &options) const;
