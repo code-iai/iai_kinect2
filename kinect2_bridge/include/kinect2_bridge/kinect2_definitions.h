@@ -19,6 +19,8 @@
 #ifndef __KINECT2_DEFINITIONS_H__
 #define __KINECT2_DEFINITIONS_H__
 
+#include <kinect2_registration/kinect2_console.h>
+
 #define K2_DEFAULT_NS          "kinect2"
 
 #define K2_TF_LINK             "_link"

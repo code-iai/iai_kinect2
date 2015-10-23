@@ -475,15 +475,15 @@ private:
     const std::string depthName = baseName + "_depth.png";
     const std::string depthColoredName = baseName + "_depth_colored.png";
 
-    std::cout << "saving cloud: " << cloudName << std::endl;
+    OUT_INFO("saving cloud: " << cloudName);
     writer.writeBinary(cloudName, *cloud);
-    std::cout << "saving color: " << colorName << std::endl;
+    OUT_INFO("saving color: " << colorName);
     cv::imwrite(colorName, color, params);
-    std::cout << "saving depth: " << depthName << std::endl;
+    OUT_INFO("saving depth: " << depthName);
     cv::imwrite(depthName, depth, params);
-    std::cout << "saving depth: " << depthColoredName << std::endl;
+    OUT_INFO("saving depth: " << depthColoredName);
     cv::imwrite(depthColoredName, depthColored, params);
-    std::cout << "saving complete!" << std::endl;
+    OUT_INFO("saving complete!");
     ++frame;
   }
 
@@ -513,17 +513,26 @@ private:
 
 void help(const std::string &path)
 {
-  std::cout << path << " [options]" << std::endl
-            << "  name: 'any string' equals to the kinect2_bridge topic base name" << std::endl
-            << "  mode: 'qhd', 'hd', 'sd' or 'ir'" << std::endl
-            << "  visualization: 'image', 'cloud' or 'both'" << std::endl
-            << "  options:" << std::endl
-            << "    'compressed' use compressed instead of raw topics" << std::endl
-            << "    'approx' use approximate time synchronization" << std::endl;
+  std::cout << path << FG_BLUE " [options]" << std::endl
+            << FG_GREEN "  name" NO_COLOR ": " FG_YELLOW "'any string'" NO_COLOR " equals to the kinect2_bridge topic base name" << std::endl
+            << FG_GREEN "  mode" NO_COLOR ": " FG_YELLOW "'qhd'" NO_COLOR ", " FG_YELLOW "'hd'" NO_COLOR ", " FG_YELLOW "'sd'" NO_COLOR " or " FG_YELLOW "'ir'" << std::endl
+            << FG_GREEN "  visualization" NO_COLOR ": " FG_YELLOW "'image'" NO_COLOR ", " FG_YELLOW "'cloud'" NO_COLOR " or " FG_YELLOW "'both'" << std::endl
+            << FG_GREEN "  options" NO_COLOR ":" << std::endl
+            << FG_YELLOW "    'compressed'" NO_COLOR " use compressed instead of raw topics" << std::endl
+            << FG_YELLOW "    'approx'" NO_COLOR " use approximate time synchronization" << std::endl;
 }
 
 int main(int argc, char **argv)
 {
+#if EXTENDED_OUTPUT
+  ROSCONSOLE_AUTOINIT;
+  if(!getenv("ROSCONSOLE_FORMAT"))
+  {
+    ros::console::g_formatter.tokens_.clear();
+    ros::console::g_formatter.init("[${severity}] ${message}");
+  }
+#endif
+
   ros::init(argc, argv, "kinect2_viewer", ros::init_options::AnonymousName);
 
   if(!ros::ok())
@@ -597,12 +606,12 @@ int main(int argc, char **argv)
 
   topicColor = "/" + ns + topicColor;
   topicDepth = "/" + ns + topicDepth;
-  std::cout << "topic color: " << topicColor << std::endl;
-  std::cout << "topic depth: " << topicDepth << std::endl;
+  OUT_INFO("topic color: " FG_CYAN << topicColor << NO_COLOR);
+  OUT_INFO("topic depth: " FG_CYAN << topicDepth << NO_COLOR);
 
   Receiver receiver(topicColor, topicDepth, useExact, useCompressed);
 
-  std::cout << "starting receiver..." << std::endl;
+  OUT_INFO("starting receiver...");
   receiver.run(mode);
 
   ros::shutdown();

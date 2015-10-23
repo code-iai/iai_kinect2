@@ -141,15 +141,15 @@ public:
 private:
   void startRecord()
   {
-    std::cout << "Controls:" << std::endl
-              << "   [ESC, q] - Exit" << std::endl
-              << " [SPACE, s] - Save current frame" << std::endl
-              << "        [l] - decreas min and max value for IR value rage" << std::endl
-              << "        [h] - increas min and max value for IR value rage" << std::endl
-              << "        [1] - decreas min value for IR value rage" << std::endl
-              << "        [2] - increas min value for IR value rage" << std::endl
-              << "        [3] - decreas max value for IR value rage" << std::endl
-              << "        [4] - increas max value for IR value rage" << std::endl;
+    OUT_INFO("Controls:" << std::endl
+             << FG_YELLOW "   [ESC, q]" NO_COLOR " - Exit" << std::endl
+             << FG_YELLOW " [SPACE, s]" NO_COLOR " - Save current frame" << std::endl
+             << FG_YELLOW "        [l]" NO_COLOR " - decreas min and max value for IR value rage" << std::endl
+             << FG_YELLOW "        [h]" NO_COLOR " - increas min and max value for IR value rage" << std::endl
+             << FG_YELLOW "        [1]" NO_COLOR " - decreas min value for IR value rage" << std::endl
+             << FG_YELLOW "        [2]" NO_COLOR " - increas min value for IR value rage" << std::endl
+             << FG_YELLOW "        [3]" NO_COLOR " - decreas max value for IR value rage" << std::endl
+             << FG_YELLOW "        [4]" NO_COLOR " - increas max value for IR value rage");
 
     image_transport::TransportHints hints("compressed");
     subImageColor = new image_transport::SubscriberFilter(it, topicColor, 4, hints);
@@ -418,7 +418,7 @@ private:
     std::ostringstream oss;
     oss << std::setfill('0') << std::setw(4) << frame++;
     const std::string frameNumber(oss.str());
-    std::cout << "storing frame: " << frameNumber << std::endl;
+    OUT_INFO("storing frame: " << frameNumber);
     std::string base = path + frameNumber;
 
     for(size_t i = 0; i < pointsIr.size(); ++i)
@@ -509,7 +509,7 @@ public:
 
     if((dp  = opendir(path.c_str())) ==  NULL)
     {
-      std::cerr << "Error opening: " << path << std::endl;
+      OUT_ERROR("Error opening: " << path);
       return false;
     }
 
@@ -611,7 +611,7 @@ private:
       std::string pointsname = path + files[i] + ext;
 
       #pragma omp critical
-      std::cout << "restoring file: " << files[i] << ext << std::endl;
+      OUT_INFO("restoring file: " << files[i] << ext);
 
       cv::FileStorage file(pointsname, cv::FileStorage::READ);
       file["points"] >> points[i];
@@ -650,12 +650,12 @@ private:
     const cv::TermCriteria termCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 50, DBL_EPSILON);
     double error;
 
-    std::cout << "calibrating intrinsics..." << std::endl;
+    OUT_INFO("calibrating intrinsics...");
     error = cv::calibrateCamera(pointsBoard, points, size, cameraMatrix, distortion, rvecs, tvecs, flags, termCriteria);
-    std::cout << "error: " << error << std::endl << std::endl;
+    OUT_INFO("error: " << error << std::endl);
 
-    std::cout << "Camera Matrix:" << std::endl << cameraMatrix << std::endl;
-    std::cout << "Distortion Coeeficients:" << std::endl << distortion << std::endl << std::endl;
+    OUT_INFO("Camera Matrix:" << std::endl << cameraMatrix);
+    OUT_INFO("Distortion Coeeficients:" << std::endl << distortion << std::endl);
     rotation = cv::Mat::eye(3, 3, CV_64F);
     projection = cv::Mat::eye(4, 4, CV_64F);
     cameraMatrix.copyTo(projection(cv::Rect(0, 0, 3, 3)));
@@ -665,27 +665,27 @@ private:
   {
     if(pointsColor.size() != pointsIr.size())
     {
-      std::cerr << "not the same size!" << std::endl;
+      OUT_ERROR("not the same size!");
       return;
     }
     const cv::TermCriteria termCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 100, DBL_EPSILON);
     double error;
 
-    std::cout << "Camera Matrix Color:" << std::endl << cameraMatrixColor << std::endl;
-    std::cout << "Distortion Coeeficients Color:" << std::endl << distortionColor << std::endl << std::endl;
-    std::cout << "Camera Matrix Ir:" << std::endl << cameraMatrixIr << std::endl;
-    std::cout << "Distortion Coeeficients Ir:" << std::endl << distortionIr << std::endl << std::endl;
+    OUT_INFO("Camera Matrix Color:" << std::endl << cameraMatrixColor);
+    OUT_INFO("Distortion Coeeficients Color:" << std::endl << distortionColor << std::endl);
+    OUT_INFO("Camera Matrix Ir:" << std::endl << cameraMatrixIr);
+    OUT_INFO("Distortion Coeeficients Ir:" << std::endl << distortionIr << std::endl);
 
-    std::cout << "calibrating Color and Ir extrinsics..." << std::endl;
+    OUT_INFO("calibrating Color and Ir extrinsics...");
     error = cv::stereoCalibrate(pointsBoard, pointsIr, pointsColor, cameraMatrixIr, distortionIr, cameraMatrixColor, distortionColor, sizeColor,
                                 rotation, translation, essential, fundamental, termCriteria,
                                 cv::CALIB_FIX_INTRINSIC);
-    std::cout << "error: " << error << std::endl << std::endl;
+    OUT_INFO("error: " << error << std::endl);
 
-    std::cout << "Rotation:" << std::endl << rotation << std::endl;
-    std::cout << "Translation:" << std::endl << translation << std::endl;
-    std::cout << "Essential:" << std::endl << essential << std::endl;
-    std::cout << "Fundamental:" << std::endl << fundamental << std::endl << std::endl;
+    OUT_INFO("Rotation:" << std::endl << rotation);
+    OUT_INFO("Translation:" << std::endl << translation);
+    OUT_INFO("Essential:" << std::endl << essential);
+    OUT_INFO("Fundamental:" << std::endl << fundamental << std::endl);
   }
 
   void storeCalibration()
@@ -811,7 +811,7 @@ public:
 
     if((dp  = opendir(path.c_str())) ==  NULL)
     {
-      std::cerr << "Error opening: " << path << std::endl;
+      OUT_ERROR("Error opening: " << path);
       return false;
     }
 
@@ -866,7 +866,7 @@ public:
     std::vector<double> depthDists, imageDists;
     for(size_t i = 0; i < images.size(); ++i)
     {
-      std::cout << "frame: " << images[i] << std::endl;
+      OUT_INFO("frame: " << images[i]);
       plot << "# frame: " << images[i] << std::endl;
 
       cv::Mat depth, planeNormal, region;
@@ -908,12 +908,12 @@ private:
     stddev = sqrt(var);
 
     std::sort(diffs.begin(), diffs.end());
-    std::cout << "stats on difference:" << std::endl
-              << "     avg: " << avg << std::endl
-              << "     var: " << var << std::endl
-              << "  stddev: " << stddev << std::endl
-              << "     rms: " << sqavg << std::endl
-              << "  median: " << diffs[diffs.size() / 2] << std::endl;
+    OUT_INFO("stats on difference:" << std::endl
+             << "     avg: " << avg << std::endl
+             << "     var: " << var << std::endl
+             << "  stddev: " << stddev << std::endl
+             << "     rms: " << sqavg << std::endl
+             << "  median: " << diffs[diffs.size() / 2]);
 
     storeCalibration(avg * 1000.0);
   }
@@ -1060,20 +1060,29 @@ private:
 
 void help(const std::string &path)
 {
-  std::cout << path << " [options]" << std::endl
-            << "  name: 'any string' equals to the kinect2_bridge topic base name" << std::endl
-            << "  mode: 'record' or 'calibrate'" << std::endl
-            << "  source: 'color', 'ir', 'sync', 'depth'" << std::endl
-            << "  board:" << std::endl
-            << "    'circle<WIDTH>x<HEIGHT>x<SIZE>'  for symmentric cirle grid" << std::endl
-            << "    'acircle<WIDTH>x<HEIGHT>x<SIZE>' for asymmentric cirle grid" << std::endl
-            << "    'chess<WIDTH>x<HEIGHT>x<SIZE>'   for chessboard pattern" << std::endl
-            << "  distortion model: 'rational' for using model with 8 instead of 5 coefficients" << std::endl
-            << "  output path: '-path <PATH>'" << std::endl;
+  std::cout << path << FG_BLUE " [options]" << std::endl
+            << FG_GREEN "  name" NO_COLOR ": " FG_YELLOW "'any string'" NO_COLOR " equals to the kinect2_bridge topic base name" << std::endl
+            << FG_GREEN "  mode" NO_COLOR ": " FG_YELLOW "'record'" NO_COLOR " or " FG_YELLOW "'calibrate'" << std::endl
+            << FG_GREEN "  source" NO_COLOR ": " FG_YELLOW "'color'" NO_COLOR ", " FG_YELLOW "'ir'" NO_COLOR ", " FG_YELLOW "'sync'" NO_COLOR ", " FG_YELLOW "'depth'" << std::endl
+            << FG_GREEN "  board" NO_COLOR ":" << std::endl
+            << FG_YELLOW "    'circle<WIDTH>x<HEIGHT>x<SIZE>'  " NO_COLOR "for symmentric cirle grid" << std::endl
+            << FG_YELLOW "    'acircle<WIDTH>x<HEIGHT>x<SIZE>' " NO_COLOR "for asymmentric cirle grid" << std::endl
+            << FG_YELLOW "    'chess<WIDTH>x<HEIGHT>x<SIZE>'   " NO_COLOR "for chessboard pattern" << std::endl
+            << FG_GREEN "  distortion model" NO_COLOR ": " FG_YELLOW "'rational'" NO_COLOR " for using model with 8 instead of 5 coefficients" << std::endl
+            << FG_GREEN "  output path" NO_COLOR ": " FG_YELLOW "'-path <PATH>'" NO_COLOR << std::endl;
 }
 
 int main(int argc, char **argv)
 {
+#if EXTENDED_OUTPUT
+  ROSCONSOLE_AUTOINIT;
+  if(!getenv("ROSCONSOLE_FORMAT"))
+  {
+    ros::console::g_formatter.tokens_.clear();
+    ros::console::g_formatter.init("[${severity}] ${message}");
+  }
+#endif
+
   Mode mode = RECORD;
   Source source = SYNC;
   bool circleBoard = false;
@@ -1180,7 +1189,7 @@ int main(int argc, char **argv)
       }
       else
       {
-        std::cerr << "Unknown path: " << arg << std::endl;
+        OUT_ERROR("Unknown path: " << arg);
         help(argv[0]);
         ros::shutdown();
         return 0;
@@ -1195,50 +1204,50 @@ int main(int argc, char **argv)
   std::string topicColor = "/" + ns + K2_TOPIC_HD + K2_TOPIC_IMAGE_MONO;
   std::string topicIr = "/" + ns + K2_TOPIC_SD + K2_TOPIC_IMAGE_IR;
   std::string topicDepth = "/" + ns + K2_TOPIC_SD + K2_TOPIC_IMAGE_DEPTH;
-  std::cout << "Start settings:" << std::endl
-            << "       Mode: " << (mode == RECORD ? "record" : "calibrate") << std::endl
-            << "     Source: " << (calibDepth ? "depth" : (source == COLOR ? "color" : (source == IR ? "ir" : "sync"))) << std::endl
-            << "      Board: " << (circleBoard ? "circles" : "chess") << std::endl
-            << " Dimensions: " << boardDims.width << " x " << boardDims.height << std::endl
-            << " Field size: " << boardSize << std::endl
-            << "Dist. model: " << (rational ? '8' : '5') << " coefficients" << std::endl
-            << "Topic color: " << topicColor << std::endl
-            << "   Topic ir: " << topicIr << std::endl
-            << "Topic depth: " << topicDepth << std::endl
-            << "       Path: " << path << std::endl << std::endl;
+  OUT_INFO("Start settings:" << std::endl
+           << "       Mode: " FG_CYAN << (mode == RECORD ? "record" : "calibrate") << NO_COLOR << std::endl
+           << "     Source: " FG_CYAN << (calibDepth ? "depth" : (source == COLOR ? "color" : (source == IR ? "ir" : "sync"))) << NO_COLOR << std::endl
+           << "      Board: " FG_CYAN << (circleBoard ? "circles" : "chess") << NO_COLOR << std::endl
+           << " Dimensions: " FG_CYAN << boardDims.width << " x " << boardDims.height << NO_COLOR << std::endl
+           << " Field size: " FG_CYAN << boardSize << NO_COLOR << std::endl
+           << "Dist. model: " FG_CYAN << (rational ? '8' : '5') << " coefficients" << NO_COLOR << std::endl
+           << "Topic color: " FG_CYAN << topicColor << NO_COLOR << std::endl
+           << "   Topic ir: " FG_CYAN << topicIr << NO_COLOR << std::endl
+           << "Topic depth: " FG_CYAN << topicDepth << NO_COLOR << std::endl
+           << "       Path: " FG_CYAN << path << NO_COLOR << std::endl);
 
   if(!ros::master::check())
   {
-    std::cerr << "checking ros master failed." << std::endl;
+    OUT_ERROR("checking ros master failed.");
     return -1;
   }
   if(mode == RECORD)
   {
     Recorder recorder(path, topicColor, topicIr, topicDepth, source, circleBoard, symmetric, boardDims, boardSize);
 
-    std::cout << "starting recorder..." << std::endl;
+    OUT_INFO("starting recorder...");
     recorder.run();
 
-    std::cout << "stopped recording..." << std::endl;
+    OUT_INFO("stopped recording...");
   }
   else if(calibDepth)
   {
     DepthCalibration calib(path, boardDims, boardSize);
 
-    std::cout << "restoring files..." << std::endl;
+    OUT_INFO("restoring files...");
     calib.restore();
 
-    std::cout << "starting calibration..." << std::endl;
+    OUT_INFO("starting calibration...");
     calib.calibrate();
   }
   else
   {
     CameraCalibration calib(path, source, circleBoard, boardDims, boardSize, rational);
 
-    std::cout << "restoring files..." << std::endl;
+    OUT_INFO("restoring files...");
     calib.restore();
 
-    std::cout << "starting calibration..." << std::endl;
+    OUT_INFO("starting calibration...");
     calib.calibrate();
   }
 

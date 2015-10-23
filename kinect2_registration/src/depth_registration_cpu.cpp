@@ -17,8 +17,6 @@
 
 #include "depth_registration_cpu.h"
 
-#define OUT_NAME(FUNCTION) "[DepthRegistrationCPU::" FUNCTION "] "
-
 DepthRegistrationCPU::DepthRegistrationCPU()
   : DepthRegistration()
 {

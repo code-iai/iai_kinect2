@@ -17,9 +17,14 @@
 
 #include <fstream>
 
+#include <kinect2_registration/kinect2_console.h>
+
 #ifdef __APPLE__
 #include <OpenCL/cl.hpp>
 #else
+#define CL_USE_DEPRECATED_OPENCL_1_1_APIS
+#include <CL/cl.h>
+#undef CL_VERSION_1_2
 #include <CL/cl.hpp>
 #endif
 
@@ -29,8 +34,8 @@
 
 #include "depth_registration_opencl.h"
 
-#define OUT_NAME(FUNCTION) "[DepthRegistrationOpenCL::" FUNCTION "] "
-#define CHECK_CL_ERROR(err, str) if(err != CL_SUCCESS) {std::cerr << "[DepthRegistrationOpenCL::" << __FUNCTION__ << "] " << str << " failed: " << err; return false; }
+#define CL_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+#define CHECK_CL_ERROR(err, str) do { if(err != CL_SUCCESS) {OUT_ERROR(FG_BLUE "[" << CL_FILENAME << "]" FG_CYAN "(" << __LINE__ << ") " FG_YELLOW << str << FG_RED " failed: " << err); return false; } } while(0)
 
 struct DepthRegistrationOpenCL::OCLData
 {
@@ -118,15 +123,6 @@ std::string deviceString(cl::Device &dev)
   return devName + " (" + devType + ")[" + devVendor + ']';
 }
 
-void listDevice(std::vector<cl::Device> &devices)
-{
-  std::cout << OUT_NAME("listDevice") " devices:" << std::endl;
-  for(size_t i = 0; i < devices.size(); ++i)
-  {
-    std::cout << "  " << i << ": " << deviceString(devices[i]) << std::endl;
-  }
-}
-
 bool selectDevice(std::vector<cl::Device> &devices, cl::Device &device, const int deviceId = -1)
 {
   if(deviceId != -1 && devices.size() > (size_t)deviceId)
@@ -170,19 +166,25 @@ bool DepthRegistrationOpenCL::init(const int deviceId)
 
   if(platforms.empty())
   {
-    std::cerr << OUT_NAME("init") "no opencl platforms found." << std::endl;
+    OUT_ERROR("no opencl platforms found.");
     return false;
   }
 
   std::vector<cl::Device> devices;
   getDevices(platforms, devices);
-  listDevice(devices);
+
+  OUT_INFO("devices:");
+  for(size_t i = 0; i < devices.size(); ++i)
+  {
+    OUT_INFO("  " << i << ": " << deviceString(devices[i]));
+  }
+
   if(!selectDevice(devices, data->device, deviceId))
   {
-    std::cerr << OUT_NAME("init") "could not find any suitable device" << std::endl;
+    OUT_ERROR("could not find any suitable device");
     return false;
   }
-  std::cout << OUT_NAME("init") " selected device: " << deviceString(data->device) << std::endl;
+  OUT_INFO("selected device: " << deviceString(data->device));
 
   data->context = cl::Context(data->device, NULL, NULL, NULL, &err);
   CHECK_CL_ERROR(err, "cl::Context");
@@ -197,10 +199,10 @@ bool DepthRegistrationOpenCL::init(const int deviceId)
   err = data->program.build(options.c_str());
   if(err != CL_SUCCESS)
   {
-    std::cerr << OUT_NAME("init") "ERROR: failed to build program: " << err << std::endl;
-    std::cerr << OUT_NAME("init") "Build Status: " << data->program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(data->device) << std::endl;
-    std::cerr << OUT_NAME("init") "Build Options:\t" << data->program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(data->device) << std::endl;
-    std::cerr << OUT_NAME("init") "Build Log:\t " << data->program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(data->device) << std::endl;
+    OUT_ERROR("failed to build program: " << err);
+    OUT_ERROR("Build Status: " << data->program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(data->device));
+    OUT_ERROR("Build Options:\t" << data->program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(data->device));
+    OUT_ERROR("Build Log:\t " << data->program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(data->device));
     return false;
   }
 
@@ -389,6 +391,5 @@ bool DepthRegistrationOpenCL::readProgram(std::string &source) const
   source = std::string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
   file.close();
 
-  //std::cout << OUT_NAME("readProgram") "source:" << std::endl source << std::endl;
   return true;
 }
