@@ -5,7 +5,6 @@
 - [Thiemo Wiedemeyer](https://ai.uni-bremen.de/team/thiemo_wiedemeyer) <<wiedemeyer@cs.uni-bremen.de>>, [Institute for Artificial Intelligence](http://ai.uni-bremen.de/), University of Bremen
 
 ## Table of contents
-- [Recent changes](#recent-changes)
 - [Description](#description)
 - [FAQ](#faq)
 - [Dependencies](#dependencies)
@@ -16,14 +15,6 @@
   - [OpenCL with Intel](#opencl-with-intel)
 - [Citation](#citation)
 - [Screenshots](#screenshots)
-
-## Recent changes
-
-- Install instructions added to CMakeLists.txt
-- Structure of topics changed. Grouped by resolution.
-- Kinect2 device is stopped if no subscribers are listening to lower CPU usage on idle.
-- `compressedDepth` topic replaced by `compressed`. Should not make a difference when using `image_transport`, just change the `TransportHints` from `"compressedDepth"` to `"compressed"`. This also fixes an issue with rviz, due to a bug in DepthCloud plugin.
-- TF publisher only publishes `kinect2_rgb_optical_frame` and `kinect2_ir_optical_frame`.
 
 ## Description
 
