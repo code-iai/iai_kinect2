@@ -562,16 +562,32 @@ public:
     switch(mode)
     {
     case COLOR:
+      if(filesColor.empty())
+      {
+        OUT_ERROR("no files found!");
+        return false;
+      }
       pointsColor.resize(filesColor.size());
       pointsBoard.resize(filesColor.size(), board);
       ret = ret && readFiles(filesColor, CALIB_POINTS_COLOR, pointsColor);
       break;
     case IR:
+      if(filesIr.empty())
+      {
+        OUT_ERROR("no files found!");
+        return false;
+      }
       pointsIr.resize(filesIr.size());
       pointsBoard.resize(filesIr.size(), board);
       ret = ret && readFiles(filesIr, CALIB_POINTS_IR, pointsIr);
       break;
     case SYNC:
+      if(filesColor.empty() || filesIr.empty())
+      {
+        OUT_ERROR("no files found!");
+        return false;
+      }
+      pointsColor.resize(filesColor.size());
       pointsIr.resize(filesSync.size());
       pointsColor.resize(filesSync.size());
       pointsBoard.resize(filesSync.size(), board);
@@ -614,7 +630,18 @@ private:
       OUT_INFO("restoring file: " << files[i] << ext);
 
       cv::FileStorage file(pointsname, cv::FileStorage::READ);
-      file["points"] >> points[i];
+      if(!file.isOpened())
+      {
+        #pragma omp critical
+        {
+          ret = false;
+          OUT_ERROR("couldn't open file: " << files[i] << ext);
+        }
+      }
+      else
+      {
+        file["points"] >> points[i];
+      }
     }
     return ret;
   }
@@ -623,6 +650,7 @@ private:
   {
     if(pointsColor.size() != pointsIr.size())
     {
+      OUT_ERROR("number of detected color and ir patterns does not match!");
       return false;
     }
 
@@ -647,6 +675,11 @@ private:
   void calibrateIntrinsics(const cv::Size &size, const std::vector<std::vector<cv::Point3f>> &pointsBoard, const std::vector<std::vector<cv::Point2f>> &points,
                            cv::Mat &cameraMatrix, cv::Mat &distortion, cv::Mat &rotation, cv::Mat &projection, std::vector<cv::Mat> &rvecs, std::vector<cv::Mat> &tvecs)
   {
+    if(points.empty())
+    {
+      OUT_ERROR("no data for calibration provided!");
+      return;
+    }
     const cv::TermCriteria termCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 50, DBL_EPSILON);
     double error;
 
@@ -665,7 +698,12 @@ private:
   {
     if(pointsColor.size() != pointsIr.size())
     {
-      OUT_ERROR("not the same size!");
+      OUT_ERROR("number of detected color and ir patterns does not match!");
+      return;
+    }
+    if(pointsColor.empty() || pointsIr.empty())
+    {
+      OUT_ERROR("no data for calibration provided!");
       return;
     }
     const cv::TermCriteria termCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 100, DBL_EPSILON);
@@ -680,7 +718,7 @@ private:
     error = cv::stereoCalibrate(pointsBoard, pointsIr, pointsColor, cameraMatrixIr, distortionIr, cameraMatrixColor, distortionColor, sizeColor,
                                 rotation, translation, essential, fundamental, termCriteria,
                                 cv::CALIB_FIX_INTRINSIC);
-    OUT_INFO("error: " << error << std::endl);
+    OUT_INFO("calibration error: " << error << std::endl);
 
     OUT_INFO("Rotation:" << std::endl << rotation);
     OUT_INFO("Translation:" << std::endl << translation);
@@ -692,38 +730,47 @@ private:
   {
     cv::FileStorage fs;
 
-    if(mode == SYNC && fs.open(path + K2_CALIB_POSE, cv::FileStorage::WRITE))
+    switch(mode)
     {
+    case SYNC:
+      fs.open(path + K2_CALIB_POSE, cv::FileStorage::WRITE);
+      break;
+    case COLOR:
+      fs.open(path + K2_CALIB_COLOR, cv::FileStorage::WRITE);
+      break;
+    case IR:
+      fs.open(path + K2_CALIB_IR, cv::FileStorage::WRITE);
+      break;
+    }
+
+    if(!fs.isOpened())
+    {
+      OUT_ERROR("couldn't store calibration data!");
+      return;
+    }
+
+    switch(mode)
+    {
+    case SYNC:
       fs << K2_CALIB_ROTATION << rotation;
       fs << K2_CALIB_TRANSLATION << translation;
       fs << K2_CALIB_ESSENTIAL << essential;
       fs << K2_CALIB_FUNDAMENTAL << fundamental;
-      fs.release();
+      break;
+    case COLOR:
+      fs << K2_CALIB_CAMERA_MATRIX << cameraMatrixColor;
+      fs << K2_CALIB_DISTORTION << distortionColor;
+      fs << K2_CALIB_ROTATION << rotationColor;
+      fs << K2_CALIB_PROJECTION << projectionColor;
+      break;
+    case IR:
+      fs << K2_CALIB_CAMERA_MATRIX << cameraMatrixIr;
+      fs << K2_CALIB_DISTORTION << distortionIr;
+      fs << K2_CALIB_ROTATION << rotationIr;
+      fs << K2_CALIB_PROJECTION << projectionIr;
+      break;
     }
-
-    if(mode == COLOR)
-    {
-      if(fs.open(path + K2_CALIB_COLOR, cv::FileStorage::WRITE))
-      {
-        fs << K2_CALIB_CAMERA_MATRIX << cameraMatrixColor;
-        fs << K2_CALIB_DISTORTION << distortionColor;
-        fs << K2_CALIB_ROTATION << rotationColor;
-        fs << K2_CALIB_PROJECTION << projectionColor;
-        fs.release();
-      }
-    }
-
-    if(mode == IR)
-    {
-      if(fs.open(path + K2_CALIB_IR, cv::FileStorage::WRITE))
-      {
-        fs << K2_CALIB_CAMERA_MATRIX << cameraMatrixIr;
-        fs << K2_CALIB_DISTORTION << distortionIr;
-        fs << K2_CALIB_ROTATION << rotationIr;
-        fs << K2_CALIB_PROJECTION << projectionIr;
-        fs.release();
-      }
-    }
+    fs.release();
   }
 
   bool loadCalibration()
@@ -740,6 +787,7 @@ private:
     }
     else
     {
+      OUT_ERROR("couldn't load color calibration data!");
       return false;
     }
 
@@ -753,6 +801,7 @@ private:
     }
     else
     {
+      OUT_ERROR("couldn't load ir calibration data!");
       return false;
     }
 
@@ -776,17 +825,12 @@ private:
 
   double fx, fy, cx, cy;
 
-  std::ofstream plot, plotX, plotY, plotXY;
+  std::ofstream plot;
 
 public:
   DepthCalibration(const std::string &path, const cv::Size &boardDims, const float boardSize)
     : path(path), size(512, 424)
   {
-    plot.open(path + "plot.dat", std::ios_base::trunc);
-    //plotX.open(path + "plotx.dat", std::ios_base::trunc);
-    //plotY.open(path + "ploty.dat", std::ios_base::trunc);
-    //plotXY.open(path + "plotxy.dat", std::ios_base::trunc);
-
     board.resize(boardDims.width * boardDims.height);
     for(size_t r = 0, i = 0; r < (size_t)boardDims.height; ++r)
     {
@@ -842,27 +886,47 @@ public:
 
     std::sort(files.begin(), files.end());
 
+    if(files.empty())
+    {
+      OUT_ERROR("no files found!");
+      return false;
+    }
+
     bool ret = readFiles(files);
     ret = ret && loadCalibration();
 
-    cv::initUndistortRectifyMap(cameraMatrix, distortion, cv::Mat(), cameraMatrix, size, CV_32FC1, mapX, mapY);
-
-    fx = cameraMatrix.at<double>(0, 0);
-    fy = cameraMatrix.at<double>(1, 1);
-    cx = cameraMatrix.at<double>(0, 2);
-    cy = cameraMatrix.at<double>(1, 2);
-
+    if(ret)
+    {
+      cv::initUndistortRectifyMap(cameraMatrix, distortion, cv::Mat(), cameraMatrix, size, CV_32FC1, mapX, mapY);
+      fx = cameraMatrix.at<double>(0, 0);
+      fy = cameraMatrix.at<double>(1, 1);
+      cx = cameraMatrix.at<double>(0, 2);
+      cy = cameraMatrix.at<double>(1, 2);
+    }
     return ret;
   }
 
   void calibrate()
   {
+    plot.open(path + "plot.dat", std::ios_base::trunc);
+    if(!plot.is_open())
+    {
+      OUT_ERROR("couldn't open 'plot.dat'!");
+      return;
+    }
+    if(images.empty())
+    {
+      OUT_ERROR("no images found!");
+      return;
+    }
+
     plot << "# Columns:" << std::endl
          << "# 1: X" << std::endl
          << "# 2: Y" << std::endl
          << "# 3: computed depth" << std::endl
          << "# 4: measured depth" << std::endl
          << "# 5: difference between computed and measured depth" << std::endl;
+
     std::vector<double> depthDists, imageDists;
     for(size_t i = 0; i < images.size(); ++i)
     {
@@ -874,6 +938,12 @@ public:
       cv::Rect roi;
 
       depth = cv::imread(images[i], cv::IMREAD_ANYDEPTH);
+      if(depth.empty())
+      {
+        OUT_ERROR("couldn't load image '" << images[i] << "'!");
+        return;
+      }
+
       cv::remap(depth, depth, mapX, mapY, cv::INTER_NEAREST);
       computeROI(depth, points[i], region, roi);
 
@@ -887,6 +957,17 @@ public:
 private:
   void compareDists(const std::vector<double> &imageDists, const std::vector<double> &depthDists) const
   {
+    if(imageDists.size() != depthDists.size())
+    {
+      OUT_ERROR("number of real and computed distance samples does not match!");
+      return;
+    }
+    if(imageDists.empty() || depthDists.empty())
+    {
+      OUT_ERROR("no distance sample data!");
+      return;
+    }
+
     double avg = 0, sqavg = 0, var = 0, stddev = 0;
     std::vector<double> diffs(imageDists.size());
 
@@ -1019,11 +1100,24 @@ private:
     {
       std::string pointsname = path + files[i] + CALIB_POINTS_IR;
 
-      cv::FileStorage file(pointsname, cv::FileStorage::READ);
-      file["points"] >> points[i];
-      file.release();
+      #pragma omp critical
+      OUT_INFO("restoring file: " << files[i]);
 
-      images[i] = path + files[i] + CALIB_FILE_DEPTH;
+      cv::FileStorage file(pointsname, cv::FileStorage::READ);
+      if(!file.isOpened())
+      {
+        #pragma omp critical
+        {
+          OUT_ERROR("couldn't read '" << pointsname << "'!");
+          ret = false;
+        }
+      }
+      else
+      {
+        file["points"] >> points[i];
+        file.release();
+        images[i] = path + files[i] + CALIB_FILE_DEPTH;
+      }
     }
     return ret;
   }
@@ -1040,6 +1134,7 @@ private:
     }
     else
     {
+      OUT_ERROR("couldn't read calibration '" << path + K2_CALIB_IR << "'!");
       return false;
     }
 
@@ -1054,6 +1149,10 @@ private:
     {
       fs << K2_CALIB_DEPTH_SHIFT << depthShift;
       fs.release();
+    }
+    else
+    {
+      OUT_ERROR("couldn't store depth calibration!");
     }
   }
 };
