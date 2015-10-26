@@ -176,7 +176,7 @@ bool DepthRegistrationOpenCL::init(const int deviceId)
   OUT_INFO("devices:");
   for(size_t i = 0; i < devices.size(); ++i)
   {
-    OUT_INFO("  " << i << ": " << deviceString(devices[i]));
+    OUT_INFO("  " << i << ": " FG_CYAN << deviceString(devices[i]) << NO_COLOR);
   }
 
   if(!selectDevice(devices, data->device, deviceId))
@@ -184,7 +184,7 @@ bool DepthRegistrationOpenCL::init(const int deviceId)
     OUT_ERROR("could not find any suitable device");
     return false;
   }
-  OUT_INFO("selected device: " << deviceString(data->device));
+  OUT_INFO("selected device: " FG_YELLOW << deviceString(data->device) << NO_COLOR);
 
   data->context = cl::Context(data->device, NULL, NULL, NULL, &err);
   CHECK_CL_ERROR(err, "cl::Context");

@@ -481,7 +481,7 @@ private:
     {
       const std::string &s = freenect2.getDeviceSerialNumber(i);
       deviceFound = deviceFound || s == sensor;
-      OUT_INFO("  " << i << ": " << s << (s == sensor ? " (selected)" : ""));
+      OUT_INFO("  " << i << ": " FG_CYAN << s << (s == sensor ? FG_YELLOW " (selected)" : "") << NO_COLOR);
     }
 
     if(!deviceFound)
@@ -508,8 +508,8 @@ private:
     OUT_INFO("starting kinect2");
     device->start();
 
-    OUT_INFO("device serial: " << sensor);
-    OUT_INFO("device firmware: " << device->getFirmwareVersion());
+    OUT_INFO("device serial: " FG_CYAN << sensor << NO_COLOR);
+    OUT_INFO("device firmware: " FG_CYAN << device->getFirmwareVersion() << NO_COLOR);
 
     colorParams = device->getColorCameraParams();
     irParams = device->getIrCameraParams();
@@ -517,11 +517,11 @@ private:
     device->stop();
 
     OUT_DEBUG("default ir camera parameters: ");
-    OUT_DEBUG("fx " << irParams.fx << ", fy " << irParams.fy << ", cx " << irParams.cx << ", cy " << irParams.cy);
-    OUT_DEBUG("k1 " << irParams.k1 << ", k2 " << irParams.k2 << ", p1 " << irParams.p1 << ", p2 " << irParams.p2 << ", k3 " << irParams.k3);
+    OUT_DEBUG("fx: " FG_CYAN << irParams.fx << NO_COLOR ", fy: " FG_CYAN << irParams.fy << NO_COLOR ", cx: " FG_CYAN << irParams.cx << NO_COLOR ", cy: " FG_CYAN << irParams.cy << NO_COLOR);
+    OUT_DEBUG("k1: " FG_CYAN << irParams.k1 << NO_COLOR ", k2: " FG_CYAN << irParams.k2 << NO_COLOR ", p1: " FG_CYAN << irParams.p1 << NO_COLOR ", p2: " FG_CYAN << irParams.p2 << NO_COLOR ", k3: " FG_CYAN << irParams.k3 << NO_COLOR);
 
     OUT_DEBUG("default color camera parameters: ");
-    OUT_DEBUG("fx " << colorParams.fx << ", fy " << colorParams.fy << ", cx " << colorParams.cx << ", cy " << colorParams.cy);
+    OUT_DEBUG("fx: " FG_CYAN << colorParams.fx << NO_COLOR ", fy: " FG_CYAN << colorParams.fy << NO_COLOR ", cx: " FG_CYAN << colorParams.cx << NO_COLOR ", cy: " FG_CYAN << colorParams.cy << NO_COLOR);
 
     cameraMatrixColor = cv::Mat::eye(3, 3, CV_64F);
     distortionColor = cv::Mat::zeros(1, 5, CV_64F);
@@ -594,15 +594,15 @@ private:
     cv::initUndistortRectifyMap(cameraMatrixColor, distortionColor, cv::Mat(), cameraMatrixLowRes, sizeLowRes, mapType, map1LowRes, map2LowRes);
 
     OUT_DEBUG("camera parameters used:");
-    OUT_DEBUG("camera matrix color:" << std::endl << cameraMatrixColor);
-    OUT_DEBUG("distortion coefficients color:" << std::endl << distortionColor);
-    OUT_DEBUG("camera matrix ir:" << std::endl << cameraMatrixIr);
-    OUT_DEBUG("distortion coefficients ir:" << std::endl << distortionIr);
-    OUT_DEBUG("camera matrix depth:" << std::endl << cameraMatrixDepth);
-    OUT_DEBUG("distortion coefficients depth:" << std::endl << distortionDepth);
-    OUT_DEBUG("rotation:" << std::endl << rotation);
-    OUT_DEBUG("translation:" << std::endl << translation);
-    OUT_DEBUG("depth shift:" << std::endl << depthShift);
+    OUT_DEBUG("camera matrix color:" FG_CYAN << std::endl << cameraMatrixColor << NO_COLOR);
+    OUT_DEBUG("distortion coefficients color:" FG_CYAN << std::endl << distortionColor << NO_COLOR);
+    OUT_DEBUG("camera matrix ir:" FG_CYAN << std::endl << cameraMatrixIr << NO_COLOR);
+    OUT_DEBUG("distortion coefficients ir:" FG_CYAN << std::endl << distortionIr << NO_COLOR);
+    OUT_DEBUG("camera matrix depth:" FG_CYAN << std::endl << cameraMatrixDepth << NO_COLOR);
+    OUT_DEBUG("distortion coefficients depth:" FG_CYAN << std::endl << distortionDepth << NO_COLOR);
+    OUT_DEBUG("rotation:" FG_CYAN << std::endl << rotation << NO_COLOR);
+    OUT_DEBUG("translation:" FG_CYAN << std::endl << translation << NO_COLOR);
+    OUT_DEBUG("depth shift:" FG_CYAN << std::endl << depthShift << NO_COLOR);
   }
 
   bool loadCalibrationFile(const std::string &filename, cv::Mat &cameraMatrix, cv::Mat &distortion) const
@@ -779,8 +779,8 @@ private:
         elapsedTimeIrDepth = 0;
         lockTime.unlock();
 
-        OUT_INFO("depth processing: ~" << framesIrDepth / tDepth << "Hz (" << (tDepth / framesIrDepth) * 1000 << "ms) publishing rate: ~" << framesIrDepth / fpsTime << "Hz");
-        OUT_INFO("color processing: ~" << framesColor / tColor << "Hz (" << (tColor / framesColor) * 1000 << "ms) publishing rate: ~" << framesColor / fpsTime << "Hz");
+        OUT_INFO("depth processing: " FG_YELLOW "~" << (tDepth / framesIrDepth) * 1000 << "ms" NO_COLOR " (~" << framesIrDepth / tDepth << "Hz) publishing rate: " FG_YELLOW "~" << framesIrDepth / fpsTime << "Hz" NO_COLOR);
+        OUT_INFO("color processing: " FG_YELLOW "~" << (tColor / framesColor) * 1000 << "ms" NO_COLOR " (~" << framesColor / tColor << "Hz) publishing rate: " FG_YELLOW "~" << framesColor / fpsTime << "Hz" NO_COLOR);
         fpsTime = now;
       }
 
