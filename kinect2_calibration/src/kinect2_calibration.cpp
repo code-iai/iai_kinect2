@@ -685,7 +685,7 @@ private:
 
     OUT_INFO("calibrating intrinsics...");
     error = cv::calibrateCamera(pointsBoard, points, size, cameraMatrix, distortion, rvecs, tvecs, flags, termCriteria);
-    OUT_INFO("error: " << error << std::endl);
+    OUT_INFO("re-projection error: " << error << std::endl);
 
     OUT_INFO("Camera Matrix:" << std::endl << cameraMatrix);
     OUT_INFO("Distortion Coeeficients:" << std::endl << distortion << std::endl);
@@ -718,7 +718,7 @@ private:
     error = cv::stereoCalibrate(pointsBoard, pointsIr, pointsColor, cameraMatrixIr, distortionIr, cameraMatrixColor, distortionColor, sizeColor,
                                 rotation, translation, essential, fundamental, termCriteria,
                                 cv::CALIB_FIX_INTRINSIC);
-    OUT_INFO("calibration error: " << error << std::endl);
+    OUT_INFO("re-projection error: " << error << std::endl);
 
     OUT_INFO("Rotation:" << std::endl << rotation);
     OUT_INFO("Translation:" << std::endl << translation);

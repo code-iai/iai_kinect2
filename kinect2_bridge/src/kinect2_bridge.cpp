@@ -248,7 +248,7 @@ private:
 
     OUT_INFO("parameter:" << std::endl
              << "        base_name: " FG_CYAN << base_name << NO_COLOR << std::endl
-             << "           sensor: " FG_CYAN << sensor << NO_COLOR << std::endl
+             << "           sensor: " FG_CYAN << (sensor.empty() ? "default" : sensor) << NO_COLOR << std::endl
              << "        fps_limit: " FG_CYAN << fps_limit << NO_COLOR << std::endl
              << "       calib_path: " FG_CYAN << calib_path << NO_COLOR << std::endl
              << "          use_png: " FG_CYAN << (use_png ? "true" : "false") << NO_COLOR << std::endl
