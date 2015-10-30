@@ -1294,7 +1294,6 @@ private:
 class Kinect2BridgeNodelet : public nodelet::Nodelet
 {
 private:
-  std::thread kinect2BridgeThread;
   Kinect2Bridge *pKinect2Bridge;
 
 public:
