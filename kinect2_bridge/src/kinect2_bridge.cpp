@@ -276,7 +276,7 @@ private:
 
     initCompression(jpeg_quality, png_level, use_png);
 
-    if(!initPipeline(depth_method, depth_dev, bilateral_filter, edge_aware_filter, minDepth, maxDepth))
+    if(!initPipeline(depth_method, depth_dev))
     {
       return false;
     }
@@ -285,6 +285,8 @@ private:
     {
       return false;
     }
+
+    initConfig(bilateral_filter, edge_aware_filter, minDepth, maxDepth);
 
     initCalibration(calib_path, sensor);
 
@@ -350,7 +352,7 @@ private:
     return true;
   }
 
-  bool initPipeline(const std::string &method, const int32_t device, const bool bilateral_filter, const bool edge_aware_filter, const double minDepth, const double maxDepth)
+  bool initPipeline(const std::string &method, const int32_t device)
   {
     if(method == "default")
     {
@@ -390,13 +392,17 @@ private:
       return false;
     }
 
-    libfreenect2::DepthPacketProcessor::Config config;
+    return true;
+  }
+
+  void initConfig(const bool bilateral_filter, const bool edge_aware_filter, const double minDepth, const double maxDepth)
+  {
+    libfreenect2::Freenect2Device::Config config;
     config.EnableBilateralFilter = bilateral_filter;
     config.EnableEdgeAwareFilter = edge_aware_filter;
     config.MinDepth = minDepth;
     config.MaxDepth = maxDepth;
-    packetPipeline->getDepthPacketProcessor()->setConfiguration(config);
-    return true;
+    device->setConfiguration(config);
   }
 
   void initCompression(const int32_t jpegQuality, const int32_t pngLevel, const bool use_png)
