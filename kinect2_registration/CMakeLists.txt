@@ -96,7 +96,7 @@ add_custom_target(additional_files_${PROJECT_NAME}
 
 include_directories(include
   ${catkin_INCLUDE_DIRS}
-  ${OpenCV_INCLUDE_DIR}
+  ${OpenCV_INCLUDE_DIRS}
 )
 
 if(DEPTH_REG_CPU)
