@@ -27,6 +27,13 @@ find_package(cmake_modules QUIET)
 
 ## System dependencies are found with CMake's conventions
 find_package(OpenCV REQUIRED)
+if(OpenCV_FOUND)
+    message(STATUS "OpenCV version: ${OpenCV_VERSION}")
+   if(NOT OpenCV_VERSION VERSION_LESS "3.0.0")
+       add_definitions(-DHAVE_OPENCV3)
+        message(STATUS "defined HAVE_OPENCV3")
+   endif()
+endif()
 find_package(OpenMP)
 find_package(Eigen)
 find_package(OpenCL)
