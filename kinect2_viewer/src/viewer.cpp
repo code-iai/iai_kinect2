@@ -38,6 +38,9 @@
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Image.h>
 
+#include <sensor_msgs/PointCloud2.h>
+#include <pcl_conversions/pcl_conversions.h>
+
 #include <cv_bridge/cv_bridge.h>
 
 #include <image_transport/image_transport.h>
@@ -55,7 +58,8 @@ class Receiver
 public:
   enum Mode
   {
-    IMAGE = 0,
+  	NONE = 0,
+    IMAGE,
     CLOUD,
     BOTH
   };
@@ -63,12 +67,13 @@ public:
 private:
   std::mutex lock;
 
-  const std::string topicColor, topicDepth;
+  const std::string topicColor, topicDepth, topicPointCloud2;
   const bool useExact, useCompressed;
 
-  bool updateImage, updateCloud;
+  volatile bool updatedImageReadyForCloud, updatedImageReadyForViewer, updatedCloudReady;
+  bool publishCloud;
   bool save;
-  bool running;
+  volatile bool running;
   size_t frame;
   const size_t queueSize;
 
@@ -84,11 +89,12 @@ private:
   image_transport::ImageTransport it;
   image_transport::SubscriberFilter *subImageColor, *subImageDepth;
   message_filters::Subscriber<sensor_msgs::CameraInfo> *subCameraInfoColor, *subCameraInfoDepth;
+  ros::Publisher pointCloud2Publisher;
 
   message_filters::Synchronizer<ExactSyncPolicy> *syncExact;
   message_filters::Synchronizer<ApproximateSyncPolicy> *syncApproximate;
 
-  std::thread imageViewerThread;
+  std::thread imageViewerThread, cloudUpdaterThread;
   Mode mode;
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr cloud;
@@ -97,9 +103,11 @@ private:
   std::vector<int> params;
 
 public:
-  Receiver(const std::string &topicColor, const std::string &topicDepth, const bool useExact, const bool useCompressed)
-    : topicColor(topicColor), topicDepth(topicDepth), useExact(useExact), useCompressed(useCompressed),
-      updateImage(false), updateCloud(false), save(false), running(false), frame(0), queueSize(5),
+  Receiver(const std::string &topicColor, const std::string &topicDepth, const std::string &topicPointCloud2,
+    const bool useExact, const bool useCompressed, const bool publishCloud_): 
+      topicColor(topicColor), topicDepth(topicDepth), topicPointCloud2(topicPointCloud2), useExact(useExact), useCompressed(useCompressed),
+      updatedImageReadyForCloud(false), updatedImageReadyForViewer(false), updatedCloudReady(false), publishCloud(publishCloud_), 
+      save(false), running(false), frame(0), queueSize(5),
       nh("~"), spinner(0), it(nh), mode(CLOUD)
   {
     cameraMatrixColor = cv::Mat::zeros(3, 3, CV_64F);
@@ -128,9 +136,12 @@ private:
   {
     this->mode = mode;
     running = true;
+    std::cout << __LINE__ << "\n";
 
     std::string topicCameraInfoColor = topicColor.substr(0, topicColor.rfind('/')) + "/camera_info";
     std::string topicCameraInfoDepth = topicDepth.substr(0, topicDepth.rfind('/')) + "/camera_info";
+    // std::string topicCameraInfoCloud = topicPointCloud2.substr(0, topicPointCloud2.rfind('/')) + "/camera_info";
+    pointCloud2Publisher = nh.advertise<sensor_msgs::PointCloud2>(topicPointCloud2,1000);
 
     image_transport::TransportHints hints(useCompressed ? "compressed" : "raw");
     subImageColor = new image_transport::SubscriberFilter(it, topicColor, queueSize, hints);
@@ -138,6 +149,7 @@ private:
     subCameraInfoColor = new message_filters::Subscriber<sensor_msgs::CameraInfo>(nh, topicCameraInfoColor, queueSize);
     subCameraInfoDepth = new message_filters::Subscriber<sensor_msgs::CameraInfo>(nh, topicCameraInfoDepth, queueSize);
 
+    std::cout << __LINE__ << "\n";
     if(useExact)
     {
       syncExact = new message_filters::Synchronizer<ExactSyncPolicy>(ExactSyncPolicy(queueSize), *subImageColor, *subImageDepth, *subCameraInfoColor, *subCameraInfoDepth);
@@ -148,38 +160,51 @@ private:
       syncApproximate = new message_filters::Synchronizer<ApproximateSyncPolicy>(ApproximateSyncPolicy(queueSize), *subImageColor, *subImageDepth, *subCameraInfoColor, *subCameraInfoDepth);
       syncApproximate->registerCallback(boost::bind(&Receiver::callback, this, _1, _2, _3, _4));
     }
+    std::cout << __LINE__ << "\n";
 
     spinner.start();
 
+    std::cout << __LINE__ << "\n";
     std::chrono::milliseconds duration(1);
-    while(!updateImage || !updateCloud)
+    while(!updatedImageReadyForCloud || !updatedImageReadyForViewer)
     {
+    std::cout << __LINE__ << "\n";
       if(!ros::ok())
       {
+    std::cout << __LINE__ << "\n";
         return;
       }
       std::this_thread::sleep_for(duration);
     }
-    cloud = pcl::PointCloud<pcl::PointXYZRGBA>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBA>());
-    cloud->height = color.rows;
-    cloud->width = color.cols;
-    cloud->is_dense = false;
-    cloud->points.resize(cloud->height * cloud->width);
-    createLookup(this->color.cols, this->color.rows);
+    cloud = createCloud(this->depth);
+    createLookup(this->color.cols, this->color.rows,cameraMatrixColor,lookupX,lookupY);
 
+
+    std::cout << __LINE__ << "\n";
     switch(mode)
     {
     case CLOUD:
+      cloudUpdaterThread = std::thread(&Receiver::cloudUpdater,this);
       cloudViewer();
       break;
+    std::cout << __LINE__ << "\n";
     case IMAGE:
+      cloudUpdaterThread = std::thread(&Receiver::cloudUpdater,this);
       imageViewer();
       break;
+    std::cout << __LINE__ << "\n";
     case BOTH:
+      cloudUpdaterThread = std::thread(&Receiver::cloudUpdater,this);
       imageViewerThread = std::thread(&Receiver::imageViewer, this);
       cloudViewer();
       break;
+    std::cout << __LINE__ << "\n";
+    default: // NONE
+      cloudUpdater();
+    std::cout << __LINE__ << "\n";
     }
+
+    std::cout << __LINE__ << "\n";
   }
 
   void stop()
@@ -204,12 +229,18 @@ private:
     if(mode == BOTH)
     {
       imageViewerThread.join();
+      cloudUpdaterThread.join();
+    }
+    else if( mode == IMAGE || mode == CLOUD)
+    {
+      cloudUpdaterThread.join();
     }
   }
 
   void callback(const sensor_msgs::Image::ConstPtr imageColor, const sensor_msgs::Image::ConstPtr imageDepth,
                 const sensor_msgs::CameraInfo::ConstPtr cameraInfoColor, const sensor_msgs::CameraInfo::ConstPtr cameraInfoDepth)
   {
+    std::cout << __LINE__ << "\n";
     cv::Mat color, depth;
 
     readCameraInfo(cameraInfoColor, cameraMatrixColor);
@@ -228,9 +259,57 @@ private:
     lock.lock();
     this->color = color;
     this->depth = depth;
-    updateImage = true;
-    updateCloud = true;
+    updatedImageReadyForCloud = true;
+    updatedImageReadyForViewer = true;
     lock.unlock();
+  }
+
+  // updates and publishes point cloud
+  void cloudUpdater()
+  {
+     cv::Mat localcolor, localdepth, localLookupX, localLookupY;
+
+	 lock.lock();
+     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr localcloud = createCloud(this->depth);
+     localLookupX=this->lookupX;
+     localLookupY=this->lookupY;
+	 lock.unlock();
+
+  	 for(; running && ros::ok();)
+  	 {
+  	 	if(updatedImageReadyForCloud)
+  	 	{
+		    lock.lock();
+  	 		printf("ready\n");
+		    localcolor = this->color;
+		    localdepth = this->depth;
+		    updatedImageReadyForCloud=false;
+		    lock.unlock();
+
+		    updateCloud(localdepth, localcolor, localLookupX, localLookupY, localcloud);
+
+		    lock.lock();
+		    /// @todo this can be sped up with better thread safety techniques
+		    pcl::copyPointCloud(*localcloud,*cloud);
+		    updatedCloudReady=true;
+		    lock.unlock();
+
+
+	        if(publishCloud)
+	        {
+	          printf("Publish cloud\n");
+		      sensor_msgs::PointCloud2 output_msg;
+			  toROSMsg(*localcloud,output_msg);
+			  /// @todo what if there are 2 kinects?
+			  output_msg.header.frame_id = "kinect2_ir_optical_frame";
+			  pointCloud2Publisher.publish(output_msg);
+              ros::spinOnce();
+		    }
+
+  	 	}
+
+  	 }
+
   }
 
   void imageViewer()
@@ -252,12 +331,12 @@ private:
     start = std::chrono::high_resolution_clock::now();
     for(; running && ros::ok();)
     {
-      if(updateImage)
+      if(updatedImageReadyForViewer)
       {
         lock.lock();
         color = this->color;
         depth = this->depth;
-        updateImage = false;
+        updatedImageReadyForViewer = false;
         lock.unlock();
 
         ++frameCount;
@@ -291,7 +370,6 @@ private:
       case 's':
         if(mode == IMAGE)
         {
-          createCloud(depth, color, cloud);
           saveCloudAndImages(cloud, color, depth, depthDisp);
         }
         else
@@ -309,17 +387,20 @@ private:
   {
     cv::Mat color, depth;
     pcl::visualization::PCLVisualizer::Ptr visualizer(new pcl::visualization::PCLVisualizer("Cloud Viewer"));
+    pcl::PointCloud<pcl::PointXYZRGBA>::Ptr localcloud;
     const std::string cloudName = "rendered";
+
+    while(!updatedCloudReady){
+    	if(!ros::ok() || !running) return; // shouldn't happen unless program is closing
+    }
 
     lock.lock();
     color = this->color;
     depth = this->depth;
-    updateCloud = false;
+    pcl::copyPointCloud(*cloud,*localcloud);
     lock.unlock();
 
-    createCloud(depth, color, cloud);
-
-    visualizer->addPointCloud(cloud, cloudName);
+    visualizer->addPointCloud(localcloud, cloudName);
     visualizer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, cloudName);
     visualizer->initCameraParameters();
     visualizer->setBackgroundColor(0, 0, 0);
@@ -331,25 +412,29 @@ private:
 
     for(; running && ros::ok();)
     {
-      if(updateCloud)
+      if(updatedCloudReady)
       {
-        lock.lock();
-        color = this->color;
-        depth = this->depth;
-        updateCloud = false;
-        lock.unlock();
+         lock.lock();
+         pcl::copyPointCloud(*cloud,*localcloud);
+         lock.unlock();
 
-        createCloud(depth, color, cloud);
-
-        visualizer->updatePointCloud(cloud, cloudName);
+        if(mode == CLOUD || mode == BOTH)
+        {
+          visualizer->updatePointCloud(localcloud, cloudName);
+        }
       }
       if(save)
       {
+	    lock.lock();
+	    color = this->color;
+	    depth = this->depth;
+	    lock.unlock();
         save = false;
         cv::Mat depthDisp;
         dispDepth(depth, depthDisp, 12000.0f);
-        saveCloudAndImages(cloud, color, depth, depthDisp);
+        saveCloudAndImages(localcloud, color, depth, depthDisp);
       }
+
       visualizer->spinOnce(10);
     }
     visualizer->close();
@@ -430,9 +515,17 @@ private:
     }
   }
 
-  void createCloud(const cv::Mat &depth, const cv::Mat &color, pcl::PointCloud<pcl::PointXYZRGBA>::Ptr &cloud) const
+  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr createCloud(const cv::Mat &depth)
+  {
+     
+      cloud = pcl::PointCloud<pcl::PointXYZRGBA>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBA>(depth.rows,depth.cols));
+      cloud->is_dense = false;
+  }
+
+  static void updateCloud(const cv::Mat &depth, const cv::Mat &color, const cv::Mat& lookupX, const cv::Mat& lookupY, pcl::PointCloud<pcl::PointXYZRGBA>::Ptr &cloud)
   {
     const float badPoint = std::numeric_limits<float>::quiet_NaN();
+    bool is_dense = true;
 
     #pragma omp parallel for
     for(int r = 0; r < depth.rows; ++r)
@@ -452,6 +545,7 @@ private:
           // not valid
           itP->x = itP->y = itP->z = badPoint;
           itP->rgba = 0;
+          is_dense = false;
           continue;
         }
         itP->z = depthValue;
@@ -463,6 +557,8 @@ private:
         itP->a = 255;
       }
     }
+
+    cloud->is_dense = is_dense;
   }
 
   void saveCloudAndImages(const pcl::PointCloud<pcl::PointXYZRGBA>::ConstPtr cloud, const cv::Mat &color, const cv::Mat &depth, const cv::Mat &depthColored)
@@ -487,7 +583,7 @@ private:
     ++frame;
   }
 
-  void createLookup(size_t width, size_t height)
+  static void createLookup(const size_t width,const size_t height, const cv::Mat& cameraMatrixColor, cv::Mat& lookupX, cv::Mat& lookupY)
   {
     const float fx = 1.0f / cameraMatrixColor.at<double>(0, 0);
     const float fy = 1.0f / cameraMatrixColor.at<double>(1, 1);
@@ -516,8 +612,9 @@ void help(const std::string &path)
   std::cout << path << FG_BLUE " [options]" << std::endl
             << FG_GREEN "  name" NO_COLOR ": " FG_YELLOW "'any string'" NO_COLOR " equals to the kinect2_bridge topic base name" << std::endl
             << FG_GREEN "  mode" NO_COLOR ": " FG_YELLOW "'qhd'" NO_COLOR ", " FG_YELLOW "'hd'" NO_COLOR ", " FG_YELLOW "'sd'" NO_COLOR " or " FG_YELLOW "'ir'" << std::endl
-            << FG_GREEN "  visualization" NO_COLOR ": " FG_YELLOW "'image'" NO_COLOR ", " FG_YELLOW "'cloud'" NO_COLOR " or " FG_YELLOW "'both'" << std::endl
+            << FG_GREEN "  visualization" NO_COLOR ": " FG_YELLOW "'none'" NO_COLOR ", " FG_YELLOW "'image'" NO_COLOR ", " FG_YELLOW "'cloud'" NO_COLOR " or " FG_YELLOW "'both'" << std::endl
             << FG_GREEN "  options" NO_COLOR ":" << std::endl
+            << FG_YELLOW "    'publish_cloud'" NO_COLOR " publish PointXYZRGBA cloud topic" << std::endl
             << FG_YELLOW "    'compressed'" NO_COLOR " use compressed instead of raw topics" << std::endl
             << FG_YELLOW "    'approx'" NO_COLOR " use approximate time synchronization" << std::endl;
 }
@@ -543,8 +640,11 @@ int main(int argc, char **argv)
   std::string ns = K2_DEFAULT_NS;
   std::string topicColor = K2_TOPIC_QHD K2_TOPIC_IMAGE_COLOR K2_TOPIC_IMAGE_RECT;
   std::string topicDepth = K2_TOPIC_QHD K2_TOPIC_IMAGE_DEPTH K2_TOPIC_IMAGE_RECT;
+  std::string topicPointCloud2 = "/camera/depth_registered/depth_camera_frame";
+
   bool useExact = true;
   bool useCompressed = false;
+  bool publishCloud = false;
   Receiver::Mode mode = Receiver::CLOUD;
 
   for(size_t i = 1; i < (size_t)argc; ++i)
@@ -586,6 +686,11 @@ int main(int argc, char **argv)
     {
       useCompressed = true;
     }
+
+    else if(param == "publish_cloud")
+    {
+      publishCloud = true;
+    }
     else if(param == "image")
     {
       mode = Receiver::IMAGE;
@@ -608,8 +713,9 @@ int main(int argc, char **argv)
   topicDepth = "/" + ns + topicDepth;
   OUT_INFO("topic color: " FG_CYAN << topicColor << NO_COLOR);
   OUT_INFO("topic depth: " FG_CYAN << topicDepth << NO_COLOR);
+  OUT_INFO("topic cloud: " FG_CYAN << topicPointCloud2 << NO_COLOR);
 
-  Receiver receiver(topicColor, topicDepth, useExact, useCompressed);
+  Receiver receiver(topicColor, topicDepth, topicPointCloud2, useExact, useCompressed,publishCloud);
 
   OUT_INFO("starting receiver...");
   receiver.run(mode);
