@@ -30,7 +30,7 @@ kinect2_viewer [options]
     'approx' use approximate time synchronization
 ```
 
-Example: `rosrun kinect2_viewer kinect2_viewer kinect2 sd cloud`
+Example: `rosrun kinect2_viewer kinect2_viewer sd cloud`
 
 ## Key bindings
 
