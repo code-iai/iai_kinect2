@@ -10,6 +10,9 @@ This is a simple viewer for the combined color an depth image provided by Kinect
 
 It just listens to two ROS topics and displays a the color with the overlayed colored depth image or a registered point cloud.
 
+Update:
+It can disable the visualization and just publish pointcloud2 now with publish_cloud option with changes in lock and unlock to assert that the color corresponded to the depth image in the same timeframe. Change pcl RGBA point cloud to RGB
+
 ## Dependencies
 
 - ROS Hydro/Indigo
@@ -24,8 +27,9 @@ It just listens to two ROS topics and displays a the color with the overlayed co
 kinect2_viewer [options]
   name: 'any string' equals to the kinect2_bridge topic base name
   mode: 'qhd', 'hd', 'sd' or 'ir'
-  visualization: 'image', 'cloud' or 'both'
+  visualization: 'none', 'image', 'cloud' or 'both'
   options:
+    'publish_cloud' publish PointXYZRGBA cloud topic
     'compressed' use compressed instead of raw topics
     'approx' use approximate time synchronization
 ```
