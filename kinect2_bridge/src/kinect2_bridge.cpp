@@ -239,7 +239,7 @@ private:
     priv_nh.param("queue_size", queueSize, 2);
     priv_nh.param("bilateral_filter", bilateral_filter, true);
     priv_nh.param("edge_aware_filter", edge_aware_filter, true);
-    priv_nh.param("publish_tf", publishTF, false);
+    priv_nh.param("publish_tf", publishTF, true);
     priv_nh.param("base_name_tf", baseNameTF, base_name);
     priv_nh.param("worker_threads", worker_threads, 4);
 
