@@ -96,67 +96,68 @@ This are the raw IR and depth images from the sensor (512x424).
 
 ## Notes
 
+- Point clouds are only published when the launch file is used. Run `roslaunch kinect2_bridge kinect2_bridge.launch`.
 - Images from the same frame have the same timestamp. Using the `message_filters::sync_policies::ExactTime` policy is recommended.
 
 ## Usage
 
 ```
-kinect2_bridge [_options:=value]
-_base_name:=<string>
+roslaunch kinect2_bridge kinect2_bridge.launch [options:=value]
+base_name:=<string>
     default: kinect2
     info:    set base name for all topics
-_sensor:=<string>
+sensor:=<string>
     default:
     info:    serial of the sensor to use
-_fps_limit:=<double>
+fps_limit:=<double>
     default: -1.0
     info:    limit the frames per second
-_calib_path:=<string>
+calib_path:=<string>
     default: /home/wiedemeyer/work/src/iai_kinect2/kinect2_bridge/data/
     info:    path to the calibration files
-_use_png:=<bool>
+use_png:=<bool>
     default: false
     info:    Use PNG compression instead of TIFF
-_jpeg_quality:=<int>
+jpeg_quality:=<int>
     default: 90
     info:    JPEG quality level from 0 to 100
-_png_level:=<int>
+png_level:=<int>
     default: 1
     info:    PNG compression level from 0 to 9
-_depth_method:=<string>
+depth_method:=<string>
     default: opencl
     info:    Use specific depth processing: default, cpu, opengl, opencl
-_depth_device:=<int>
+depth_device:=<int>
     default: -1
     info:    openCL device to use for depth processing
-_reg_method:=<string>
+reg_method:=<string>
     default: opencl
     info:    Use specific depth registration: default, cpu, opencl
-_reg_devive:=<int>
+reg_devive:=<int>
     default: -1
     info:    openCL device to use for depth registration
-_max_depth:=<double>
+max_depth:=<double>
     default: 12.0
     info:    max depth value
-_min_depth:=<double>
+min_depth:=<double>
     default: 0.1
     info:    min depth value
-_queue_size:=<int>
+queue_size:=<int>
     default: 2
     info:    queue size of publisher
-_bilateral_filter:=<bool>
+bilateral_filter:=<bool>
     default: true
     info:    enable bilateral filtering of depth images
-_edge_aware_filter:=<bool>
+edge_aware_filter:=<bool>
     default: true
     info:    enable edge aware filtering of depth images
-_publish_tf:=<bool>
+publish_tf:=<bool>
     default: false
     info:    publish static tf transforms for camera
-_base_name_tf:=<string>
+base_name_tf:=<string>
     default: as base_name
     info:    base name for the tf frames
-_worker_threads:=<int>
+worker_threads:=<int>
     default: 4
     info:    number of threads used for processing the images
 ```

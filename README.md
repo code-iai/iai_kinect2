@@ -31,28 +31,38 @@ It contains:
 #### Someting is not working, what should I do first?
 
 First you should look at this FAQ and the [FAQ from libfreenect2](https://github.com/OpenKinect/libfreenect2#faq).
-Secondly, look at [issue page from libfreenect2](https://github.com/OpenKinect/libfreenect2/issues) and the [issue page of iai_kinect2](https://github.com/code-iai/iai_kinect2/issues) for similar issues and solutions.
+Secondly, look at [issue page from libfreenect2](https://github.com/OpenKinect/libfreenect2/issues) and
+the [issue page of iai_kinect2](https://github.com/code-iai/iai_kinect2/issues) for similar issues and solutions.
 
 #### Will it work with OpenCV 3.0
 
-Right now it will not work with OpenCV 3.0. The default version in Ubuntu and ROS and therefore also for the iai_kinect2 package is OpenCV 2.4.x.
+Short answer: No.
+
+Long answer: Yes, it is possible to compile this package with OpenCV 3.0, but it will not work.
+This is because cv_bridge is used, which itself is compiled with OpenCV 2.4.x in ROS Indigo/Jade and
+linking against both OpenCV versions is not possible. Working support for OpenCV 3.0 might come with a future ROS release.
 
 #### kinect2_bridge is not working / crashing, what is wrong?
 
-There are many reasons why `kinect2_bridge` might not working. The first thing to find out whether the problem is related to `kinect2_bridge` or `libfreenect2`. A good tool for testing is `Protonect`, it is a binary located in `libfreenect2/build/bin/Protonect`. It uses libfreenect directly with a minimal dependency on other libraries, so it is a good tool for the first tests.
+There are many reasons why `kinect2_bridge` might not working. The first thing to find out whether the problem is related to `kinect2_bridge` or `libfreenect2`.
+A good tool for testing is `Protonect`, it is a binary located in `libfreenect2/build/bin/Protonect`.
+It uses libfreenect directly with a minimal dependency on other libraries, so it is a good tool for the first tests.
 
 Execute:
 - `./Protonect gl` to test OpenGL support.
 - `./Protonect cl` to test OpenCL support.
 - `./Protonect cpu` to test CPU support.
 
-Before running `kinect2_bridge` please make sure `Protonect` is working and showing color, depth and ir images. If some of them are black, than there is a problem not related to `kinect2_bridge` and you should look at the issues from the libfreenect2 GitHub page for help.
+Before running `kinect2_bridge` please make sure `Protonect` is working and showing color, depth and ir images.
+If some of them are black, than there is a problem not related to `kinect2_bridge` and you should look at the issues from the libfreenect2 GitHub page for help.
 
-If one of them works, try out the one that worked with `kinect2_bridge`: `rosrun kinect2_bridge kinect2_bridge depth_method:=<opengl|opencl|cpu>`. You can also change the registration method with `reg_method:=<cpu|opencl>`.
+If one of them works, try out the one that worked with `kinect2_bridge`: `rosrun kinect2_bridge kinect2_bridge _depth_method:=<opengl|opencl|cpu>`.
+You can also change the registration method with `_reg_method:=<cpu|opencl>`.
 
 #### Protonect works fine, but kinect2_bridge is still not working / crashing.
 
-If that is the case, you have to make sure that `Protonect` uses the same version of `libfreenect2` as `kinect2_bridge` does. To do so, run `make` and `sudo make install` in the build folder again. And try out `kinect2_bridge` again.
+If that is the case, you have to make sure that `Protonect` uses the same version of `libfreenect2` as `kinect2_bridge` does.
+To do so, run `make` and `sudo make install` in the build folder again. And try out `kinect2_bridge` again.
 
 ```
 cd libfreenect2/build
@@ -61,11 +71,13 @@ make & sudo make install
 
 #### kinect2_bridge hangs and prints "waiting for clients to connect"
 
-This is the normal behavior. 'kinect2_bridge' will only process data when clients are connected (ROS nodes listening to at least one of the topics). This saves CPU and GPU resources. As soon as you start the `kinect_viewer` or `rostopic hz` on one of the topics, processing should start.
+This is the normal behavior. 'kinect2_bridge' will only process data when clients are connected (ROS nodes listening to at least one of the topics).
+This saves CPU and GPU resources. As soon as you start the `kinect_viewer` or `rostopic hz` on one of the topics, processing should start.
 
 #### rosdep: Cannot locate rosdep definition for [kinect2_bridge] or [kinect2_registration]
 
-`rosdep` will output errors on not being able to locate `[kinect2_bridge]` and `[kinect2_registration]`. That is fine because they are all part of the iai_kinect2 package and `rosdep` does not know these packages.
+`rosdep` will output errors on not being able to locate `[kinect2_bridge]` and `[kinect2_registration]`.
+That is fine because they are all part of the iai_kinect2 package and `rosdep` does not know these packages.
 
 #### Protonect or kinect2_bridge outputs [TransferPool::submit] failed to submit transfer
 
@@ -73,9 +85,14 @@ This indicates problems with the USB connection.
 
 #### I still have an issue, what should I do?
 
-First of all, check the issue pages on GitHub for similar issues, as they might contain solutions for them. By default you will only see the open issues, but if you click on `closed` you will the the ones solved. There is also a search field which helps to find similar issues.
+First of all, check the issue pages on GitHub for similar issues, as they might contain solutions for them.
+By default you will only see the open issues, but if you click on `closed` you will the the ones solved. There is also a search field which helps to find similar issues.
 
 If you found no solution in the issues, feel free to open a new issue for your problem. Please describe your problem in detail and provide error messages and log output.
+
+#### Point clouds are not being published?
+
+Point clouds are only published when the launch file is used. Make sure to start kinect2_bridge with `roslaunch kinect2_bridge kinect2_bridge.launch`.
 
 ## Dependencies
 
@@ -106,12 +123,13 @@ cd ~/catkin_ws
 catkin_make -DCMAKE_BUILD_TYPE="Release"
 ```
 
-   *Note: `rosdep` will output errors on not being able to locate `[kinect2_bridge]` and `[depth_registration]`. That is fine because they are all part of the iai_kinect2 package and `rosdep` does not know these packages.*
+   *Note: `rosdep` will output errors on not being able to locate `[kinect2_bridge]` and `[depth_registration]`.
+   That is fine because they are all part of the iai_kinect2 package and `rosdep` does not know these packages.*
 
 6. Connect your sensor and run `kinect2_bridge`:
 
    ```
-rosrun kinect2_bridge kinect2_bridge
+roslaunch kinect2_bridge kinect2_bridge.launch
 ```
 7. Calibrate your sensor using the `kinect2_calibration`. [Further details](kinect2_calibration#calibrating-the-kinect-one)
 8. Add the calibration files to the `kinect2_bridge/data/<serialnumber>` folder. [Further details](kinect2_bridge#first-steps)
@@ -125,11 +143,13 @@ Install the latest version of the AMD Catalyst drivers from https://support.amd.
 
 ### OpenCL with Nvidia
 
-Install the latest version of the Nvidia drivers, for example `nvidia-355` and `nvidia-modprobe` from [ppa:graphics-drivers/ppa](https://launchpad.net/~graphics-drivers/+archive/ubuntu/ppa) and `opencl-headers`.
+Install the latest version of the Nvidia drivers,
+for example `nvidia-355` and `nvidia-modprobe` from [ppa:graphics-drivers/ppa](https://launchpad.net/~graphics-drivers/+archive/ubuntu/ppa) and `opencl-headers`.
 
 ### OpenCL with Intel
 
-You can either install a binary package from a PPA like [ppa:pmjdebruijn/beignet-testing](https://launchpad.net/~pmjdebruijn/+archive/ubuntu/beignet-testing), or build beignet yourself. It's recommended to use the binary from the PPA.
+You can either install a binary package from a PPA like [ppa:pmjdebruijn/beignet-testing](https://launchpad.net/~pmjdebruijn/+archive/ubuntu/beignet-testing), or build beignet yourself.
+It's recommended to use the binary from the PPA.
 
 #### Building Beignet
 
