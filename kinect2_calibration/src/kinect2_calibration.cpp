@@ -144,12 +144,12 @@ private:
     OUT_INFO("Controls:" << std::endl
              << FG_YELLOW "   [ESC, q]" NO_COLOR " - Exit" << std::endl
              << FG_YELLOW " [SPACE, s]" NO_COLOR " - Save current frame" << std::endl
-             << FG_YELLOW "        [l]" NO_COLOR " - decreas min and max value for IR value rage" << std::endl
-             << FG_YELLOW "        [h]" NO_COLOR " - increas min and max value for IR value rage" << std::endl
-             << FG_YELLOW "        [1]" NO_COLOR " - decreas min value for IR value rage" << std::endl
-             << FG_YELLOW "        [2]" NO_COLOR " - increas min value for IR value rage" << std::endl
-             << FG_YELLOW "        [3]" NO_COLOR " - decreas max value for IR value rage" << std::endl
-             << FG_YELLOW "        [4]" NO_COLOR " - increas max value for IR value rage");
+             << FG_YELLOW "        [l]" NO_COLOR " - decrease min and max value for IR value rage" << std::endl
+             << FG_YELLOW "        [h]" NO_COLOR " - increase min and max value for IR value rage" << std::endl
+             << FG_YELLOW "        [1]" NO_COLOR " - decrease min value for IR value rage" << std::endl
+             << FG_YELLOW "        [2]" NO_COLOR " - increase min value for IR value rage" << std::endl
+             << FG_YELLOW "        [3]" NO_COLOR " - decrease max value for IR value rage" << std::endl
+             << FG_YELLOW "        [4]" NO_COLOR " - increase max value for IR value rage");
 
     image_transport::TransportHints hints("compressed");
     subImageColor = new image_transport::SubscriberFilter(it, topicColor, 4, hints);
@@ -1172,8 +1172,8 @@ void help(const std::string &path)
             << FG_GREEN "  mode" NO_COLOR ": " FG_YELLOW "'record'" NO_COLOR " or " FG_YELLOW "'calibrate'" << std::endl
             << FG_GREEN "  source" NO_COLOR ": " FG_YELLOW "'color'" NO_COLOR ", " FG_YELLOW "'ir'" NO_COLOR ", " FG_YELLOW "'sync'" NO_COLOR ", " FG_YELLOW "'depth'" << std::endl
             << FG_GREEN "  board" NO_COLOR ":" << std::endl
-            << FG_YELLOW "    'circle<WIDTH>x<HEIGHT>x<SIZE>'  " NO_COLOR "for symmentric cirle grid" << std::endl
-            << FG_YELLOW "    'acircle<WIDTH>x<HEIGHT>x<SIZE>' " NO_COLOR "for asymmentric cirle grid" << std::endl
+            << FG_YELLOW "    'circle<WIDTH>x<HEIGHT>x<SIZE>'  " NO_COLOR "for symmetric circle grid" << std::endl
+            << FG_YELLOW "    'acircle<WIDTH>x<HEIGHT>x<SIZE>' " NO_COLOR "for asymmetric circle grid" << std::endl
             << FG_YELLOW "    'chess<WIDTH>x<HEIGHT>x<SIZE>'   " NO_COLOR "for chessboard pattern" << std::endl
             << FG_GREEN "  distortion model" NO_COLOR ": " FG_YELLOW "'rational'" NO_COLOR " for using model with 8 instead of 5 coefficients" << std::endl
             << FG_GREEN "  output path" NO_COLOR ": " FG_YELLOW "'-path <PATH>'" NO_COLOR << std::endl;

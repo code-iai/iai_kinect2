@@ -4,6 +4,8 @@
 
 - [Thiemo Wiedemeyer](https://ai.uni-bremen.de/team/thiemo_wiedemeyer) <<wiedemeyer@cs.uni-bremen.de>>, [Institute for Artificial Intelligence](http://ai.uni-bremen.de/), University of Bremen
 
+*Note:* ***Please use the GitHub issues*** *for questions and problems regarding the iai_kinect2 package and its components.* ***Do not write emails.***
+
 ## Description
 
 This is a bridge between [libfreenect2](https://github.com/OpenKinect/libfreenect2) and ROS.
@@ -25,7 +27,7 @@ This is a bridge between [libfreenect2](https://github.com/OpenKinect/libfreenec
 
 ## First steps
 
-For the depth registration the camera intrinsics and extrinsics need to be known. The program reads in the values from the `data/<serialnumber>` folder. For each new sensor you need to add a subfolder with the serial number of the device as the folder name. In this folder you need to provide 4 yaml files with the intrinsics and extrinsics. These files can be created by the `kinect2_calibration` tool (or you can copy the files provided in one of the other folders, but results can be sub optimal). The device serial number is shown when `kinect2_bridge` or `Protonect` from libfreenect2 is started, it also appears in `dmesg` when you connect the sensor. [More information on calibration](../kinect2_calibration#calibrating-the-kinect-one).
+For the depth registration the camera intrinsic and extrinsic parameters need to be known. The program reads in the values from the `data/<serialnumber>` folder. For each new sensor you need to add a sub-folder with the serial number of the device as the folder name. In this folder you need to provide 4 yaml files with the intrinsic and extrinsic parameters. These files can be created by the `kinect2_calibration` tool (or you can copy the files provided in one of the other folders, but results can be sub optimal). The device serial number is shown when `kinect2_bridge` or `Protonect` from libfreenect2 is started, it also appears in `dmesg` when you connect the sensor. [More information on calibration](../kinect2_calibration#calibrating-the-kinect-one).
 
 When `kinect2_bridge` is running you can use the `kinect2_viewer` to display the images or point cloud: `rosrun kinect2_viewer kinect2_viewer sd image` or `rosrun kinect2_viewer kinect2_viewer sd cloud`.
 
@@ -54,7 +56,7 @@ The images in this topics have a FullHD resolution (1920x1080).
 
 ### Quater HD Topics
 
-The images in this topics have a quater FullHD resolution (960x540).
+The images in this topics have a quarter FullHD resolution (960x540).
 
 *Note: For correct registration of the depth image to the color image it is needed to perform a calibration.*
 

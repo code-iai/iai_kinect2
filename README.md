@@ -4,6 +4,8 @@
 
 - [Thiemo Wiedemeyer](https://ai.uni-bremen.de/team/thiemo_wiedemeyer) <<wiedemeyer@cs.uni-bremen.de>>, [Institute for Artificial Intelligence](http://ai.uni-bremen.de/), University of Bremen
 
+*Note:* ***Please use the GitHub issues*** *for questions and problems regarding the iai_kinect2 package and its components.* ***Do not write emails.***
+
 ## Table of contents
 - [Description](#description)
 - [FAQ](#faq)
@@ -28,11 +30,15 @@ It contains:
 
 ## FAQ
 
-#### Someting is not working, what should I do first?
+#### If I have any question or someting is not working, what should I do first?
 
 First you should look at this FAQ and the [FAQ from libfreenect2](https://github.com/OpenKinect/libfreenect2#faq).
 Secondly, look at [issue page from libfreenect2](https://github.com/OpenKinect/libfreenect2/issues) and
 the [issue page of iai_kinect2](https://github.com/code-iai/iai_kinect2/issues) for similar issues and solutions.
+
+#### Point clouds are not being published?
+
+Point clouds are only published when the launch file is used. Make sure to start kinect2_bridge with `roslaunch kinect2_bridge kinect2_bridge.launch`.
 
 #### Will it work with OpenCV 3.0
 
@@ -46,7 +52,7 @@ linking against both OpenCV versions is not possible. Working support for OpenCV
 
 There are many reasons why `kinect2_bridge` might not working. The first thing to find out whether the problem is related to `kinect2_bridge` or `libfreenect2`.
 A good tool for testing is `Protonect`, it is a binary located in `libfreenect2/build/bin/Protonect`.
-It uses libfreenect directly with a minimal dependency on other libraries, so it is a good tool for the first tests.
+It uses libfreenect2 directly with a minimal dependency on other libraries, so it is a good tool for the first tests.
 
 Execute:
 - `./Protonect gl` to test OpenGL support.
@@ -69,6 +75,23 @@ cd libfreenect2/build
 make & sudo make install
 ```
 
+Also make sure that you are not using OpenCV 3.0.
+
+If it is still crashing, compile it in debug and run it with gdb:
+
+```
+cd <catkin_ws>
+catkin_make -DCMAKE_BUILD_TYPE="Debug"
+cd devel/lib/kinect2_bridge
+gdb kinect2_bridge
+// inside gdb: run until it crashes and do a backtrace
+run
+bt
+quit
+```
+
+Open an issue and post the problem description and the output from the backtrace (`bt`).
+
 #### kinect2_bridge hangs and prints "waiting for clients to connect"
 
 This is the normal behavior. 'kinect2_bridge' will only process data when clients are connected (ROS nodes listening to at least one of the topics).
@@ -90,17 +113,13 @@ By default you will only see the open issues, but if you click on `closed` you w
 
 If you found no solution in the issues, feel free to open a new issue for your problem. Please describe your problem in detail and provide error messages and log output.
 
-#### Point clouds are not being published?
-
-Point clouds are only published when the launch file is used. Make sure to start kinect2_bridge with `roslaunch kinect2_bridge kinect2_bridge.launch`.
-
 ## Dependencies
 
 - ROS Hydro/Indigo
 - OpenCV (2.4.x, using the one from the official Ubuntu repositories is recommended)
 - PCL (1.7.x, using the one from the official Ubuntu repositories is recommended)
-- Eigen (optional, but recommeded)
-- OpenCL (optional, but recommeded)
+- Eigen (optional, but recommended)
+- OpenCL (optional, but recommended)
 - [libfreenect2](https://github.com/OpenKinect/libfreenect2)
 
 ## Install
@@ -161,7 +180,7 @@ Download and compile the newest Beignet release from source.
 - Beignet v1.0 (http://www.freedesktop.org/wiki/Software/Beignet/)
 
 ##### Dependencies for Beignet
-For Beignet the following depencies have to be installed manually:
+For Beignet the following dependencies have to be installed manually:
 * ocl-icd-dev
 * ocl-icd-libopencl1
 * libdrm / libdrm-dev
