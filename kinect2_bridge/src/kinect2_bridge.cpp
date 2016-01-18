@@ -1319,7 +1319,10 @@ public:
   virtual void onInit()
   {
     pKinect2Bridge = new Kinect2Bridge(getNodeHandle(), getPrivateNodeHandle());
-    pKinect2Bridge->start();
+    if(!pKinect2Bridge->start())
+    {
+      throw nodelet::Exception("Could not start kinect2_bridge!");
+    }
   }
 };
 
