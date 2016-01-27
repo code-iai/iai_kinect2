@@ -30,6 +30,7 @@
   <run_depend>compressed_depth_image_transport</run_depend>
   <run_depend>kinect2_registration</run_depend>
   <run_depend>nodelet</run_depend>
+  <run_depend>depth_image_proc</run_depend>
   <run_depend>cv_bridge</run_depend><!-- Depend on cv_bridge instead of libopencv-dev to support ROS Hydro.-->
 
   <export>
