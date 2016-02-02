@@ -87,3 +87,15 @@ DepthRegistration *DepthRegistration::New(Method method)
   }
   return NULL;
 }
+
+
+const std::string getFunctionName(const std::string &name)
+{
+    size_t end = name.rfind('(');
+    if(end == std::string::npos)
+    {
+        end = name.size();
+    }
+    size_t begin = 1 + name.rfind(' ', end);
+    return name.substr(begin, end - begin);
+}

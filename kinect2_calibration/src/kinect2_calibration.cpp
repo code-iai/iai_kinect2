@@ -465,9 +465,9 @@ private:
 
   std::vector<cv::Point3f> board;
 
-  std::vector<std::vector<cv::Point3f>> pointsBoard;
-  std::vector<std::vector<cv::Point2f>> pointsColor;
-  std::vector<std::vector<cv::Point2f>> pointsIr;
+  std::vector<std::vector<cv::Point3f> > pointsBoard;
+  std::vector<std::vector<cv::Point2f> > pointsColor;
+  std::vector<std::vector<cv::Point2f> > pointsIr;
 
   cv::Size sizeColor;
   cv::Size sizeIr;
@@ -618,7 +618,7 @@ public:
   }
 
 private:
-  bool readFiles(const std::vector<std::string> &files, const std::string &ext, std::vector<std::vector<cv::Point2f>> &points) const
+  bool readFiles(const std::vector<std::string> &files, const std::string &ext, std::vector<std::vector<cv::Point2f> > &points) const
   {
     bool ret = true;
     #pragma omp parallel for
@@ -672,7 +672,7 @@ private:
     return true;
   }
 
-  void calibrateIntrinsics(const cv::Size &size, const std::vector<std::vector<cv::Point3f>> &pointsBoard, const std::vector<std::vector<cv::Point2f>> &points,
+  void calibrateIntrinsics(const cv::Size &size, const std::vector<std::vector<cv::Point3f> > &pointsBoard, const std::vector<std::vector<cv::Point2f> > &points,
                            cv::Mat &cameraMatrix, cv::Mat &distortion, cv::Mat &rotation, cv::Mat &projection, std::vector<cv::Mat> &rvecs, std::vector<cv::Mat> &tvecs)
   {
     if(points.empty())
@@ -819,7 +819,7 @@ private:
   const std::string path;
 
   std::vector<cv::Point3f> board;
-  std::vector<std::vector<cv::Point2f>> points;
+  std::vector<std::vector<cv::Point2f> > points;
   std::vector<std::string> images;
 
   cv::Size size;

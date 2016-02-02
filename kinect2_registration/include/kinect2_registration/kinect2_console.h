@@ -36,14 +36,8 @@
 #define FG_MAGENTA      "\033[35m"
 #define FG_CYAN         "\033[36m"
 
-#define OUT_FUNCTION(NAME) ([](const std::string &name)\
-{ \
-  size_t end = name.rfind('(');\
-  if(end == std::string::npos) end = name.size();\
-  size_t begin = 1 + name.rfind(' ', end);\
-  return name.substr(begin, end - begin);\
-}(NAME))
-#define OUT_AUX(FUNC_COLOR, MSG_COLOR, STREAM, MSG) STREAM(FUNC_COLOR "[" << OUT_FUNCTION(__PRETTY_FUNCTION__) << "] " MSG_COLOR << MSG << NO_COLOR)
+const std::string getFunctionName(const std::string &name);
+#define OUT_AUX(FUNC_COLOR, MSG_COLOR, STREAM, MSG) STREAM(FUNC_COLOR "[" << getFunctionName(__PRETTY_FUNCTION__) << "] " MSG_COLOR << MSG << NO_COLOR)
 
 #define OUT_DEBUG(msg) OUT_AUX(FG_BLUE, NO_COLOR, ROS_DEBUG_STREAM, msg)
 #define OUT_INFO(msg) OUT_AUX(FG_GREEN, NO_COLOR, ROS_INFO_STREAM, msg)
