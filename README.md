@@ -120,7 +120,7 @@ If you found no solution in the issues, feel free to open a new issue for your p
 - PCL (1.7.x, using the one from the official Ubuntu repositories is recommended)
 - Eigen (optional, but recommended)
 - OpenCL (optional, but recommended)
-- [libfreenect2](https://github.com/OpenKinect/libfreenect2)
+- [libfreenect2](https://github.com/OpenKinect/libfreenect2) (for stability checkout the latest stable release)
 
 ## Install
 
@@ -128,7 +128,9 @@ If you found no solution in the issues, feel free to open a new issue for your p
 2. [Setup your ROS environment](http://wiki.ros.org/ROS/Tutorials/InstallingandConfiguringROSEnvironment)
 3. Install [libfreenect2](https://github.com/OpenKinect/libfreenect2):
 
-   Follow [the instructions](https://github.com/OpenKinect/libfreenect2#debianubuntu-1404-perhaps-earlier) and enable C++11 by using `cmake .. -DENABLE_CXX11=ON` instead of `cmake ..`
+   Follow [the instructions](https://github.com/OpenKinect/libfreenect2#debianubuntu-1404) and enable C++11 by using `cmake .. -DENABLE_CXX11=ON` instead of `cmake ..`
+
+   If something is not working, check out the latest stable release, for example `git checkout v0.1.1`.
 
 4. Copy the udev rule file `sudo cp libfreenect2/rules/90-kinect2.rules /etc/udev/rules.d/` and reconnect the sensor
 5. Clone this repository into your catkin workspace, install the dependencies and build it:

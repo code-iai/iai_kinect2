@@ -144,6 +144,11 @@ public:
 
   bool start()
   {
+    if(running)
+    {
+      OUT_ERROR("kinect2_bridge is already running!");
+      return false;
+    }
     if(!initialize())
     {
       OUT_ERROR("Initialization failed!");
@@ -167,6 +172,11 @@ public:
 
   void stop()
   {
+    if(!running)
+    {
+      OUT_ERROR("kinect2_bridge is not running!");
+      return;
+    }
     running = false;
 
     mainThread.join();
@@ -181,8 +191,16 @@ public:
       tfPublisher.join();
     }
 
-    device->stop();
-    device->close();
+    if(deviceActive && !device->stop())
+    {
+      OUT_ERROR("could not stop device!");
+    }
+
+    if(!device->close())
+    {
+      OUT_ERROR("could not close device!");
+    }
+
     delete listenerIrDepth;
     delete listenerColor;
     delete registration;
@@ -292,7 +310,10 @@ private:
 
     if(!initRegistration(reg_method, reg_dev, maxDepth))
     {
-      device->close();
+      if(!device->close())
+      {
+        OUT_ERROR("could not close device!");
+      }
       delete listenerIrDepth;
       delete listenerColor;
       return false;
@@ -512,7 +533,13 @@ private:
     device->setIrAndDepthFrameListener(listenerIrDepth);
 
     OUT_INFO("starting kinect2");
-    device->start();
+    if(!device->start())
+    {
+      OUT_ERROR("could not start device!");
+      delete listenerIrDepth;
+      delete listenerColor;
+      return false;
+    }
 
     OUT_INFO("device serial: " FG_CYAN << sensor << NO_COLOR);
     OUT_INFO("device firmware: " FG_CYAN << device->getFirmwareVersion() << NO_COLOR);
@@ -520,7 +547,13 @@ private:
     colorParams = device->getColorCameraParams();
     irParams = device->getIrCameraParams();
 
-    device->stop();
+    if(!device->stop())
+    {
+      OUT_ERROR("could not stop device!");
+      delete listenerIrDepth;
+      delete listenerColor;
+      return false;
+    }
 
     OUT_DEBUG("default ir camera parameters: ");
     OUT_DEBUG("fx: " FG_CYAN << irParams.fx << NO_COLOR ", fy: " FG_CYAN << irParams.fy << NO_COLOR ", cx: " FG_CYAN << irParams.cx << NO_COLOR ", cy: " FG_CYAN << irParams.cy << NO_COLOR);
@@ -712,20 +745,40 @@ private:
   {
     lockStatus.lock();
     clientConnected = updateStatus();
+    bool error = false;
 
     if(clientConnected && !deviceActive)
     {
       OUT_INFO("client connected. starting device...");
-      deviceActive = true;
-      device->start();
+      if(!device->start())
+      {
+        OUT_ERROR("could not start device!");
+        error = true;
+      }
+      else
+      {
+        deviceActive = true;
+      }
     }
     else if(!clientConnected && deviceActive)
     {
       OUT_INFO("no clients connected. stopping device...");
-      deviceActive = false;
-      device->stop();
+      if(!device->stop())
+      {
+        OUT_ERROR("could not stop device!");
+        error = true;
+      }
+      else
+      {
+        deviceActive = false;
+      }
     }
     lockStatus.unlock();
+
+    if(error)
+    {
+      stop();
+    }
   }
 
   bool updateStatus()
