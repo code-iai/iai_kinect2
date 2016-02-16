@@ -237,6 +237,9 @@ private:
 #ifdef LIBFREENECT2_WITH_OPENCL_SUPPORT
     depthDefault = "opencl";
 #endif
+#ifdef LIBFREENECT2_WITH_CUDA_SUPPORT
+    depthDefault = "cuda";
+#endif
 #ifdef DEPTH_REG_OPENCL
     regDefault = "opencl";
 #endif
@@ -377,7 +380,9 @@ private:
   {
     if(method == "default")
     {
-#ifdef LIBFREENECT2_WITH_OPENCL_SUPPORT
+#ifdef LIBFREENECT2_WITH_CUDA_SUPPORT
+      packetPipeline = new libfreenect2::CudaPacketPipeline(device);
+#elif defined(LIBFREENECT2_WITH_OPENCL_SUPPORT)
       packetPipeline = new libfreenect2::OpenCLPacketPipeline(device);
 #elif defined(LIBFREENECT2_WITH_OPENGL_SUPPORT)
       packetPipeline = new libfreenect2::OpenGLPacketPipeline();
@@ -388,6 +393,15 @@ private:
     else if(method == "cpu")
     {
       packetPipeline = new libfreenect2::CpuPacketPipeline();
+    }
+    else if(method == "cuda")
+    {
+#ifdef LIBFREENECT2_WITH_CUDA_SUPPORT
+      packetPipeline = new libfreenect2::CudaPacketPipeline(device);
+#else
+      OUT_ERROR("Cuda depth processing is not available!");
+      return false;
+#endif
     }
     else if(method == "opencl")
     {
@@ -1405,6 +1419,10 @@ void help(const std::string &path)
 #ifdef LIBFREENECT2_WITH_OPENCL_SUPPORT
   depthMethods += ", opencl";
   depthDefault = "opencl";
+#endif
+#ifdef LIBFREENECT2_WITH_CUDA_SUPPORT
+  depthMethods += ", cuda";
+  depthDefault = "cuda";
 #endif
 #ifdef DEPTH_REG_CPU
   regMethods += ", cpu";
