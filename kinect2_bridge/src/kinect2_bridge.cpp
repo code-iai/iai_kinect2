@@ -1374,6 +1374,8 @@ public:
     pKinect2Bridge = new Kinect2Bridge(getNodeHandle(), getPrivateNodeHandle());
     if(!pKinect2Bridge->start())
     {
+      delete pKinect2Bridge;
+      pKinect2Bridge = NULL;
       throw nodelet::Exception("Could not start kinect2_bridge!");
     }
   }
