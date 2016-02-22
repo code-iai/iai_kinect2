@@ -49,7 +49,7 @@ else()
   set(DEPTH_REG_CPU OFF)
 endif()
 
-if(OPENCL_FOUND)
+if(OpenCL_FOUND)
   message(STATUS "OpenCL based depth registration enabled")
 
   if(UNIX AND NOT APPLE)
