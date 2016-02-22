@@ -38,12 +38,14 @@
 
 #include "depth_registration_opencl.h"
 
+//#define ENABLE_PROFILING_CL
+
 #define CL_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define PRINT_CL_ERROR(expr, err) OUT_ERROR(FG_BLUE "[" << CL_FILENAME << "]" FG_CYAN "(" << __LINE__ << ") " FG_YELLOW << expr << FG_RED " failed: " << err)
 
-#define CHECK_CL_PARAM(expr) do { cl_int err = CL_SUCCESS; (expr); if (err != CL_SUCCESS) { PRINT_CL_ERROR(expr, err); return false; } } while(0)
-#define CHECK_CL_RETURN(expr) do { cl_int err = (expr); if (err != CL_SUCCESS) { PRINT_CL_ERROR(expr, err); return false; } } while(0)
-#define CHECK_CL_ON_FAIL(expr, on_fail) do { cl_int err = (expr); if (err != CL_SUCCESS) { PRINT_CL_ERROR(expr, err); on_fail; return false; } } while(0)
+#define CHECK_CL_PARAM(expr) do { cl_int err = CL_SUCCESS; (expr); if (err != CL_SUCCESS) { PRINT_CL_ERROR(#expr, err); return false; } } while(0)
+#define CHECK_CL_RETURN(expr) do { cl_int err = (expr); if (err != CL_SUCCESS) { PRINT_CL_ERROR(#expr, err); return false; } } while(0)
+#define CHECK_CL_ON_FAIL(expr, on_fail) do { cl_int err = (expr); if (err != CL_SUCCESS) { PRINT_CL_ERROR(#expr, err); on_fail; return false; } } while(0)
 
 struct DepthRegistrationOpenCL::OCLData
 {
@@ -75,6 +77,11 @@ struct DepthRegistrationOpenCL::OCLData
   cl::Buffer bufferSelDist;
   cl::Buffer bufferMapX;
   cl::Buffer bufferMapY;
+
+#ifdef ENABLE_PROFILING_CL
+  std::vector<double> timings;
+  int count;
+#endif
 };
 
 DepthRegistrationOpenCL::DepthRegistrationOpenCL()
@@ -205,7 +212,12 @@ bool DepthRegistrationOpenCL::init(const int deviceId)
     OUT_ERROR("Build Options:\t" << data->program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(data->device));
     OUT_ERROR("Build Log:\t " << data->program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(data->device)));
 
-  CHECK_CL_PARAM(data->queue = cl::CommandQueue(data->context, data->device, 0, &err));
+#ifdef ENABLE_PROFILING_CL
+    data->count = 0;
+    CHECK_CL_PARAM(data->queue = cl::CommandQueue(data->context, data->device, CL_QUEUE_PROFILING_ENABLE, &err));
+#else
+    CHECK_CL_PARAM(data->queue = cl::CommandQueue(data->context, data->device, 0, &err));
+#endif
 
   data->sizeDepth = sizeDepth.height * sizeDepth.width * sizeof(uint16_t);
   data->sizeRegistered = sizeRegistered.height * sizeRegistered.width * sizeof(uint16_t);
@@ -262,27 +274,53 @@ bool DepthRegistrationOpenCL::registerDepth(const cv::Mat &depth, cv::Mat &regis
     registered = cv::Mat(sizeRegistered, CV_16U);
   }
 
-  cl::Event eventKernel, eventZero;
+  cl::Event eventRead;
+  std::vector<cl::Event> eventZero(2), eventRemap(1), eventProject(1), eventCheckDepth1(1), eventCheckDepth2(1);
   cl::NDRange range(sizeRegistered.height * sizeRegistered.width);
 
-  CHECK_CL_RETURN(data->queue.enqueueWriteBuffer(data->bufferDepth, CL_TRUE, 0, data->sizeDepth, depth.data));
-  CHECK_CL_RETURN(data->queue.enqueueNDRangeKernel(data->kernelSetZero, cl::NullRange, range, cl::NullRange, NULL, &eventZero));
+  CHECK_CL_RETURN(data->queue.enqueueWriteBuffer(data->bufferDepth, CL_FALSE, 0, data->sizeDepth, depth.data, NULL, &eventZero[0]));
+  CHECK_CL_RETURN(data->queue.enqueueNDRangeKernel(data->kernelSetZero, cl::NullRange, range, cl::NullRange, NULL, &eventZero[1]));
 
-  CHECK_CL_RETURN(data->queue.enqueueNDRangeKernel(data->kernelRemap, cl::NullRange, range, cl::NullRange, NULL, &eventKernel));
-  CHECK_CL_RETURN(eventKernel.wait());
-  CHECK_CL_RETURN(eventZero.wait());
+  CHECK_CL_RETURN(data->queue.enqueueNDRangeKernel(data->kernelRemap, cl::NullRange, range, cl::NullRange, &eventZero, &eventRemap[0]));
 
-  CHECK_CL_RETURN(data->queue.enqueueNDRangeKernel(data->kernelProject, cl::NullRange, range, cl::NullRange, NULL, &eventKernel));
-  CHECK_CL_RETURN(eventKernel.wait());
+  CHECK_CL_RETURN(data->queue.enqueueNDRangeKernel(data->kernelProject, cl::NullRange, range, cl::NullRange, &eventRemap, &eventProject[0]));
 
-  CHECK_CL_RETURN(data->queue.enqueueNDRangeKernel(data->kernelCheckDepth, cl::NullRange, range, cl::NullRange, NULL, &eventKernel));
-  CHECK_CL_RETURN(eventKernel.wait());
+  CHECK_CL_RETURN(data->queue.enqueueNDRangeKernel(data->kernelCheckDepth, cl::NullRange, range, cl::NullRange, &eventProject, &eventCheckDepth1[0]));
 
-  CHECK_CL_RETURN(data->queue.enqueueNDRangeKernel(data->kernelCheckDepth, cl::NullRange, range, cl::NullRange, NULL, &eventKernel));
-  CHECK_CL_RETURN(eventKernel.wait());
+  CHECK_CL_RETURN(data->queue.enqueueNDRangeKernel(data->kernelCheckDepth, cl::NullRange, range, cl::NullRange, &eventCheckDepth1, &eventCheckDepth2[0]));
 
-  CHECK_CL_RETURN(data->queue.enqueueReadBuffer(data->bufferRegistered, CL_TRUE, 0, data->sizeRegistered, registered.data));
+  CHECK_CL_RETURN(data->queue.enqueueReadBuffer(data->bufferRegistered, CL_FALSE, 0, data->sizeRegistered, registered.data, &eventCheckDepth2, &eventRead));
+  CHECK_CL_RETURN(eventRead.wait());
 
+#ifdef ENABLE_PROFILING_CL
+    if(data->count == 0)
+    {
+      data->timings.clear();
+      data->timings.resize(7, 0.0);
+    }
+
+    data->timings[0] += eventZero[0].getProfilingInfo<CL_PROFILING_COMMAND_END>() - eventZero[0].getProfilingInfo<CL_PROFILING_COMMAND_START>();
+    data->timings[1] += eventZero[1].getProfilingInfo<CL_PROFILING_COMMAND_END>() - eventZero[1].getProfilingInfo<CL_PROFILING_COMMAND_START>();
+    data->timings[2] += eventRemap[0].getProfilingInfo<CL_PROFILING_COMMAND_END>() - eventRemap[0].getProfilingInfo<CL_PROFILING_COMMAND_START>();
+    data->timings[3] += eventProject[0].getProfilingInfo<CL_PROFILING_COMMAND_END>() - eventProject[0].getProfilingInfo<CL_PROFILING_COMMAND_START>();
+    data->timings[4] += eventCheckDepth1[0].getProfilingInfo<CL_PROFILING_COMMAND_END>() - eventCheckDepth1[0].getProfilingInfo<CL_PROFILING_COMMAND_START>();
+    data->timings[5] += eventCheckDepth2[0].getProfilingInfo<CL_PROFILING_COMMAND_END>() - eventCheckDepth2[0].getProfilingInfo<CL_PROFILING_COMMAND_START>();
+    data->timings[6] += eventRead.getProfilingInfo<CL_PROFILING_COMMAND_END>() - eventRead.getProfilingInfo<CL_PROFILING_COMMAND_START>();
+
+    if(++data->count == 100)
+    {
+      double sum = data->timings[0] + data->timings[1] + data->timings[2] + data->timings[3] + data->timings[4] + data->timings[5] + data->timings[6];
+      OUT_INFO("writing depth: " << data->timings[0] / 100000000.0 << " ms.");
+      OUT_INFO("setting zero: " << data->timings[1] / 100000000.0 << " ms.");
+      OUT_INFO("remap: " << data->timings[2] / 100000000.0 << " ms.");
+      OUT_INFO("project: " << data->timings[3] / 100000000.0 << " ms.");
+      OUT_INFO("check depth 1: " << data->timings[4] / 100000000.0 << " ms.");
+      OUT_INFO("check depth 2: " << data->timings[5] / 100000000.0 << " ms.");
+      OUT_INFO("read registered: " << data->timings[6] / 100000000.0 << " ms.");
+      OUT_INFO("overall: " << sum / 100000000.0 << " ms.");
+      data->count = 0;
+    }
+#endif
   return true;
 }
 
