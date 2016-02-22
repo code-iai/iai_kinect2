@@ -19,14 +19,18 @@
 
 #include <kinect2_registration/kinect2_console.h>
 
-#ifdef __APPLE__
-#include <OpenCL/cl.hpp>
-#else
+#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
+#define CL_USE_DEPRECATED_OPENCL_2_0_APIS
+
+#ifdef KINECT2_OPENCL_ICD_LOADER_IS_OLD
 #define CL_USE_DEPRECATED_OPENCL_1_1_APIS
 #include <CL/cl.h>
+#ifdef CL_VERSION_1_2
 #undef CL_VERSION_1_2
+#endif //CL_VERSION_1_2
+#endif //LIBFREENECT2_OPENCL_ICD_LOADER_IS_OLD
+
 #include <CL/cl.hpp>
-#endif
 
 #ifndef REG_OPENCL_FILE
 #define REG_OPENCL_FILE ""
@@ -217,23 +221,23 @@ bool DepthRegistrationOpenCL::init(const int deviceId)
   data->sizeSelDist = sizeRegistered.height * sizeRegistered.width * sizeof(float);
   data->sizeMap = sizeRegistered.height * sizeRegistered.width * sizeof(float);
 
-  data->bufferDepth = cl::Buffer(data->context, CL_READ_ONLY_CACHE, data->sizeDepth, NULL, &err);
+  data->bufferDepth = cl::Buffer(data->context, CL_MEM_READ_ONLY, data->sizeDepth, NULL, &err);
   CHECK_CL_ERROR(err, "cl::Buffer");
-  data->bufferScaled = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeRegistered, NULL, &err);
+  data->bufferScaled = cl::Buffer(data->context, CL_MEM_READ_WRITE, data->sizeRegistered, NULL, &err);
   CHECK_CL_ERROR(err, "cl::Buffer");
-  data->bufferRegistered = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeRegistered, NULL, &err);
+  data->bufferRegistered = cl::Buffer(data->context, CL_MEM_READ_WRITE, data->sizeRegistered, NULL, &err);
   CHECK_CL_ERROR(err, "cl::Buffer");
-  data->bufferIndex = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeIndex, NULL, &err);
+  data->bufferIndex = cl::Buffer(data->context, CL_MEM_READ_WRITE, data->sizeIndex, NULL, &err);
   CHECK_CL_ERROR(err, "cl::Buffer");
-  data->bufferImgZ = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeImgZ, NULL, &err);
+  data->bufferImgZ = cl::Buffer(data->context, CL_MEM_READ_WRITE, data->sizeImgZ, NULL, &err);
   CHECK_CL_ERROR(err, "cl::Buffer");
-  data->bufferDists = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeDists, NULL, &err);
+  data->bufferDists = cl::Buffer(data->context, CL_MEM_READ_WRITE, data->sizeDists, NULL, &err);
   CHECK_CL_ERROR(err, "cl::Buffer");
-  data->bufferSelDist = cl::Buffer(data->context, CL_READ_WRITE_CACHE, data->sizeSelDist, NULL, &err);
+  data->bufferSelDist = cl::Buffer(data->context, CL_MEM_READ_WRITE, data->sizeSelDist, NULL, &err);
   CHECK_CL_ERROR(err, "cl::Buffer");
-  data->bufferMapX = cl::Buffer(data->context, CL_READ_ONLY_CACHE, data->sizeMap, NULL, &err);
+  data->bufferMapX = cl::Buffer(data->context, CL_MEM_READ_ONLY, data->sizeMap, NULL, &err);
   CHECK_CL_ERROR(err, "cl::Buffer");
-  data->bufferMapY = cl::Buffer(data->context, CL_READ_ONLY_CACHE, data->sizeMap, NULL, &err);
+  data->bufferMapY = cl::Buffer(data->context, CL_MEM_READ_ONLY, data->sizeMap, NULL, &err);
   CHECK_CL_ERROR(err, "cl::Buffer");
 
   data->kernelSetZero = cl::Kernel(data->program, "setZero", &err);
