@@ -78,6 +78,9 @@ struct DepthRegistrationOpenCL::OCLData
   cl::Buffer bufferMapX;
   cl::Buffer bufferMapY;
 
+  cl::Buffer bufferOutput;
+  unsigned char *dataOutput;
+
 #ifdef ENABLE_PROFILING_CL
   std::vector<double> timings;
   int count;
@@ -236,6 +239,7 @@ bool DepthRegistrationOpenCL::init(const int deviceId)
   CHECK_CL_PARAM(data->bufferSelDist = cl::Buffer(data->context, CL_MEM_READ_WRITE, data->sizeSelDist, NULL, &err));
   CHECK_CL_PARAM(data->bufferMapX = cl::Buffer(data->context, CL_MEM_READ_ONLY, data->sizeMap, NULL, &err));
   CHECK_CL_PARAM(data->bufferMapY = cl::Buffer(data->context, CL_MEM_READ_ONLY, data->sizeMap, NULL, &err));
+  CHECK_CL_PARAM(data->bufferOutput = cl::Buffer(data->context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, data->sizeRegistered, NULL, &err));
 
   CHECK_CL_PARAM(data->kernelSetZero = cl::Kernel(data->program, "setZero", &err));
   CHECK_CL_RETURN(data->kernelSetZero.setArg(0, data->bufferRegistered));
@@ -264,16 +268,13 @@ bool DepthRegistrationOpenCL::init(const int deviceId)
 
   CHECK_CL_RETURN(data->queue.enqueueWriteBuffer(data->bufferMapX, CL_TRUE, 0, data->sizeMap, mapX.data));
   CHECK_CL_RETURN(data->queue.enqueueWriteBuffer(data->bufferMapY, CL_TRUE, 0, data->sizeMap, mapY.data));
+
+  CHECK_CL_PARAM(data->dataOutput = (unsigned char*)data->queue.enqueueMapBuffer(data->bufferOutput, CL_TRUE, CL_MAP_READ, 0, data->sizeRegistered, NULL, NULL, &err));
   return true;
 }
 
 bool DepthRegistrationOpenCL::registerDepth(const cv::Mat &depth, cv::Mat &registered)
 {
-  if(registered.empty() || registered.rows != sizeRegistered.height || registered.cols != sizeRegistered.width || registered.type() != CV_16U)
-  {
-    registered = cv::Mat(sizeRegistered, CV_16U);
-  }
-
   cl::Event eventRead;
   std::vector<cl::Event> eventZero(2), eventRemap(1), eventProject(1), eventCheckDepth1(1), eventCheckDepth2(1);
   cl::NDRange range(sizeRegistered.height * sizeRegistered.width);
@@ -289,8 +290,10 @@ bool DepthRegistrationOpenCL::registerDepth(const cv::Mat &depth, cv::Mat &regis
 
   CHECK_CL_RETURN(data->queue.enqueueNDRangeKernel(data->kernelCheckDepth, cl::NullRange, range, cl::NullRange, &eventCheckDepth1, &eventCheckDepth2[0]));
 
-  CHECK_CL_RETURN(data->queue.enqueueReadBuffer(data->bufferRegistered, CL_FALSE, 0, data->sizeRegistered, registered.data, &eventCheckDepth2, &eventRead));
+  CHECK_CL_RETURN(data->queue.enqueueReadBuffer(data->bufferRegistered, CL_FALSE, 0, data->sizeRegistered, data->dataOutput, &eventCheckDepth2, &eventRead));
   CHECK_CL_RETURN(eventRead.wait());
+
+  registered = cv::Mat(sizeRegistered, CV_16U, data->dataOutput);
 
 #ifdef ENABLE_PROFILING_CL
     if(data->count == 0)
