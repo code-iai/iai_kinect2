@@ -26,6 +26,12 @@
 #include <chrono>
 #include <sys/stat.h>
 
+#if defined(__linux__)
+#include <sys/prctl.h>
+#elif defined(__APPLE__)
+#include <pthread.h>
+#endif
+
 #include <opencv2/opencv.hpp>
 
 #include <ros/ros.h>
@@ -812,6 +818,7 @@ private:
 
   void main()
   {
+    setThreadName("Controll");
     OUT_INFO("waiting for clients to connect");
     double nextFrame = ros::Time::now().toSec() + deltaT;
     double fpsTime = ros::Time::now().toSec();
@@ -875,6 +882,7 @@ private:
 
   void threadDispatcher(const size_t id)
   {
+    setThreadName("Worker" + std::to_string(id));
     const size_t checkFirst = id % 2;
     bool processedFrame = false;
     int oldNice = nice(0);
@@ -1329,6 +1337,7 @@ private:
 
   void publishStaticTF()
   {
+    setThreadName("TFPublisher");
     tf::TransformBroadcaster broadcaster;
     tf::StampedTransform stColorOpt, stIrOpt;
     ros::Time now = ros::Time::now();
@@ -1357,6 +1366,15 @@ private:
 
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
+  }
+
+  static inline void setThreadName(const std::string &name)
+  {
+  #if defined(__linux__)
+    prctl(PR_SET_NAME, name.c_str());
+  #elif defined(__APPLE__)
+    pthread_setname_np(name.c_str());
+  #endif
   }
 };
 
