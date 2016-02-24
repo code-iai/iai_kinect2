@@ -148,7 +148,7 @@ catkin_make -DCMAKE_BUILD_TYPE="Release"
    That is fine because they are all part of the iai_kinect2 package and `rosdep` does not know these packages.*
 
    *Note: If you installed libfreenect2 somewhere else than in `$HOME/freenect2` or a standard location like `/usr/local`
-   you have to specify the path to it by adding `-Dfreenect2_DIR=path_to_freenect2/lib/cmake/freenect2` to `catkin_make`.
+   you have to specify the path to it by adding `-Dfreenect2_DIR=path_to_freenect2/lib/cmake/freenect2` to `catkin_make`.*
 
 6. Connect your sensor and run `kinect2_bridge`:
 
