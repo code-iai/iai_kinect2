@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(kinect2_bridge)
+project(kinect2_bridge CXX)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBT_USE_DOUBLE_PRECISION -Wall")
 # Unused warnings
