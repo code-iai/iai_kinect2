@@ -210,16 +210,16 @@ bool DepthRegistrationOpenCL::init(const int deviceId)
   CHECK_CL_PARAM(data->program = cl::Program(data->context, source, &err));
 
   CHECK_CL_ON_FAIL(data->program.build(options.c_str()),
-    OUT_ERROR("failed to build program: " << err);
-    OUT_ERROR("Build Status: " << data->program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(data->device));
-    OUT_ERROR("Build Options:\t" << data->program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(data->device));
-    OUT_ERROR("Build Log:\t " << data->program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(data->device)));
+                   OUT_ERROR("failed to build program: " << err);
+                   OUT_ERROR("Build Status: " << data->program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(data->device));
+                   OUT_ERROR("Build Options:\t" << data->program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(data->device));
+                   OUT_ERROR("Build Log:\t " << data->program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(data->device)));
 
 #ifdef ENABLE_PROFILING_CL
-    data->count = 0;
-    CHECK_CL_PARAM(data->queue = cl::CommandQueue(data->context, data->device, CL_QUEUE_PROFILING_ENABLE, &err));
+  data->count = 0;
+  CHECK_CL_PARAM(data->queue = cl::CommandQueue(data->context, data->device, CL_QUEUE_PROFILING_ENABLE, &err));
 #else
-    CHECK_CL_PARAM(data->queue = cl::CommandQueue(data->context, data->device, 0, &err));
+  CHECK_CL_PARAM(data->queue = cl::CommandQueue(data->context, data->device, 0, &err));
 #endif
 
   data->sizeDepth = sizeDepth.height * sizeDepth.width * sizeof(uint16_t);
@@ -269,7 +269,7 @@ bool DepthRegistrationOpenCL::init(const int deviceId)
   CHECK_CL_RETURN(data->queue.enqueueWriteBuffer(data->bufferMapX, CL_TRUE, 0, data->sizeMap, mapX.data));
   CHECK_CL_RETURN(data->queue.enqueueWriteBuffer(data->bufferMapY, CL_TRUE, 0, data->sizeMap, mapY.data));
 
-  CHECK_CL_PARAM(data->dataOutput = (unsigned char*)data->queue.enqueueMapBuffer(data->bufferOutput, CL_TRUE, CL_MAP_READ, 0, data->sizeRegistered, NULL, NULL, &err));
+  CHECK_CL_PARAM(data->dataOutput = (unsigned char *)data->queue.enqueueMapBuffer(data->bufferOutput, CL_TRUE, CL_MAP_READ, 0, data->sizeRegistered, NULL, NULL, &err));
   return true;
 }
 
@@ -296,33 +296,33 @@ bool DepthRegistrationOpenCL::registerDepth(const cv::Mat &depth, cv::Mat &regis
   registered = cv::Mat(sizeRegistered, CV_16U, data->dataOutput);
 
 #ifdef ENABLE_PROFILING_CL
-    if(data->count == 0)
-    {
-      data->timings.clear();
-      data->timings.resize(7, 0.0);
-    }
+  if(data->count == 0)
+  {
+    data->timings.clear();
+    data->timings.resize(7, 0.0);
+  }
 
-    data->timings[0] += eventZero[0].getProfilingInfo<CL_PROFILING_COMMAND_END>() - eventZero[0].getProfilingInfo<CL_PROFILING_COMMAND_START>();
-    data->timings[1] += eventZero[1].getProfilingInfo<CL_PROFILING_COMMAND_END>() - eventZero[1].getProfilingInfo<CL_PROFILING_COMMAND_START>();
-    data->timings[2] += eventRemap[0].getProfilingInfo<CL_PROFILING_COMMAND_END>() - eventRemap[0].getProfilingInfo<CL_PROFILING_COMMAND_START>();
-    data->timings[3] += eventProject[0].getProfilingInfo<CL_PROFILING_COMMAND_END>() - eventProject[0].getProfilingInfo<CL_PROFILING_COMMAND_START>();
-    data->timings[4] += eventCheckDepth1[0].getProfilingInfo<CL_PROFILING_COMMAND_END>() - eventCheckDepth1[0].getProfilingInfo<CL_PROFILING_COMMAND_START>();
-    data->timings[5] += eventCheckDepth2[0].getProfilingInfo<CL_PROFILING_COMMAND_END>() - eventCheckDepth2[0].getProfilingInfo<CL_PROFILING_COMMAND_START>();
-    data->timings[6] += eventRead.getProfilingInfo<CL_PROFILING_COMMAND_END>() - eventRead.getProfilingInfo<CL_PROFILING_COMMAND_START>();
+  data->timings[0] += eventZero[0].getProfilingInfo<CL_PROFILING_COMMAND_END>() - eventZero[0].getProfilingInfo<CL_PROFILING_COMMAND_START>();
+  data->timings[1] += eventZero[1].getProfilingInfo<CL_PROFILING_COMMAND_END>() - eventZero[1].getProfilingInfo<CL_PROFILING_COMMAND_START>();
+  data->timings[2] += eventRemap[0].getProfilingInfo<CL_PROFILING_COMMAND_END>() - eventRemap[0].getProfilingInfo<CL_PROFILING_COMMAND_START>();
+  data->timings[3] += eventProject[0].getProfilingInfo<CL_PROFILING_COMMAND_END>() - eventProject[0].getProfilingInfo<CL_PROFILING_COMMAND_START>();
+  data->timings[4] += eventCheckDepth1[0].getProfilingInfo<CL_PROFILING_COMMAND_END>() - eventCheckDepth1[0].getProfilingInfo<CL_PROFILING_COMMAND_START>();
+  data->timings[5] += eventCheckDepth2[0].getProfilingInfo<CL_PROFILING_COMMAND_END>() - eventCheckDepth2[0].getProfilingInfo<CL_PROFILING_COMMAND_START>();
+  data->timings[6] += eventRead.getProfilingInfo<CL_PROFILING_COMMAND_END>() - eventRead.getProfilingInfo<CL_PROFILING_COMMAND_START>();
 
-    if(++data->count == 100)
-    {
-      double sum = data->timings[0] + data->timings[1] + data->timings[2] + data->timings[3] + data->timings[4] + data->timings[5] + data->timings[6];
-      OUT_INFO("writing depth: " << data->timings[0] / 100000000.0 << " ms.");
-      OUT_INFO("setting zero: " << data->timings[1] / 100000000.0 << " ms.");
-      OUT_INFO("remap: " << data->timings[2] / 100000000.0 << " ms.");
-      OUT_INFO("project: " << data->timings[3] / 100000000.0 << " ms.");
-      OUT_INFO("check depth 1: " << data->timings[4] / 100000000.0 << " ms.");
-      OUT_INFO("check depth 2: " << data->timings[5] / 100000000.0 << " ms.");
-      OUT_INFO("read registered: " << data->timings[6] / 100000000.0 << " ms.");
-      OUT_INFO("overall: " << sum / 100000000.0 << " ms.");
-      data->count = 0;
-    }
+  if(++data->count == 100)
+  {
+    double sum = data->timings[0] + data->timings[1] + data->timings[2] + data->timings[3] + data->timings[4] + data->timings[5] + data->timings[6];
+    OUT_INFO("writing depth: " << data->timings[0] / 100000000.0 << " ms.");
+    OUT_INFO("setting zero: " << data->timings[1] / 100000000.0 << " ms.");
+    OUT_INFO("remap: " << data->timings[2] / 100000000.0 << " ms.");
+    OUT_INFO("project: " << data->timings[3] / 100000000.0 << " ms.");
+    OUT_INFO("check depth 1: " << data->timings[4] / 100000000.0 << " ms.");
+    OUT_INFO("check depth 2: " << data->timings[5] / 100000000.0 << " ms.");
+    OUT_INFO("read registered: " << data->timings[6] / 100000000.0 << " ms.");
+    OUT_INFO("overall: " << sum / 100000000.0 << " ms.");
+    data->count = 0;
+  }
 #endif
   return true;
 }
