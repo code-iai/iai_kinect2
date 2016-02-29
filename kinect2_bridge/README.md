@@ -135,7 +135,7 @@ depth_device:=<int>
 reg_method:=<string>
     default: opencl
     info:    Use specific depth registration: default, cpu, opencl
-reg_devive:=<int>
+reg_device:=<int>
     default: -1
     info:    openCL device to use for depth registration
 max_depth:=<double>

@@ -12,7 +12,7 @@
   <arg name="depth_method"      default="default"/>
   <arg name="depth_device"      default="-1"/>
   <arg name="reg_method"        default="default"/>
-  <arg name="reg_devive"        default="-1"/>
+  <arg name="reg_device"        default="-1"/>
   <arg name="max_depth"         default="12.0"/>
   <arg name="min_depth"         default="0.1"/>
   <arg name="queue_size"        default="5"/>
@@ -47,7 +47,7 @@
     <param name="depth_method"      type="str"    value="$(arg depth_method)"/>
     <param name="depth_device"      type="int"    value="$(arg depth_device)"/>
     <param name="reg_method"        type="str"    value="$(arg reg_method)"/>
-    <param name="reg_devive"        type="int"    value="$(arg reg_devive)"/>
+    <param name="reg_device"        type="int"    value="$(arg reg_device)"/>
     <param name="max_depth"         type="double" value="$(arg max_depth)"/>
     <param name="min_depth"         type="double" value="$(arg min_depth)"/>
     <param name="queue_size"        type="int"    value="$(arg queue_size)"/>
@@ -71,7 +71,7 @@
     <param name="depth_method"      type="str"    value="$(arg depth_method)"/>
     <param name="depth_device"      type="int"    value="$(arg depth_device)"/>
     <param name="reg_method"        type="str"    value="$(arg reg_method)"/>
-    <param name="reg_devive"        type="int"    value="$(arg reg_devive)"/>
+    <param name="reg_device"        type="int"    value="$(arg reg_device)"/>
     <param name="max_depth"         type="double" value="$(arg max_depth)"/>
     <param name="min_depth"         type="double" value="$(arg min_depth)"/>
     <param name="queue_size"        type="int"    value="$(arg queue_size)"/>

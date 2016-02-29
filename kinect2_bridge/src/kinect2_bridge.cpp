@@ -254,7 +254,7 @@ private:
     priv_nh.param("depth_method", depth_method, depthDefault);
     priv_nh.param("depth_device", depth_dev, -1);
     priv_nh.param("reg_method", reg_method, regDefault);
-    priv_nh.param("reg_devive", reg_dev, -1);
+    priv_nh.param("reg_device", reg_dev, -1);
     priv_nh.param("max_depth", maxDepth, 12.0);
     priv_nh.param("min_depth", minDepth, 0.1);
     priv_nh.param("queue_size", queueSize, 2);
@@ -278,7 +278,7 @@ private:
              << "     depth_method: " FG_CYAN << depth_method << NO_COLOR << std::endl
              << "     depth_device: " FG_CYAN << depth_dev << NO_COLOR << std::endl
              << "       reg_method: " FG_CYAN << reg_method << NO_COLOR << std::endl
-             << "       reg_devive: " FG_CYAN << reg_dev << NO_COLOR << std::endl
+             << "       reg_device: " FG_CYAN << reg_dev << NO_COLOR << std::endl
              << "        max_depth: " FG_CYAN << maxDepth << NO_COLOR << std::endl
              << "        min_depth: " FG_CYAN << minDepth << NO_COLOR << std::endl
              << "       queue_size: " FG_CYAN << queueSize << NO_COLOR << std::endl
@@ -1457,7 +1457,7 @@ void help(const std::string &path)
   helpOption("depth_method",      "string", depthDefault,   "Use specific depth processing: " + depthMethods);
   helpOption("depth_device",      "int",    "-1",           "openCL device to use for depth processing");
   helpOption("reg_method",        "string", regDefault,     "Use specific depth registration: " + regMethods);
-  helpOption("reg_devive",        "int",    "-1",           "openCL device to use for depth registration");
+  helpOption("reg_device",        "int",    "-1",           "openCL device to use for depth registration");
   helpOption("max_depth",         "double", "12.0",         "max depth value");
   helpOption("min_depth",         "double", "0.1",          "min depth value");
   helpOption("queue_size",        "int",    "2",            "queue size of publisher");
