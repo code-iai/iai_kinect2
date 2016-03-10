@@ -81,6 +81,8 @@ struct DepthRegistrationOpenCL::OCLData
   cl::Buffer bufferOutput;
   unsigned char *dataOutput;
 
+  bool isIntel;
+
 #ifdef ENABLE_PROFILING_CL
   std::vector<double> timings;
   int count;
@@ -201,6 +203,11 @@ bool DepthRegistrationOpenCL::init(const int deviceId)
   }
   OUT_INFO("selected device: " FG_YELLOW << deviceString(data->device) << NO_COLOR);
 
+  // This is a fix for some strage problem of Beignet with enqueueReadBuffer and an event vector as parameter
+  std::string devVendor;
+  data->device.getInfo(CL_DEVICE_VENDOR, &devVendor);
+  data->isIntel = devVendor == "Intel";
+
   CHECK_CL_PARAM(data->context = cl::Context(data->device, NULL, NULL, NULL, &err));
 
   std::string options;
@@ -290,7 +297,16 @@ bool DepthRegistrationOpenCL::registerDepth(const cv::Mat &depth, cv::Mat &regis
 
   CHECK_CL_RETURN(data->queue.enqueueNDRangeKernel(data->kernelCheckDepth, cl::NullRange, range, cl::NullRange, &eventCheckDepth1, &eventCheckDepth2[0]));
 
-  CHECK_CL_RETURN(data->queue.enqueueReadBuffer(data->bufferRegistered, CL_FALSE, 0, data->sizeRegistered, data->dataOutput, &eventCheckDepth2, &eventRead));
+  // This is a fix for some strage problem of Beignet with enqueueReadBuffer and an event vector as parameter
+  if(data->isIntel)
+  {
+    CHECK_CL_RETURN(eventCheckDepth2[0].wait());
+    CHECK_CL_RETURN(data->queue.enqueueReadBuffer(data->bufferRegistered, CL_FALSE, 0, data->sizeRegistered, data->dataOutput, NULL, &eventRead));
+  }
+  else
+  {
+    CHECK_CL_RETURN(data->queue.enqueueReadBuffer(data->bufferRegistered, CL_FALSE, 0, data->sizeRegistered, data->dataOutput, &eventCheckDepth2, &eventRead));
+  }
   CHECK_CL_RETURN(eventRead.wait());
 
   registered = cv::Mat(sizeRegistered, CV_16U, data->dataOutput);

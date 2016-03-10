@@ -64,7 +64,7 @@ private:
   std::string compression16BitExt, compression16BitString, baseNameTF;
 
   cv::Size sizeColor, sizeIr, sizeLowRes;
-  cv::Mat color;
+  libfreenect2::Frame color;
   cv::Mat cameraMatrixColor, distortionColor, cameraMatrixLowRes, cameraMatrixIr, distortionIr, cameraMatrixDepth, distortionDepth;
   cv::Mat rotation, translation;
   cv::Mat map1Color, map2Color, map1Ir, map2Ir, map1LowRes, map2LowRes;
@@ -72,7 +72,7 @@ private:
   std::vector<std::thread> threads;
   std::mutex lockIrDepth, lockColor;
   std::mutex lockSync, lockPub, lockTime, lockStatus;
-  std::mutex lockRegLowRes, lockRegHighRes;
+  std::mutex lockRegLowRes, lockRegHighRes, lockRegSD;
 
   bool publishTF;
   std::thread tfPublisher, mainThread;
@@ -135,7 +135,7 @@ private:
 
 public:
   Kinect2Bridge(const ros::NodeHandle &nh = ros::NodeHandle(), const ros::NodeHandle &priv_nh = ros::NodeHandle("~"))
-    : sizeColor(1920, 1080), sizeIr(512, 424), sizeLowRes(sizeColor.width / 2, sizeColor.height / 2), color(sizeColor, CV_8UC4), nh(nh), priv_nh(priv_nh),
+    : sizeColor(1920, 1080), sizeIr(512, 424), sizeLowRes(sizeColor.width / 2, sizeColor.height / 2), color(sizeColor.width, sizeColor.height, 4), nh(nh), priv_nh(priv_nh),
       frameColor(0), frameIrDepth(0), pubFrameColor(0), pubFrameIrDepth(0), lastColor(0, 0), lastDepth(0, 0), nextColor(false),
       nextIrDepth(false), depthShift(0), running(false), deviceActive(false), clientConnected(false)
   {
@@ -942,6 +942,25 @@ private:
     libfreenect2::Frame *irFrame = frames[libfreenect2::Frame::Ir];
     libfreenect2::Frame *depthFrame = frames[libfreenect2::Frame::Depth];
 
+#if LIBFREENECT2_API_VERSION >= 2
+    if(irFrame->status != 0 || depthFrame->status != 0)
+    {
+      listenerIrDepth->release(frames);
+      lockIrDepth.unlock();
+      running = false;
+      OUT_ERROR("failure in depth packet processor from libfreenect2");
+      return;
+    }
+    if(irFrame->format != libfreenect2::Frame::Float || depthFrame->format != libfreenect2::Frame::Float)
+    {
+      listenerIrDepth->release(frames);
+      lockIrDepth.unlock();
+      running = false;
+      OUT_ERROR("received invalid frame format");
+      return;
+    }
+#endif
+
     frame = frameIrDepth++;
 
     if(status[COLOR_SD_RECT] || status[DEPTH_SD] || status[DEPTH_SD_RECT] || status[DEPTH_QHD] || status[DEPTH_HD])
@@ -987,19 +1006,52 @@ private:
 
     libfreenect2::Frame *colorFrame = frames[libfreenect2::Frame::Color];
 
+#if LIBFREENECT2_API_VERSION >= 2
+    if(colorFrame->status != 0)
+    {
+      listenerColor->release(frames);
+      lockIrDepth.unlock();
+      running = false;
+      OUT_ERROR("failure in rgb packet processor from libfreenect2");
+      return;
+    }
+    if(colorFrame->format != libfreenect2::Frame::BGRX && colorFrame->format != libfreenect2::Frame::RGBX)
+    {
+      listenerColor->release(frames);
+      lockIrDepth.unlock();
+      running = false;
+      OUT_ERROR("received invalid frame format");
+      return;
+    }
+#endif
+
     frame = frameColor++;
 
     cv::Mat color = cv::Mat(colorFrame->height, colorFrame->width, CV_8UC4, colorFrame->data);
     if(status[COLOR_SD_RECT])
     {
-      color.copyTo(this->color);
+      lockRegSD.lock();
+      memcpy(this->color.data, colorFrame->data, sizeColor.width * sizeColor.height * 4);
+      this->color.format = colorFrame->format;
+      lockRegSD.unlock();
     }
     if(status[COLOR_HD] || status[COLOR_HD_RECT] || status[COLOR_QHD] || status[COLOR_QHD_RECT] ||
        status[MONO_HD] || status[MONO_HD_RECT] || status[MONO_QHD] || status[MONO_QHD_RECT])
     {
       cv::Mat tmp;
       cv::flip(color, tmp, 1);
+#if LIBFREENECT2_API_VERSION >= 2
+      if(colorFrame->format == libfreenect2::Frame::BGRX)
+      {
+        cv::cvtColor(tmp, images[COLOR_HD], CV_BGRA2BGR);
+      }
+      else
+      {
+        cv::cvtColor(tmp, images[COLOR_HD], CV_RGBA2BGR);
+      }
+#else
       cv::cvtColor(tmp, images[COLOR_HD], CV_BGRA2BGR);
+#endif
     }
 
     listenerColor->release(frames);
@@ -1064,15 +1116,26 @@ private:
     // COLOR registered to depth
     if(status[COLOR_SD_RECT])
     {
-      cv::Mat tmp, color = this->color;
+      cv::Mat tmp;
       libfreenect2::Frame depthFrame(sizeIr.width, sizeIr.height, 4, depth.data);
-      libfreenect2::Frame colorFrame(sizeColor.width, sizeColor.height, 4, color.data);
       libfreenect2::Frame undistorted(sizeIr.width, sizeIr.height, 4);
       libfreenect2::Frame registered(sizeIr.width, sizeIr.height, 4);
-      colorFrame.format = libfreenect2::Frame::BGRX;
-      registration->apply(&colorFrame, &depthFrame, &undistorted, &registered);
+      lockRegSD.lock();
+      registration->apply(&color, &depthFrame, &undistorted, &registered);
+      lockRegSD.unlock();
       cv::flip(cv::Mat(sizeIr, CV_8UC4, registered.data), tmp, 1);
+#if LIBFREENECT2_API_VERSION >= 2
+      if(color.format == libfreenect2::Frame::BGRX)
+      {
+        cv::cvtColor(tmp, images[COLOR_SD_RECT], CV_BGRA2BGR);
+      }
+      else
+      {
+        cv::cvtColor(tmp, images[COLOR_SD_RECT], CV_RGBA2BGR);
+      }
+#else
       cv::cvtColor(tmp, images[COLOR_SD_RECT], CV_BGRA2BGR);
+#endif
     }
 
     // IR
@@ -1370,11 +1433,11 @@ private:
 
   static inline void setThreadName(const std::string &name)
   {
-  #if defined(__linux__)
+#if defined(__linux__)
     prctl(PR_SET_NAME, name.c_str());
-  #elif defined(__APPLE__)
+#elif defined(__APPLE__)
     pthread_setname_np(name.c_str());
-  #endif
+#endif
   }
 };
 
