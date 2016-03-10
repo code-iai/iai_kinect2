@@ -11,9 +11,9 @@
 - [FAQ](#faq)
 - [Dependencies](#dependencies)
 - [Install](#install)
-- [OpenCL](#opencl)
+- [GPU acceleration](#gpu-acceleration)
   - [OpenCL with AMD](#opencl-with-amd)
-  - [OpenCL with Nvidia](#opencl-with-nvidia)
+  - [OpenCL/CUDA with Nvidia](#openclcuda-with-nvidia)
   - [OpenCL with Intel](#opencl-with-intel)
 - [Citation](#citation)
 - [Screenshots](#screenshots)
@@ -159,7 +159,7 @@ roslaunch kinect2_bridge kinect2_bridge.launch
 8. Add the calibration files to the `kinect2_bridge/data/<serialnumber>` folder. [Further details](kinect2_bridge#first-steps)
 9. Restart `kinect2_bridge` and view the results using `rosrun kinect2_viewer kinect2_viewer kinect2 sd cloud`.
 
-## OpenCL
+## GPU acceleration
 
 ### OpenCL with AMD
 
