@@ -72,7 +72,7 @@ private:
   std::vector<std::thread> threads;
   std::mutex lockIrDepth, lockColor;
   std::mutex lockSync, lockPub, lockTime, lockStatus;
-  std::mutex lockRegLowRes, lockRegHighRes;
+  std::mutex lockRegLowRes, lockRegHighRes, lockRegSD;
 
   bool publishTF;
   std::thread tfPublisher, mainThread;
@@ -943,7 +943,7 @@ private:
     libfreenect2::Frame *depthFrame = frames[libfreenect2::Frame::Depth];
 
 #if LIBFREENECT2_API_VERSION >= 2
-    if(irFrame->status == 1 || depthFrame->status == 1)
+    if(irFrame->status != 0 || depthFrame->status != 0)
     {
       listenerIrDepth->release(frames);
       lockIrDepth.unlock();
@@ -1007,7 +1007,7 @@ private:
     libfreenect2::Frame *colorFrame = frames[libfreenect2::Frame::Color];
 
 #if LIBFREENECT2_API_VERSION >= 2
-    if(colorFrame->status == 1)
+    if(colorFrame->status != 0)
     {
       listenerColor->release(frames);
       lockIrDepth.unlock();
@@ -1030,8 +1030,10 @@ private:
     cv::Mat color = cv::Mat(colorFrame->height, colorFrame->width, CV_8UC4, colorFrame->data);
     if(status[COLOR_SD_RECT])
     {
-      memcpy(this->color.data, color.data, sizeColor.width * sizeColor.height * 4);
+      lockRegSD.lock();
+      memcpy(this->color.data, colorFrame->data, sizeColor.width * sizeColor.height * 4);
       this->color.format = colorFrame->format;
+      lockRegSD.unlock();
     }
     if(status[COLOR_HD] || status[COLOR_HD_RECT] || status[COLOR_QHD] || status[COLOR_QHD_RECT] ||
        status[MONO_HD] || status[MONO_HD_RECT] || status[MONO_QHD] || status[MONO_QHD_RECT])
@@ -1118,7 +1120,9 @@ private:
       libfreenect2::Frame depthFrame(sizeIr.width, sizeIr.height, 4, depth.data);
       libfreenect2::Frame undistorted(sizeIr.width, sizeIr.height, 4);
       libfreenect2::Frame registered(sizeIr.width, sizeIr.height, 4);
+      lockRegSD.lock();
       registration->apply(&color, &depthFrame, &undistorted, &registered);
+      lockRegSD.unlock();
       cv::flip(cv::Mat(sizeIr, CV_8UC4, registered.data), tmp, 1);
 #if LIBFREENECT2_API_VERSION >= 2
       if(color.format == libfreenect2::Frame::BGRX)
