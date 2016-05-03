@@ -1335,7 +1335,7 @@ private:
     case DEPTH_SD_RECT:
     case DEPTH_HD:
     case DEPTH_QHD:
-      msgImage.encoding = sensor_msgs::image_encodings::TYPE_16UC1;
+      msgImage.encoding = sensor_msgs::image_encodings::MONO16;
       break;
     case COLOR_SD_RECT:
     case COLOR_HD:
@@ -1348,7 +1348,7 @@ private:
     case MONO_HD_RECT:
     case MONO_QHD:
     case MONO_QHD_RECT:
-      msgImage.encoding = sensor_msgs::image_encodings::TYPE_8UC1;
+      msgImage.encoding = sensor_msgs::image_encodings::MONO8;
       break;
     case COUNT:
       return;
