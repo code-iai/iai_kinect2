@@ -55,8 +55,8 @@ Any chessboard pattern or symmetric or asymmetric circle grid should work. Three
 - [chess9x11x0.02.pdf](patterns/chess9x11x0.02.pdf)
 
 Other patterns are available at OpenCV:
-- [Chessboard pattern](http://docs.opencv.org/_downloads/pattern.png)
-- [Asymmetric circle grid](http://docs.opencv.org/_downloads/acircles_pattern.png)
+- [Chessboard pattern](http://docs.opencv.org/2.4.2/_downloads/pattern.png)
+- [Asymmetric circle grid](http://docs.opencv.org/2.4.2/_downloads/acircles_pattern.png)
 
 The standard board is a 7x6 0.108m chessboard from the PR2. But any other board can be specified with as parameter. For example a circle board with 8x7 circles in 0.02m distance between them `rosrun kinect2_calibration kinect2_calibration record color circle8x7x0.02`.
 
