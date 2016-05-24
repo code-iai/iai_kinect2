@@ -94,7 +94,7 @@ private:
 
   bool nextColor, nextIrDepth;
   double deltaT, depthShift, elapsedTimeColor, elapsedTimeIrDepth;
-  bool running, deviceActive, clientConnected;
+  bool running, deviceActive, clientConnected, isSubscribedColor, isSubscribedDepth;
 
   enum Image
   {
@@ -757,14 +757,17 @@ private:
 
   void callbackStatus()
   {
+    bool isSubscribedDepth = false;
+    bool isSubscribedColor = false;
+
     lockStatus.lock();
-    clientConnected = updateStatus();
+    clientConnected = updateStatus(isSubscribedColor, isSubscribedDepth);
     bool error = false;
 
     if(clientConnected && !deviceActive)
     {
       OUT_INFO("client connected. starting device...");
-      if(!device->start())
+      if(!device->startStreams(isSubscribedColor, isSubscribedDepth))
       {
         OUT_ERROR("could not start device!");
         error = true;
@@ -787,6 +790,22 @@ private:
         deviceActive = false;
       }
     }
+    else if(deviceActive && (isSubscribedColor != this->isSubscribedColor || isSubscribedDepth != this->isSubscribedDepth))
+    {
+      if(!device->stop())
+      {
+        OUT_ERROR("could not stop device!");
+        error = true;
+      }
+      else if(!device->startStreams(isSubscribedColor, isSubscribedDepth))
+      {
+        OUT_ERROR("could not start device!");
+        error = true;
+        deviceActive = false;
+      }
+    }
+    this->isSubscribedColor = isSubscribedColor;
+    this->isSubscribedDepth = isSubscribedDepth;
     lockStatus.unlock();
 
     if(error)
@@ -795,9 +814,11 @@ private:
     }
   }
 
-  bool updateStatus()
+  bool updateStatus(bool &isSubscribedColor, bool &isSubscribedDepth)
   {
-    bool any = false;
+    isSubscribedDepth = false;
+    isSubscribedColor = false;
+
     for(size_t i = 0; i < COUNT; ++i)
     {
       Status s = UNSUBCRIBED;
@@ -810,10 +831,27 @@ private:
         s = s == RAW ? BOTH : COMPRESSED;
       }
 
+      if(i <= COLOR_SD_RECT && s != UNSUBCRIBED)
+      {
+        isSubscribedDepth = true;
+      }
+      if(i >= COLOR_SD_RECT && s != UNSUBCRIBED)
+      {
+        isSubscribedColor = true;
+      }
+
       status[i] = s;
-      any = any || s != UNSUBCRIBED;
     }
-    return any || infoHDPub.getNumSubscribers() > 0 || infoQHDPub.getNumSubscribers() > 0 || infoIRPub.getNumSubscribers() > 0;
+    if(infoHDPub.getNumSubscribers() > 0 || infoQHDPub.getNumSubscribers() > 0)
+    {
+      isSubscribedColor = true;
+    }
+    if(infoIRPub.getNumSubscribers() > 0)
+    {
+      isSubscribedDepth = true;
+    }
+
+    return isSubscribedColor || isSubscribedDepth;
   }
 
   void main()
@@ -853,8 +891,14 @@ private:
         elapsedTimeIrDepth = 0;
         lockTime.unlock();
 
-        OUT_INFO("depth processing: " FG_YELLOW "~" << (tDepth / framesIrDepth) * 1000 << "ms" NO_COLOR " (~" << framesIrDepth / tDepth << "Hz) publishing rate: " FG_YELLOW "~" << framesIrDepth / fpsTime << "Hz" NO_COLOR);
-        OUT_INFO("color processing: " FG_YELLOW "~" << (tColor / framesColor) * 1000 << "ms" NO_COLOR " (~" << framesColor / tColor << "Hz) publishing rate: " FG_YELLOW "~" << framesColor / fpsTime << "Hz" NO_COLOR);
+        if(isSubscribedDepth)
+        {
+          OUT_INFO("depth processing: " FG_YELLOW "~" << (tDepth / framesIrDepth) * 1000 << "ms" NO_COLOR " (~" << framesIrDepth / tDepth << "Hz) publishing rate: " FG_YELLOW "~" << framesIrDepth / fpsTime << "Hz" NO_COLOR);
+        }
+        if(isSubscribedColor)
+        {
+          OUT_INFO("color processing: " FG_YELLOW "~" << (tColor / framesColor) * 1000 << "ms" NO_COLOR " (~" << framesColor / tColor << "Hz) publishing rate: " FG_YELLOW "~" << framesColor / fpsTime << "Hz" NO_COLOR);
+        }
         fpsTime = now;
       }
 
@@ -942,7 +986,6 @@ private:
     libfreenect2::Frame *irFrame = frames[libfreenect2::Frame::Ir];
     libfreenect2::Frame *depthFrame = frames[libfreenect2::Frame::Depth];
 
-#if LIBFREENECT2_API_VERSION >= 2
     if(irFrame->status != 0 || depthFrame->status != 0)
     {
       listenerIrDepth->release(frames);
@@ -959,7 +1002,6 @@ private:
       OUT_ERROR("received invalid frame format");
       return;
     }
-#endif
 
     frame = frameIrDepth++;
 
@@ -1006,7 +1048,6 @@ private:
 
     libfreenect2::Frame *colorFrame = frames[libfreenect2::Frame::Color];
 
-#if LIBFREENECT2_API_VERSION >= 2
     if(colorFrame->status != 0)
     {
       listenerColor->release(frames);
@@ -1023,7 +1064,6 @@ private:
       OUT_ERROR("received invalid frame format");
       return;
     }
-#endif
 
     frame = frameColor++;
 
@@ -1040,7 +1080,6 @@ private:
     {
       cv::Mat tmp;
       cv::flip(color, tmp, 1);
-#if LIBFREENECT2_API_VERSION >= 2
       if(colorFrame->format == libfreenect2::Frame::BGRX)
       {
         cv::cvtColor(tmp, images[COLOR_HD], CV_BGRA2BGR);
@@ -1049,9 +1088,6 @@ private:
       {
         cv::cvtColor(tmp, images[COLOR_HD], CV_RGBA2BGR);
       }
-#else
-      cv::cvtColor(tmp, images[COLOR_HD], CV_BGRA2BGR);
-#endif
     }
 
     listenerColor->release(frames);
@@ -1124,7 +1160,6 @@ private:
       registration->apply(&color, &depthFrame, &undistorted, &registered);
       lockRegSD.unlock();
       cv::flip(cv::Mat(sizeIr, CV_8UC4, registered.data), tmp, 1);
-#if LIBFREENECT2_API_VERSION >= 2
       if(color.format == libfreenect2::Frame::BGRX)
       {
         cv::cvtColor(tmp, images[COLOR_SD_RECT], CV_BGRA2BGR);
@@ -1133,9 +1168,6 @@ private:
       {
         cv::cvtColor(tmp, images[COLOR_SD_RECT], CV_RGBA2BGR);
       }
-#else
-      cv::cvtColor(tmp, images[COLOR_SD_RECT], CV_BGRA2BGR);
-#endif
     }
 
     // IR
