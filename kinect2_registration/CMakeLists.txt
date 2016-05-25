@@ -28,7 +28,7 @@ find_package(cmake_modules QUIET)
 ## System dependencies are found with CMake's conventions
 find_package(OpenCV REQUIRED)
 find_package(OpenMP)
-find_package(Eigen)
+find_package(Eigen3)
 find_package(OpenCL)
 
 if(OPENMP_FOUND)
@@ -39,9 +39,9 @@ endif()
 ## Check for modules being build based on found libraries ##
 ############################################################
 
-if(Eigen_FOUND)
+if(Eigen3_FOUND)
   message(STATUS "CPU based depth registration enabled")
-  include_directories(${Eigen_INCLUDE_DIRS})
+  include_directories(${EIGEN3_INCLUDE_DIRS})
   set(DEPTH_REG_CPU ON)
   add_definitions(-DDEPTH_REG_CPU)
 else()
@@ -119,7 +119,6 @@ include_directories(include
 
 if(DEPTH_REG_CPU)
   set(MODULES ${MODULES} src/depth_registration_cpu.cpp)
-  set(MODULE_LIBS ${MODULE_LIBS} ${Eigen_LIBRARIES})
 endif()
 
 if(DEPTH_REG_OPENCL)
