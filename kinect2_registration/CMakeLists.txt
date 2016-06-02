@@ -63,8 +63,6 @@ if(OpenCL_FOUND)
     # The workaround of disabling exceptions can only be set up during compile time.
     # Diabling it for all should be harmless. The flag is the same for GCC/Clang/ICC.
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-exceptions")
-  elseif(UNIX AND APPLE)
-    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/internal)
   endif()
   include_directories(${OpenCL_INCLUDE_DIRS})
 
@@ -115,6 +113,7 @@ add_custom_target(additional_files_${PROJECT_NAME}
 include_directories(include
   ${catkin_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/internal"
 )
 
 if(DEPTH_REG_CPU)
