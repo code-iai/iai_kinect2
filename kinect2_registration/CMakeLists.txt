@@ -39,7 +39,7 @@ endif()
 ## Check for modules being build based on found libraries ##
 ############################################################
 
-if(Eigen3_FOUND)
+if(EIGEN3_FOUND)
   message(STATUS "CPU based depth registration enabled")
   include_directories(${EIGEN3_INCLUDE_DIR})
   set(DEPTH_REG_CPU ON)
