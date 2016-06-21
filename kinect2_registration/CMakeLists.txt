@@ -41,7 +41,7 @@ endif()
 
 if(Eigen3_FOUND)
   message(STATUS "CPU based depth registration enabled")
-  include_directories(${EIGEN3_INCLUDE_DIRS})
+  include_directories(${EIGEN3_INCLUDE_DIR})
   set(DEPTH_REG_CPU ON)
   add_definitions(-DDEPTH_REG_CPU)
 else()
