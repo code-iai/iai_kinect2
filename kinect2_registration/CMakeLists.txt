@@ -51,6 +51,7 @@ endif()
 
 if(OpenCL_FOUND)
   message(STATUS "OpenCL based depth registration enabled")
+  set(EXPORTED_DEPENDENCIES OpenCL)
 
   if(UNIX AND NOT APPLE)
     include(CheckOpenCLICDLoader)
@@ -94,7 +95,7 @@ catkin_package(
   INCLUDE_DIRS include
   LIBRARIES kinect2_registration
 #  CATKIN_DEPENDS other_catkin_pkg
-#  DEPENDS system_lib
+  DEPENDS ${EXPORTED_DEPENDENCIES}
   CFG_EXTRAS kinect2_registration.cmake
 )
 

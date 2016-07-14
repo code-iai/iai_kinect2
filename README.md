@@ -183,6 +183,13 @@ Download the file and follow the instructions. Also install `nvidia-modprobe` an
 sudo apt-get install nvidia-modprobe opencl-headers
 ```
 
+You also need to add CUDA paths to the system environment, add these lines to you `~/.bashrc`:
+
+```
+export LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH}"
+export PATH="/usr/local/cuda/bin:${PATH}"
+```
+
 ### OpenCL with Intel
 
 You can either install a binary package from a PPA like [ppa:floe/beignet](https://launchpad.net/~floe/+archive/ubuntu/beignet), or build beignet yourself.
