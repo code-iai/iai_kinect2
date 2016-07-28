@@ -144,12 +144,12 @@ private:
     OUT_INFO("Controls:" << std::endl
              << FG_YELLOW "   [ESC, q]" NO_COLOR " - Exit" << std::endl
              << FG_YELLOW " [SPACE, s]" NO_COLOR " - Save current frame" << std::endl
-             << FG_YELLOW "        [l]" NO_COLOR " - decrease min and max value for IR value rage" << std::endl
-             << FG_YELLOW "        [h]" NO_COLOR " - increase min and max value for IR value rage" << std::endl
-             << FG_YELLOW "        [1]" NO_COLOR " - decrease min value for IR value rage" << std::endl
-             << FG_YELLOW "        [2]" NO_COLOR " - increase min value for IR value rage" << std::endl
-             << FG_YELLOW "        [3]" NO_COLOR " - decrease max value for IR value rage" << std::endl
-             << FG_YELLOW "        [4]" NO_COLOR " - increase max value for IR value rage");
+             << FG_YELLOW "        [l]" NO_COLOR " - decrease min and max value for IR value range" << std::endl
+             << FG_YELLOW "        [h]" NO_COLOR " - increase min and max value for IR value range" << std::endl
+             << FG_YELLOW "        [1]" NO_COLOR " - decrease min value for IR value range" << std::endl
+             << FG_YELLOW "        [2]" NO_COLOR " - increase min value for IR value range" << std::endl
+             << FG_YELLOW "        [3]" NO_COLOR " - decrease max value for IR value range" << std::endl
+             << FG_YELLOW "        [4]" NO_COLOR " - increase max value for IR value range");
 
     image_transport::TransportHints hints("compressed");
     subImageColor = new image_transport::SubscriberFilter(it, topicColor, 4, hints);
@@ -1286,7 +1286,7 @@ int main(int argc, char **argv)
       boardSize = atof(arg.substr(rightX + 1, end - rightX + 1).c_str());
       boardDims = cv::Size(width, height);
     }
-    else if(arg == "-path" && argI + 1 < argc)
+    else if(arg == "-path" && ++argI < argc)
     {
       arg = argv[argI];
       struct stat fileStat;
