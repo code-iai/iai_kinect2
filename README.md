@@ -190,6 +190,13 @@ export LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH}"
 export PATH="/usr/local/cuda/bin:${PATH}"
 ```
 
+A system-wide configuration of the libary path can be created with the following commands:
+
+```
+echo "/usr/local/cuda/lib64" | sudo tee /etc/ld.so.conf.d/cuda.conf
+sudo ldconfig
+```
+
 ### OpenCL with Intel
 
 You can either install a binary package from a PPA like [ppa:floe/beignet](https://launchpad.net/~floe/+archive/ubuntu/beignet), or build beignet yourself.
