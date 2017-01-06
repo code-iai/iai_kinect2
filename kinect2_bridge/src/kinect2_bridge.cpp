@@ -421,6 +421,24 @@ private:
       return false;
 #endif
     }
+    else if(method == "clkde")
+    {
+#ifdef LIBFREENECT2_WITH_OPENCL_SUPPORT
+      packetPipeline = new libfreenect2::OpenCLKdePacketPipeline(device);
+#else
+      OUT_ERROR("OpenCL depth processing is not available!");
+      return false;
+#endif
+    }
+    else if(method == "cudakde")
+    {
+#ifdef LIBFREENECT2_WITH_CUDA_SUPPORT
+      packetPipeline = new libfreenect2::CudaKdePacketPipeline(device);
+#else
+      OUT_ERROR("Cuda depth processing is not available!");
+      return false;
+#endif
+    }
     else
     {
       OUT_ERROR("Unknown depth processing method: " << method);
