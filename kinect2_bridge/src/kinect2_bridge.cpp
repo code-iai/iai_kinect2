@@ -1549,6 +1549,7 @@ void help(const std::string &path)
 #endif
 #ifdef LIBFREENECT2_WITH_CUDA_SUPPORT
   depthMethods += ", cuda";
+  depthMethods += ", cudakde";
   depthDefault = "cuda";
 #endif
 #ifdef DEPTH_REG_CPU
@@ -1556,6 +1557,7 @@ void help(const std::string &path)
 #endif
 #ifdef DEPTH_REG_OPENCL
   regMethods += ", opencl";
+  regMethods += ", clkde";
   regDefault = "opencl";
 #endif
 
