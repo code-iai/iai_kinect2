@@ -134,7 +134,7 @@ If you found no solution in the issues, feel free to open a new issue for your p
 2. [Setup your ROS environment](http://wiki.ros.org/ROS/Tutorials/InstallingandConfiguringROSEnvironment)
 3. Install [libfreenect2](https://github.com/OpenKinect/libfreenect2):
 
-   Follow [the instructions](https://github.com/OpenKinect/libfreenect2#debianubuntu-1404) and enable C++11 by using `cmake .. -DENABLE_CXX11=ON` instead of `cmake ..`
+   Follow [the instructions](https://github.com/OpenKinect/libfreenect2#debianubuntu-1404) and enable C++11 by using `cmake .. -DENABLE_CXX11=ON` instead of `cmake ..`. If you are compiling libfreenect2 with CUDA, use `cmake .. -DENABLE_CXX11=ON -DCUDA_PROPAGATE_HOST_FLAGS=off`.
 
    If something is not working, check out the latest stable release, for example `git checkout v0.2.0`.
 
