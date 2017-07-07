@@ -8,7 +8,7 @@
 
 Please read this README and the ones of the individual components throughly before asking questions. We get a lot of repeated questions, so when you have a problem, we urge everyone to check the [github issues  (including closed ones)](https://github.com/code-iai/iai_kinect2/issues?utf8=%E2%9C%93&q=is%3Aissue). Your issue is very likely discussed there already.
 
-The goal of this project is to give you a driver and the tools needed to receive data from the Kinect-2 sensor, in a way useful for robotics. You will still need to know how to use ROS to make use of it. Please follow the [ROS tutorials](http://wiki.ros.org/ROS/Tutorials). You will also need to learn how to work with point-clouds, or depth-clouds, or images (computer vision) to do useful things with the data. 
+The goal of this project is to give you a driver and the tools needed to receive data from the Kinect-2 sensor, in a way useful for robotics. You will still need to know how to use ROS to make use of it. Please follow the [ROS tutorials](http://wiki.ros.org/ROS/Tutorials). You will also need to learn how to work with point-clouds, or depth-clouds, or images (computer vision) to do useful things with the data.
 
 *Note:* ***Please use the GitHub issues*** *for questions and problems regarding the iai_kinect2 package and its components.* ***Do not write emails.***
 
@@ -140,7 +140,7 @@ If you found no solution in the issues, feel free to open a new issue for your p
 
 4. Clone this repository into your catkin workspace, install the dependencies and build it:
 
-   ```
+```
 cd ~/catkin_ws/src/
 git clone https://github.com/code-iai/iai_kinect2.git
 cd iai_kinect2
@@ -157,7 +157,7 @@ catkin_make -DCMAKE_BUILD_TYPE="Release"
 
 5. Connect your sensor and run `kinect2_bridge`:
 
-   ```
+```
 roslaunch kinect2_bridge kinect2_bridge.launch
 ```
 6. Calibrate your sensor using the `kinect2_calibration`. [Further details](kinect2_calibration#calibrating-the-kinect-one)
