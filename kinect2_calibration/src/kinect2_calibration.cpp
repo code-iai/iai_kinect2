@@ -541,18 +541,19 @@ public:
   }
 
 
-  void processimage(cv::Mat image,std::string base)
+  void processimage(cv::Mat image,std::string base,std::string filename, bool imagecolor)
   {
+  	std::cout << "reprocessing " << filename << std::endl;
     std::vector<cv::Point2f> pointsColor, pointsIr;
     cv::Mat color, ir, irGrey, irScaled, depth;
     bool foundColor = false;
     bool foundIr = false;
 
-    if(mode == COLOR || mode == SYNC)
+    if(imagecolor)
     {
       color = image;
     }
-    if(mode == IR || mode == SYNC)
+    else
     {
     	ir = image;
 	///     readImage(imageDepth, depth);
@@ -589,8 +590,10 @@ public:
         foundIr = cv::findChessboardCorners(irGrey, boardDims, pointsIr, cv::CALIB_CB_ADAPTIVE_THRESH);
         break;
       case SYNC:
-        foundColor = cv::findChessboardCorners(color, boardDims, pointsColor, cv::CALIB_CB_FAST_CHECK);
-        foundIr = cv::findChessboardCorners(irGrey, boardDims, pointsIr, cv::CALIB_CB_ADAPTIVE_THRESH);
+        if(imagecolor)
+        	foundColor = cv::findChessboardCorners(color, boardDims, pointsColor, cv::CALIB_CB_FAST_CHECK);
+        else
+        	foundIr = cv::findChessboardCorners(irGrey, boardDims, pointsIr, cv::CALIB_CB_ADAPTIVE_THRESH);
         break;
       }
       if(foundColor)
@@ -610,26 +613,21 @@ public:
     }
 
     
-    std::cerr << "base output " << base << " found color: " << foundColor << " " << pointsColor.size() << " ir: " << foundIr << " " << pointsDepth.size() << std::endl;
+    std::cerr << "\toutput " << base << " found color: " << foundColor << " " << pointsColor.size() << " ir: " << foundIr << " " << pointsIr.size() << std::endl;
     for(size_t i = 0; i < pointsIr.size(); ++i)
     {
       pointsIr[i].x /= 2.0;
       pointsIr[i].y /= 2.0;
     }
 
-    if(mode == SYNC)
-    {
-      base += CALIB_SYNC;
-    }
 
-    if(mode == COLOR || mode == SYNC)
+    if(imagecolor)
     {
 
       cv::FileStorage file(base + CALIB_POINTS_COLOR, cv::FileStorage::WRITE);
       file << "points" << pointsColor;
     }
-
-    if(mode == IR || mode == SYNC)
+    else
     {
       cv::FileStorage file(base + CALIB_POINTS_IR, cv::FileStorage::WRITE);
       file << "points" << pointsIr;
@@ -666,28 +664,28 @@ public:
       if(posColor != std::string::npos)
       {
 	     cv::Mat image = cv::imread(filename, cv::IMREAD_ANYDEPTH);
-	     processimage(image,filename.substr(0,posColor));
-	     continue;
-      }
-      posColor = filename.rfind(CALIB_FILE_IR);
-      if(posColor != std::string::npos)
-      {
-	     cv::Mat image = cv::imread(filename, cv::IMREAD_ANYDEPTH);
-	     processimage(image,filename.substr(0,posColor));
+	     processimage(image,filename.substr(0,posColor),filename,true);
 	     continue;
       }
       posColor = filename.rfind(CALIB_FILE_IR_GREY);
       if(posColor != std::string::npos)
       {
 	     cv::Mat image = cv::imread(filename, cv::IMREAD_ANYDEPTH);
-	     processimage(image,filename.substr(0,posColor));
+	     processimage(image,filename.substr(0,posColor),filename,false);
+	     continue;
+      }
+      posColor = filename.rfind(CALIB_FILE_IR);
+      if(posColor != std::string::npos)
+      {
+	    //cv::Mat image = cv::imread(filename, cv::IMREAD_ANYDEPTH);
+	    //processimage(image,filename.substr(0,posColor),filename);
 	     continue;
       }
       posColor = filename.rfind(CALIB_FILE_DEPTH);
       if(posColor != std::string::npos)
       {
-	     cv::Mat image = cv::imread(filename, cv::IMREAD_ANYDEPTH);
-	     processimage(image,filename.substr(0,posColor));
+	  //cv::Mat image = cv::imread(filename, cv::IMREAD_ANYDEPTH);
+	   // processimage(image,filename.substr(0,posColor),filename);
 	     continue;
       }
 
