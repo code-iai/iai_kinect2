@@ -39,6 +39,7 @@
 
 #define K2_TOPIC_COMPRESSED    "/compressed"
 #define K2_TOPIC_INFO          "/camera_info"
+#define K2_TOPIC_CAPTURE          "/capture"
 
 #define K2_CALIB_COLOR         "calib_color.yaml"
 #define K2_CALIB_IR            "calib_ir.yaml"

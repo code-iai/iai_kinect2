@@ -37,6 +37,7 @@
 #include <ros/ros.h>
 #include <nodelet/nodelet.h>
 #include <std_msgs/Header.h>
+#include <std_msgs/Empty.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/SetCameraInfo.h>
 #include <sensor_msgs/Image.h>
@@ -129,7 +130,7 @@ private:
   };
 
   std::vector<ros::Publisher> imagePubs, compressedPubs;
-  ros::Publisher infoHDPub, infoQHDPub, infoIRPub;
+  ros::Publisher infoHDPub, infoQHDPub, infoIRPub, triggerPub;
   sensor_msgs::CameraInfo infoHD, infoQHD, infoIR;
   std::vector<Status> status;
 
@@ -516,6 +517,7 @@ private:
     infoHDPub = nh.advertise<sensor_msgs::CameraInfo>(base_name + K2_TOPIC_HD + K2_TOPIC_INFO, queueSize, cb, cb);
     infoQHDPub = nh.advertise<sensor_msgs::CameraInfo>(base_name + K2_TOPIC_QHD + K2_TOPIC_INFO, queueSize, cb, cb);
     infoIRPub = nh.advertise<sensor_msgs::CameraInfo>(base_name + K2_TOPIC_SD + K2_TOPIC_INFO, queueSize, cb, cb);
+    triggerPub = nh.advertise<std_msgs::Empty>(base_name + K2_TOPIC_CAPTURE, 1);
   }
 
   bool initDevice(std::string &sensor)
@@ -970,6 +972,7 @@ private:
           if(nextColor && lockColor.try_lock())
           {
             nextColor = false;
+            triggerPub.publish(std_msgs::Empty());
             receiveColor();
             processedFrame = true;
           }
