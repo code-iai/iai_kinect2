@@ -63,7 +63,7 @@ if(OpenCL_FOUND)
     # Major Linux distro stable releases have buggy OpenCL ICD loader.
     # The workaround of disabling exceptions can only be set up during compile time.
     # Diabling it for all should be harmless. The flag is the same for GCC/Clang/ICC.
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-exceptions")
+    # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-exceptions")
   endif()
   include_directories(${OpenCL_INCLUDE_DIRS})
 
