@@ -112,7 +112,7 @@ The depth calibration creates a file named `plot.dat` inside the calibration fol
 
 - Difference between measured/computed distance
 
-  ```
+```
 set xlabel "Measured distance"
 set ylabel "Computed distance"
 plot 'plot.dat' using 3:4 with dots title "Difference between measured/computed distance"
@@ -120,7 +120,7 @@ plot 'plot.dat' using 3:4 with dots title "Difference between measured/computed 
 
 - Difference relative to x coordinate
 
-  ```
+```
 set xlabel "X"
 set ylabel "Distance difference"
 plot 'plot.dat' using 1:5 with dots title "Difference relative to X-coordinate"
@@ -128,7 +128,7 @@ plot 'plot.dat' using 1:5 with dots title "Difference relative to X-coordinate"
 
 - Difference relative to y coordinate
 
-  ```
+```
 set xlabel "Y"
 set ylabel "Distance difference"
 plot 'plot.dat' using 2:5 with dots title "Difference relative to Y-coordinate"
@@ -136,7 +136,7 @@ plot 'plot.dat' using 2:5 with dots title "Difference relative to Y-coordinate"
 
 - Difference relative to XY-coordinate
 
-  ```
+```
 set xlabel "X"
 set ylabel "Y"
 set zlabel "Distance difference"
