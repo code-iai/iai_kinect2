@@ -59,11 +59,6 @@ if(OpenCL_FOUND)
       set(KINECT2_OPENCL_ICD_LOADER_IS_OLD 1)
       message(WARNING "Your libOpenCL.so is incompatible with CL/cl.h. Install ocl-icd-opencl-dev to update libOpenCL.so?")
     endif()
-
-    # Major Linux distro stable releases have buggy OpenCL ICD loader.
-    # The workaround of disabling exceptions can only be set up during compile time.
-    # Diabling it for all should be harmless. The flag is the same for GCC/Clang/ICC.
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-exceptions")
   endif()
   include_directories(${OpenCL_INCLUDE_DIRS})
 
