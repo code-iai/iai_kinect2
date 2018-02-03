@@ -136,35 +136,30 @@ private:
 
 public:
   Kinect2Bridge(const ros::NodeHandle &nh = ros::NodeHandle(), const ros::NodeHandle &priv_nh = ros::NodeHandle("~"))
-    : sizeColor(1920, 1080), sizeIr(512, 424), sizeLowRes(sizeColor.width / 2, sizeColor.height / 2), color(sizeColor.width, sizeColor.height, 4), nh(nh), priv_nh(priv_nh),
+    : sizeColor(1920, 1080), sizeIr(512, 424), sizeLowRes(sizeColor.width / 2, sizeColor.height / 2),
+      color(sizeColor.width, sizeColor.height, 4), nh(nh), priv_nh(priv_nh),
       frameColor(0), frameIrDepth(0), pubFrameColor(0), pubFrameIrDepth(0), lastColor(0, 0), lastDepth(0, 0), nextColor(false),
-      nextIrDepth(false), depthShift(0), running(false), deviceActive(false), clientConnected(false)
+      nextIrDepth(false), depthShift(0), running(false), deviceActive(false), clientConnected(false), do_restart(false)
+      
   {
     status.resize(COUNT, UNSUBCRIBED);
   }
 
-  bool restart()
-  {
-    if(running)
-    {
-      OUT_ERROR("kinect2_bridge is already running!");
-      return false;
-    }
-    if(!initialize())
-    {
-      OUT_ERROR("Initialization failed!");
-      return false;
-    }
-    running = true;
-    return true;
-  }
+  bool do_restart;
 
   bool start()
   {
-    if (!restart())
-    {
-      return false;
-    }
+    if(running)
+      {
+        OUT_ERROR("kinect2_bridge is already running!");
+        return false;
+      }
+    if(!initialize())
+      {
+        OUT_ERROR("Initialization failed!");
+        return false;
+      }
+    running = true;
 
     if(publishTF)
     {
@@ -892,7 +887,7 @@ private:
     nextColor = true;
     nextIrDepth = true;
 
-    for(; running && ros::ok();)
+    for(; running && ros::ok() && not do_restart;)
     {
       if(!deviceActive)
       {
@@ -929,7 +924,7 @@ private:
           OUT_INFO("color processing: " FG_YELLOW "~" << (tColor / framesColor) * 1000 << "ms" NO_COLOR " (~" << framesColor / tColor << "Hz) publishing rate: " FG_YELLOW "~" << framesColor / fpsTime << "Hz" NO_COLOR);
           if (framesColor == 0)
           {
-            stop();
+            ros::shutdown();
           }
         }
         fpsTime = now;
@@ -1635,12 +1630,26 @@ int main(int argc, char **argv)
     return -1;
   }
 
-  while (ros::ok()) {
+
+  ros::Rate rate(10);
+  while (ros::ok())
+  {
+    OUT_WARN("WHILE LOOOOOPIN");
     Kinect2Bridge kinect2;
-    if(kinect2.start()) {
-      ros::spin();
-      kinect2.stop();
+    if(kinect2.start())
+    {
+      while (ros::ok())
+      {
+        if (kinect2.do_restart)
+        {
+          kinect2.do_restart = false;
+          break;
+        }
+        ros::spinOnce();
+        rate.sleep();
+      }
     }
+    kinect2.stop();
   }
 
   ros::shutdown();
