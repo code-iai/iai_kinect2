@@ -143,7 +143,7 @@ public:
     status.resize(COUNT, UNSUBCRIBED);
   }
 
-  bool start()
+  bool restart()
   {
     if(running)
     {
@@ -156,6 +156,15 @@ public:
       return false;
     }
     running = true;
+    return true;
+  }
+
+  bool start()
+  {
+    if (!restart())
+    {
+      return false;
+    }
 
     if(publishTF)
     {
@@ -217,8 +226,6 @@ public:
       infoQHDPub.shutdown();
       infoIRPub.shutdown();
     }
-
-    nh.shutdown();
   }
 
 private:
@@ -831,6 +838,7 @@ private:
     if(error)
     {
       stop();
+      nh.shutdown();
     }
   }
 
@@ -917,7 +925,12 @@ private:
         }
         if(isSubscribedColor)
         {
+          OUT_INFO("frames_color: " << framesColor);
           OUT_INFO("color processing: " FG_YELLOW "~" << (tColor / framesColor) * 1000 << "ms" NO_COLOR " (~" << framesColor / tColor << "Hz) publishing rate: " FG_YELLOW "~" << framesColor / fpsTime << "Hz" NO_COLOR);
+          if (framesColor == 0)
+          {
+            stop();
+          }
         }
         fpsTime = now;
       }
@@ -1622,12 +1635,12 @@ int main(int argc, char **argv)
     return -1;
   }
 
-  Kinect2Bridge kinect2;
-  if(kinect2.start())
-  {
-    ros::spin();
-
-    kinect2.stop();
+  while (ros::ok()) {
+    Kinect2Bridge kinect2;
+    if(kinect2.start()) {
+      ros::spin();
+      kinect2.stop();
+    }
   }
 
   ros::shutdown();
