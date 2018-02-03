@@ -24,7 +24,8 @@
   <arg name="start_manager"     default="true"/>
   <arg name="use_machine"       default="true"/>
   <arg name="respawn"           default="true"/>
-  <arg name="use_nodelet"       default="true"/>
+  <!-- False allows auto-restart if the kinect drops. -->
+  <arg name="use_nodelet"       default="false"/>
   <arg name="output"            default="screen"/>
 
   <machine name="localhost" address="localhost" if="$(arg use_machine)"/>

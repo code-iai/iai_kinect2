@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <iostream>
+#include <signal.h>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -136,29 +137,25 @@ private:
 
 public:
   Kinect2Bridge(const ros::NodeHandle &nh = ros::NodeHandle(), const ros::NodeHandle &priv_nh = ros::NodeHandle("~"))
-    : sizeColor(1920, 1080), sizeIr(512, 424), sizeLowRes(sizeColor.width / 2, sizeColor.height / 2),
-      color(sizeColor.width, sizeColor.height, 4), nh(nh), priv_nh(priv_nh),
+    : sizeColor(1920, 1080), sizeIr(512, 424), sizeLowRes(sizeColor.width / 2, sizeColor.height / 2), color(sizeColor.width, sizeColor.height, 4), nh(nh), priv_nh(priv_nh),
       frameColor(0), frameIrDepth(0), pubFrameColor(0), pubFrameIrDepth(0), lastColor(0, 0), lastDepth(0, 0), nextColor(false),
-      nextIrDepth(false), depthShift(0), running(false), deviceActive(false), clientConnected(false), do_restart(false)
-      
+      nextIrDepth(false), depthShift(0), running(false), deviceActive(false), clientConnected(false)
   {
     status.resize(COUNT, UNSUBCRIBED);
   }
 
-  bool do_restart;
-
   bool start()
   {
     if(running)
-      {
-        OUT_ERROR("kinect2_bridge is already running!");
-        return false;
-      }
+    {
+      OUT_ERROR("kinect2_bridge is already running!");
+      return false;
+    }
     if(!initialize())
-      {
-        OUT_ERROR("Initialization failed!");
-        return false;
-      }
+    {
+      OUT_ERROR("Initialization failed!");
+      return false;
+    }
     running = true;
 
     if(publishTF)
@@ -221,6 +218,8 @@ public:
       infoQHDPub.shutdown();
       infoIRPub.shutdown();
     }
+
+    nh.shutdown();
   }
 
 private:
@@ -833,7 +832,6 @@ private:
     if(error)
     {
       stop();
-      nh.shutdown();
     }
   }
 
@@ -887,7 +885,7 @@ private:
     nextColor = true;
     nextIrDepth = true;
 
-    for(; running && ros::ok() && not do_restart;)
+    for(; running && ros::ok();)
     {
       if(!deviceActive)
       {
@@ -917,14 +915,19 @@ private:
         if(isSubscribedDepth)
         {
           OUT_INFO("depth processing: " FG_YELLOW "~" << (tDepth / framesIrDepth) * 1000 << "ms" NO_COLOR " (~" << framesIrDepth / tDepth << "Hz) publishing rate: " FG_YELLOW "~" << framesIrDepth / fpsTime << "Hz" NO_COLOR);
+          if (framesColor == 0)
+          {
+            OUT_FATAL("No depth frames received in a while. Raising SIGINT.");
+            raise(SIGINT);
+          }
         }
         if(isSubscribedColor)
         {
-          OUT_INFO("frames_color: " << framesColor);
           OUT_INFO("color processing: " FG_YELLOW "~" << (tColor / framesColor) * 1000 << "ms" NO_COLOR " (~" << framesColor / tColor << "Hz) publishing rate: " FG_YELLOW "~" << framesColor / fpsTime << "Hz" NO_COLOR);
           if (framesColor == 0)
           {
-            ros::shutdown();
+            OUT_FATAL("No color frames received in a while. Raising SIGINT.");
+            raise(SIGINT);
           }
         }
         fpsTime = now;
@@ -1630,25 +1633,11 @@ int main(int argc, char **argv)
     return -1;
   }
 
-
-  ros::Rate rate(10);
-  while (ros::ok())
+  Kinect2Bridge kinect2;
+  if(kinect2.start())
   {
-    OUT_WARN("WHILE LOOOOOPIN");
-    Kinect2Bridge kinect2;
-    if(kinect2.start())
-    {
-      while (ros::ok())
-      {
-        if (kinect2.do_restart)
-        {
-          kinect2.do_restart = false;
-          break;
-        }
-        ros::spinOnce();
-        rate.sleep();
-      }
-    }
+    ros::spin();
+
     kinect2.stop();
   }
 
