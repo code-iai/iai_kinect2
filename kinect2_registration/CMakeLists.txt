@@ -52,6 +52,7 @@ endif()
 if(OpenCL_FOUND)
   message(STATUS "OpenCL based depth registration enabled")
   set(EXPORTED_DEPENDENCIES OpenCL)
+  add_definitions( -fexceptions )
 
   if(UNIX AND NOT APPLE)
     include(CheckOpenCLICDLoader)
