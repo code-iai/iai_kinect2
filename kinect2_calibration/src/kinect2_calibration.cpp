@@ -114,17 +114,29 @@ public:
     params.push_back(9);
 
     board.resize(boardDims.width * boardDims.height);
-    for(size_t r = 0, i = 0; r < (size_t)boardDims.height; ++r)
+    if (symmetric)
     {
-      for(size_t c = 0; c < (size_t)boardDims.width; ++c, ++i)
+      for (size_t r = 0, i = 0; r < (size_t)boardDims.height; ++r)
       {
-        board[i] = cv::Point3f(c * boardSize, r * boardSize, 0);
+        for (size_t c = 0; c < (size_t)boardDims.width; ++c, ++i)
+        {
+          board[i] = cv::Point3f(c * boardSize, r * boardSize, 0);
+        }
+      }
+    }
+    else
+    {
+      for (size_t r = 0, i = 0; r < (size_t)boardDims.height; ++r)
+      {
+        for (size_t c = 0; c < (size_t)boardDims.width; ++c, ++i)
+        {
+          board[i] = cv::Point3f(float((2 * c + r % 2) * boardSize), float(r * boardSize), 0); //for asymmetrical circles
+        }
       }
     }
 
     clahe = cv::createCLAHE(1.5, cv::Size(32, 32));
   }
-
   ~Recorder()
   {
   }
@@ -480,15 +492,28 @@ private:
   std::vector<cv::Mat> rvecsIr, tvecsIr;
 
 public:
-  CameraCalibration(const std::string &path, const Source mode, const bool circleBoard, const cv::Size &boardDims, const float boardSize, const bool rational)
-    : circleBoard(circleBoard), boardDims(boardDims), boardSize(boardSize), flags(rational ? cv::CALIB_RATIONAL_MODEL : 0), mode(mode), path(path), sizeColor(1920, 1080), sizeIr(512, 424)
+  CameraCalibration(const std::string &path, const Source mode, const bool circleBoard, const bool symmetric, const cv::Size &boardDims, const float boardSize, const bool rational)
+      : circleBoard(circleBoard), boardDims(boardDims), boardSize(boardSize), flags(rational ? cv::CALIB_RATIONAL_MODEL : 0), mode(mode), path(path), sizeColor(1920, 1080), sizeIr(512, 424)
   {
     board.resize(boardDims.width * boardDims.height);
-    for(size_t r = 0, i = 0; r < (size_t)boardDims.height; ++r)
+    if (symmetric)
     {
-      for(size_t c = 0; c < (size_t)boardDims.width; ++c, ++i)
+      for (size_t r = 0, i = 0; r < (size_t)boardDims.height; ++r)
       {
-        board[i] = cv::Point3f(c * boardSize, r * boardSize, 0);
+        for (size_t c = 0; c < (size_t)boardDims.width; ++c, ++i)
+        {
+          board[i] = cv::Point3f(c * boardSize, r * boardSize, 0);
+        }
+      }
+    }
+    else
+    {
+      for (size_t r = 0, i = 0; r < (size_t)boardDims.height; ++r)
+      {
+        for (size_t c = 0; c < (size_t)boardDims.width; ++c, ++i)
+        {
+          board[i] = cv::Point3f(float((2 * c + r % 2) * boardSize), float(r * boardSize), 0); //for asymmetrical circles
+        }
       }
     }
   }
@@ -832,15 +857,28 @@ private:
   std::ofstream plot;
 
 public:
-  DepthCalibration(const std::string &path, const cv::Size &boardDims, const float boardSize)
-    : path(path), size(512, 424)
+  DepthCalibration(const std::string &path, const bool symmetric, const cv::Size &boardDims, const float boardSize)
+      : path(path), size(512, 424)
   {
     board.resize(boardDims.width * boardDims.height);
-    for(size_t r = 0, i = 0; r < (size_t)boardDims.height; ++r)
+    if (symmetric)
     {
-      for(size_t c = 0; c < (size_t)boardDims.width; ++c, ++i)
+      for (size_t r = 0, i = 0; r < (size_t)boardDims.height; ++r)
       {
-        board[i] = cv::Point3f(c * boardSize, r * boardSize, 0);
+        for (size_t c = 0; c < (size_t)boardDims.width; ++c, ++i)
+        {
+          board[i] = cv::Point3f(c * boardSize, r * boardSize, 0);
+        }
+      }
+    }
+    else
+    {
+      for (size_t r = 0, i = 0; r < (size_t)boardDims.height; ++r)
+      {
+        for (size_t c = 0; c < (size_t)boardDims.width; ++c, ++i)
+        {
+          board[i] = cv::Point3f(float((2 * c + r % 2) * boardSize), float(r * boardSize), 0); //for asymmetrical circles
+        }
       }
     }
   }
@@ -1339,7 +1377,7 @@ int main(int argc, char **argv)
   }
   else if(calibDepth)
   {
-    DepthCalibration calib(path, boardDims, boardSize);
+    DepthCalibration calib(path, symmetric, boardDims, boardSize);
 
     OUT_INFO("restoring files...");
     calib.restore();
@@ -1349,7 +1387,7 @@ int main(int argc, char **argv)
   }
   else
   {
-    CameraCalibration calib(path, source, circleBoard, boardDims, boardSize, rational);
+    CameraCalibration calib(path, source, circleBoard, symmetric, boardDims, boardSize, rational);
 
     OUT_INFO("restoring files...");
     calib.restore();
