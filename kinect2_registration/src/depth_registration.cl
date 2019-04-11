@@ -111,7 +111,7 @@ void kernel checkDepth(global const int4 *idx, global const ushort *zImg, global
 
   const int4 index = idx[i];
   const ushort zI = zImg[i];
-  const ushort thres = 0.01 * zI;
+  const ushort thres = 0.01f * zI;
   const ushort zIThres = zI + thres;
   const float4 dist2 = dists[i];
 
@@ -176,7 +176,7 @@ void kernel remapDepth(global const ushort *in, global ushort *out, global const
   }
 
   const float avg = (p.s0 + p.s1 + p.s2 + p.s3) / count;
-  const float thres = 0.01 * avg;
+  const float thres = 0.01f * avg;
   valid = isless(fabs(p - avg), (float4)(thres));
   count = abs(valid.s0 + valid.s1 + valid.s2 + valid.s3);
 
