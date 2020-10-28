@@ -6,7 +6,7 @@
 
 ## Read this first
 
-<p style="color:green; background-color:yellow">This repository contains some minor changes from the original [iai_kinect2](https://github.com/code-iai/iai_kinect2) repo. Building from the original repo throws errors if you are using opencv4. This repo fixes those issues; also, if you're using any opencv version other than 4, please build from the original repo.</p>
+__This repository contains some minor changes from the original [iai_kinect2](https://github.com/code-iai/iai_kinect2) repo. Building from the original repo throws errors if you are using opencv4. This repo fixes those issues; also, if you're using any opencv version other than 4, please build from the original repo.__
 
 Please read this README and the ones of the individual components throughly before asking questions. We get a lot of repeated questions, so when you have a problem, we urge everyone to check the [github issues  (including closed ones)](https://github.com/code-iai/iai_kinect2/issues?utf8=%E2%9C%93&q=is%3Aissue). Your issue is very likely discussed there already.
 
