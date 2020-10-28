@@ -1,10 +1,12 @@
 # IAI Kinect2
 
-## Maintainer
+### Maintainer
 
 - [Thiemo Wiedemeyer](https://ai.uni-bremen.de/team/thiemo_wiedemeyer) <<wiedemeyer@cs.uni-bremen.de>>, [Institute for Artificial Intelligence](http://ai.uni-bremen.de/), University of Bremen
 
 ## Read this first
+
+<p style="color:green; background-color:yellow">__This repository contains some minor changes from the original [iai_kinect2](https://github.com/code-iai/iai_kinect2) repo. Building from the original repo throws errors if you are using opencv4. This repo fixes those issues; also, if you're using any opencv version other than 4, please build from the original repo.__</p>
 
 Please read this README and the ones of the individual components throughly before asking questions. We get a lot of repeated questions, so when you have a problem, we urge everyone to check the [github issues  (including closed ones)](https://github.com/code-iai/iai_kinect2/issues?utf8=%E2%9C%93&q=is%3Aissue). Your issue is very likely discussed there already.
 
@@ -128,6 +130,7 @@ If you found no solution in the issues, feel free to open a new issue for your p
 - OpenCL (optional, but recommended)
 - [libfreenect2](https://github.com/OpenKinect/libfreenect2) (>= v0.2.0, for stability checkout the latest stable release)
 
+
 ## Install
 
 1. Install the ROS. [Instructions for Ubuntu 14.04](http://wiki.ros.org/indigo/Installation/Ubuntu)
@@ -148,6 +151,9 @@ If you found no solution in the issues, feel free to open a new issue for your p
     cd ~/catkin_ws
     catkin_make -DCMAKE_BUILD_TYPE="Release"
     ```
+
+If you get the following error `pcl_conversions build error: PCL requires C++14 or above`, go to your `CMakeLists.txt` in the `src` folder and add the line `set( CMAKE_CXX_STANDARD 14)`
+on the very top and rebuild.
 
    *Note: `rosdep` will output errors on not being able to locate `[kinect2_bridge]` and `[depth_registration]`.
    That is fine because they are all part of the iai_kinect2 package and `rosdep` does not know these packages.*
