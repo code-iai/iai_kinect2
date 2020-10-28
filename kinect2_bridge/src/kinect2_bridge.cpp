@@ -461,12 +461,12 @@ private:
   void initCompression(const int32_t jpegQuality, const int32_t pngLevel, const bool use_png)
   {
     compressionParams.resize(7, 0);
-    compressionParams[0] = CV_IMWRITE_JPEG_QUALITY;
+    compressionParams[0] = cv::IMWRITE_JPEG_QUALITY;
     compressionParams[1] = jpegQuality;
-    compressionParams[2] = CV_IMWRITE_PNG_COMPRESSION;
+    compressionParams[2] = cv::IMWRITE_PNG_COMPRESSION;
     compressionParams[3] = pngLevel;
-    compressionParams[4] = CV_IMWRITE_PNG_STRATEGY;
-    compressionParams[5] = CV_IMWRITE_PNG_STRATEGY_RLE;
+    compressionParams[4] = cv::IMWRITE_PNG_STRATEGY;
+    compressionParams[5] = cv::IMWRITE_PNG_STRATEGY_RLE;
     compressionParams[6] = 0;
 
     if(use_png)
@@ -1100,11 +1100,11 @@ private:
       cv::flip(color, tmp, 1);
       if(colorFrame->format == libfreenect2::Frame::BGRX)
       {
-        cv::cvtColor(tmp, images[COLOR_HD], CV_BGRA2BGR);
+        cv::cvtColor(tmp, images[COLOR_HD], cv::COLOR_BGRA2BGR);
       }
       else
       {
-        cv::cvtColor(tmp, images[COLOR_HD], CV_RGBA2BGR);
+        cv::cvtColor(tmp, images[COLOR_HD], cv::COLOR_RGBA2BGR);
       }
     }
 
@@ -1180,11 +1180,11 @@ private:
       cv::flip(cv::Mat(sizeIr, CV_8UC4, registered.data), tmp, 1);
       if(color.format == libfreenect2::Frame::BGRX)
       {
-        cv::cvtColor(tmp, images[COLOR_SD_RECT], CV_BGRA2BGR);
+        cv::cvtColor(tmp, images[COLOR_SD_RECT], cv::COLOR_BGRA2BGR);
       }
       else
       {
-        cv::cvtColor(tmp, images[COLOR_SD_RECT], CV_RGBA2BGR);
+        cv::cvtColor(tmp, images[COLOR_SD_RECT], cv::COLOR_RGBA2BGR);
       }
     }
 
@@ -1247,19 +1247,19 @@ private:
     // MONO
     if(status[MONO_HD])
     {
-      cv::cvtColor(images[COLOR_HD], images[MONO_HD], CV_BGR2GRAY);
+      cv::cvtColor(images[COLOR_HD], images[MONO_HD], cv::COLOR_BGR2GRAY);
     }
     if(status[MONO_HD_RECT])
     {
-      cv::cvtColor(images[COLOR_HD_RECT], images[MONO_HD_RECT], CV_BGR2GRAY);
+      cv::cvtColor(images[COLOR_HD_RECT], images[MONO_HD_RECT], cv::COLOR_BGR2GRAY);
     }
     if(status[MONO_QHD])
     {
-      cv::cvtColor(images[COLOR_QHD], images[MONO_QHD], CV_BGR2GRAY);
+      cv::cvtColor(images[COLOR_QHD], images[MONO_QHD], cv::COLOR_BGR2GRAY);
     }
     if(status[MONO_QHD_RECT])
     {
-      cv::cvtColor(images[COLOR_QHD_RECT], images[MONO_QHD_RECT], CV_BGR2GRAY);
+      cv::cvtColor(images[COLOR_QHD_RECT], images[MONO_QHD_RECT], cv::COLOR_BGR2GRAY);
     }
   }
 
