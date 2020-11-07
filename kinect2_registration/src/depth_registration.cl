@@ -187,7 +187,7 @@ void kernel remapDepth(global const ushort *in, global ushort *out, global const
   }
 
   const float4 distXY = (float4)((x - xL) * (x - xL), (xH - x) * (xH - x), (y - yL) * (y - yL), (yH - y) * (yH - y));
-  const float4 tmp = (float4)(sqrt(2.0));
+  const float4 tmp = (float4)(sqrt(2.0f));
   const float4 dist2 = (float4)(distXY.s0 + distXY.s2, distXY.s1 + distXY.s2, distXY.s0 + distXY.s3, distXY.s1 + distXY.s3);
   const float4 dist = select((float4)(0), tmp - sqrt(dist2), valid);
   const float sum = dist.s0 + dist.s1 + dist.s2 + dist.s3;
