@@ -1,12 +1,16 @@
-# IAI Kinect2
+# IAI Kinect2 for OpenCV 4
 
-### Maintainer
+### Maintainer of this fork
+- [Shuvo Kumar Paul](https://github.com/paul-shuvo) 
+  Email: shuvo.k.paul@gmail.com
+
+### Maintainer of IAI Kinect2
 
 - [Thiemo Wiedemeyer](https://ai.uni-bremen.de/team/thiemo_wiedemeyer) <<wiedemeyer@cs.uni-bremen.de>>, [Institute for Artificial Intelligence](http://ai.uni-bremen.de/), University of Bremen
 
-## Read this first
+## :warning: Read this first
 
-__This repository contains some minor changes from the original [iai_kinect2](https://github.com/code-iai/iai_kinect2) repo. Building from the original repo throws errors if you are using opencv4. This repo fixes those issues; also, if you're using any opencv version other than 4, please build from the original repo.__
+ > __This repository contains some minor changes from the original [iai_kinect2](https://github.com/code-iai/iai_kinect2) repo. Building from the original repo throws errors if you are using opencv4. This repo fixes those issues; also, if you're using any opencv version other than 4, please build from the original [repo](https://github.com/code-iai/iai_kinect2). For any difficulties open an [issue](https://github.com/paul-shuvo/iai_kinect2_opencv4/issues).__
 
 Please read this README and the ones of the individual components throughly before asking questions. We get a lot of repeated questions, so when you have a problem, we urge everyone to check the [github issues  (including closed ones)](https://github.com/code-iai/iai_kinect2/issues?utf8=%E2%9C%93&q=is%3Aissue). Your issue is very likely discussed there already.
 
@@ -123,8 +127,8 @@ If you found no solution in the issues, feel free to open a new issue for your p
 
 ## Dependencies
 
-- ROS Hydro/Indigo
-- OpenCV (2.4.x, using the one from the official Ubuntu repositories is recommended)
+- ROS Indigo/Jade/Melodic/Noetic
+- OpenCV (4.x.x, using the one from the official Ubuntu repositories is recommended)
 - PCL (1.7.x, using the one from the official Ubuntu repositories is recommended)
 - Eigen (optional, but recommended)
 - OpenCL (optional, but recommended)
@@ -133,7 +137,11 @@ If you found no solution in the issues, feel free to open a new issue for your p
 
 ## Install
 
-1. Install the ROS. [Instructions for Ubuntu 14.04](http://wiki.ros.org/indigo/Installation/Ubuntu)
+1. Install the ROS. 
+   - [Instructions for Ubuntu 14.04](http://wiki.ros.org/indigo/Installation/Ubuntu)
+   - [Instructions for Ubuntu 16.04](http://wiki.ros.org/lunar/Installation/Ubuntu)
+   - [Instructions for Ubuntu 18.04](http://wiki.ros.org/melodic/Installation/Ubuntu)
+   - [Instructions for Ubuntu 20.04](http://wiki.ros.org/noetic/Installation/Ubuntu)
 2. [Setup your ROS environment](http://wiki.ros.org/ROS/Tutorials/InstallingandConfiguringROSEnvironment)
 3. Install [libfreenect2](https://github.com/OpenKinect/libfreenect2):
 
@@ -152,7 +160,7 @@ If you found no solution in the issues, feel free to open a new issue for your p
     catkin_make -DCMAKE_BUILD_TYPE="Release"
     ```
 
-If you get the following error `pcl_conversions build error: PCL requires C++14 or above`, go to your `CMakeLists.txt` in the `src` folder and add the line `set( CMAKE_CXX_STANDARD 14)`
+> If you get the following error `pcl_conversions build error: PCL requires C++14 or above`, go to your `CMakeLists.txt` in the `src` folder and add the line `set( CMAKE_CXX_STANDARD 14)`
 on the very top and rebuild.
 
    *Note: `rosdep` will output errors on not being able to locate `[kinect2_bridge]` and `[depth_registration]`.
