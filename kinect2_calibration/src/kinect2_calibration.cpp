@@ -743,8 +743,8 @@ private:
 #if CV_MAJOR_VERSION == 2
     error = cv::stereoCalibrate(pointsBoard, pointsIr, pointsColor, cameraMatrixIr, distortionIr, cameraMatrixColor, distortionColor, sizeColor,
                                 rotation, translation, essential, fundamental, termCriteria, cv::CALIB_FIX_INTRINSIC);
-#elif CV_MAJOR_VERSION == 3
-    error = cv::stereoCalibrate(pointsBoard, pointsIr, pointsColor, cameraMatrixIr, distortionIr, cameraMatrixColor, distortionColor, sizeColor,
+#elif CV_MAJOR_VERSION == 3 || CV_MAJOR_VERSION == 4
+    error = cv::stereoCalibrate(poin tsBoard, pointsIr, pointsColor, cameraMatrixIr, distortionIr, cameraMatrixColor, distortionColor, sizeColor,
                                 rotation, translation, essential, fundamental, cv::CALIB_FIX_INTRINSIC, termCriteria);
 #endif
     OUT_INFO("re-projection error: " << error << std::endl);
@@ -1091,7 +1091,7 @@ private:
     //cv::solvePnP(board, points[index], cameraMatrix, distortion, rvec, translation, false, cv::EPNP);
 #if CV_MAJOR_VERSION == 2
     cv::solvePnPRansac(board, points[index], cameraMatrix, distortion, rvec, translation, false, 300, 0.05, board.size(), cv::noArray(), cv::ITERATIVE);
-#elif CV_MAJOR_VERSION == 3
+#elif CV_MAJOR_VERSION == 3 || CV_MAJOR_VERSION == 4
     cv::solvePnPRansac(board, points[index], cameraMatrix, distortion, rvec, translation, false, 300, 0.05, 0.99, cv::noArray(), cv::SOLVEPNP_ITERATIVE);
 #endif
     cv::Rodrigues(rvec, rotation);
