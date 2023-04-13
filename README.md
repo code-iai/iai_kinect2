@@ -153,7 +153,7 @@ If you found no solution in the issues, feel free to open a new issue for your p
 
     ```bash
     cd ~/catkin_ws/src/
-    git clone https://github.com/paul-shuvo/iai_kinect2.git
+    git clone https://github.com/paul-shuvo/iai_kinect2_opencv4.git
     cd iai_kinect2
     rosdep install -r --from-paths .
     cd ~/catkin_ws
